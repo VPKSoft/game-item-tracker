@@ -149,6 +149,7 @@ describe("SaveItemDrawer", () => {
                 onClose={() => undefined}
                 onChange={onChange}
                 onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
             />
         );
         const notes = await screen.findByLabelText("Notes");
@@ -158,6 +159,30 @@ describe("SaveItemDrawer", () => {
             notes.blur();
         });
         expect(saveItem.notes).toBe("Found at night");
+    });
+});
+
+describe("unique items", () => {
+    it("shows an obtained checkbox instead of counters for a unique variant", async () => {
+        const base = fishTemplate();
+        const t = { ...base, items: base.items.map(i => (i.id === "koi" ? { ...i, unique: ["starred"] } : i)) };
+        const onObtainedChange = vi.fn();
+        render(
+            <SaveItemDrawer
+                template={t}
+                item={t.items[1]}
+                saveItem={createSave(t, "s").items.koi}
+                onClose={() => undefined}
+                onChange={() => undefined}
+                onCounterChange={() => undefined}
+                onObtainedChange={onObtainedChange}
+            />
+        );
+        const checkbox = await screen.findByLabelText("Starred: obtained");
+        expect(screen.queryByLabelText("Placed")).not.toBeInTheDocument();
+        expect(screen.getAllByLabelText("Inventory")).toHaveLength(1);
+        await userEvent.click(checkbox);
+        expect(onObtainedChange).toHaveBeenCalledWith("koi", "starred", true);
     });
 });
 

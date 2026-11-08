@@ -303,6 +303,9 @@ const baseTemplate = (meta: TemplateMeta): Template => ({
 const collectTags = (items: TemplateItem[]) =>
     [...new Set(items.flatMap(i => i.tags))].sort((a, b) => a.localeCompare(b));
 
+/** Fish whose starred form can only be obtained once, so the starred variant is unique. */
+const uniqueStarredFish = new Set(["Ancient Cloudminnow"]);
+
 /** Builds the fish template: categories by location, Normal and ★ Starred variants. */
 const buildFishTemplate = (rows: FishRow[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
@@ -343,6 +346,7 @@ const buildFishTemplate = (rows: FishRow[], meta: TemplateMeta) => {
                     ...row.neededFor,
                 ]),
             ],
+            ...(uniqueStarredFish.has(row.name) ? { unique: ["starred"] } : {}),
         });
     }
     categories.sort((a, b) => a.name.localeCompare(b.name));

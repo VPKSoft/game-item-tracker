@@ -24,6 +24,7 @@ const hasUserData = (saveItem: SaveItem) =>
     saveItem.notes.length > 0 ||
     saveItem.customTags.length > 0 ||
     saveItem.removedTags.length > 0 ||
+    (saveItem.obtained?.length ?? 0) > 0 ||
     Object.values(saveItem.counts).some(c => Object.values(c).some(v => v > 0));
 
 /**
@@ -84,6 +85,11 @@ const upgradeSave = (
                 counts[variant] = Object.fromEntries(Object.entries(values).filter(([k]) => manualKeys.has(k)));
             }
             next = { ...next, counts };
+            if (next.obtained) {
+                const obtained = next.obtained.filter(k => k === "_" || newVariants.has(k));
+                const { obtained: _old, ...rest } = next;
+                next = obtained.length > 0 ? { ...rest, obtained } : rest;
+            }
         }
 
         // Fill defaults for counters or variants that are new in this version.

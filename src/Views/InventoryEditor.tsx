@@ -6,7 +6,7 @@ import * as React from "react";
 import { styled } from "styled-components";
 import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
-import { getSaveItem, setCounterValue } from "../Domain/Counters.ts";
+import { getSaveItem, setCounterValue, setObtained } from "../Domain/Counters.ts";
 import { compareVersions } from "../Domain/Ids.ts";
 import { downloadFile, fileNameFor, serialize } from "../Files/FileIo.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
@@ -97,6 +97,13 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
         [template, updateItem]
     );
 
+    const onObtainedChange = React.useCallback(
+        (itemId: string, variantKey: string, obtained: boolean) => {
+            updateItem(itemId, s => setObtained(s, variantKey, obtained));
+        },
+        [updateItem]
+    );
+
     const exportSave = async (withTemplate: boolean) => {
         if (!save || !template) {
             return;
@@ -116,11 +123,12 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                     item={item}
                     saveItem={save.items[item.id]}
                     onCounterChange={onCounterChange}
+                    onObtainedChange={onObtainedChange}
                     onOpen={setOpenItemId}
                     showCounters
                 />
             ) : null,
-        [template, save, onCounterChange]
+        [template, save, onCounterChange, onObtainedChange]
     );
 
     if (!saveId) {
@@ -212,6 +220,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                 onClose={() => setOpenItemId(null)}
                 onChange={updateItem}
                 onCounterChange={onCounterChange}
+                onObtainedChange={onObtainedChange}
             />
             <UpgradeDialog
                 open={upgradeOpen}
@@ -250,6 +259,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                                             ([k, v]) => `${variant === "_" ? "" : `${variant} `}${k}: ${v}`
                                         )
                                     )
+                                    .concat((s.obtained ?? []).map(v => `${v === "_" ? "" : `${v} `}obtained`))
                                     .join(", "),
                         },
                         { title: "Notes", render: (_, [, s]) => s.notes },

@@ -85,11 +85,16 @@ const deleteVariant = (template: Template, key: string): Template =>
             return { ...c, variants: variants.length > 0 ? variants : undefined };
         }),
         items: template.items.map(i => {
-            if (!i.variants?.includes(key)) {
-                return i;
+            let next = i;
+            if (next.variants?.includes(key)) {
+                const variants = next.variants.filter(v => v !== key);
+                next = { ...next, variants: variants.length > 0 ? variants : undefined };
             }
-            const variants = i.variants.filter(v => v !== key);
-            return { ...i, variants: variants.length > 0 ? variants : undefined };
+            if (Array.isArray(next.unique) && next.unique.includes(key)) {
+                const unique = next.unique.filter(v => v !== key);
+                next = { ...next, unique: unique.length > 0 ? unique : undefined };
+            }
+            return next;
         }),
     });
 

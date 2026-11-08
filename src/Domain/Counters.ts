@@ -35,16 +35,50 @@ const getVariantCounters = (template: Template, variantKey: string): CounterDef[
 const findRoleCounter = (template: Template, role: "owned" | "target") =>
     template.counterDefs.find(c => c.role === role);
 
-/** Gets the value of a counter for one variant of an item. Computed counters are evaluated. */
+/**
+ * Gets a value indicating whether a variant of an item is unique: it is only obtained or not,
+ * and its counters are not used.
+ */
+const isVariantUnique = (item: TemplateItem | undefined, variantKey: string) =>
+    item?.unique === true || (Array.isArray(item?.unique) && item.unique.includes(variantKey));
+
+/** Gets a value indicating whether any variant of an item is unique. */
+const hasUniqueVariants = (template: Template, item: TemplateItem) =>
+    getItemVariants(template, item).some(v => isVariantUnique(item, v.key));
+
+/** Gets a value indicating whether the user has obtained a unique variant of an item. */
+const isObtained = (saveItem: SaveItem | undefined, variantKey: string) =>
+    saveItem?.obtained?.includes(variantKey) ?? false;
+
+/** Returns a copy of the save item with a unique variant marked obtained or not obtained. */
+const setObtained = (saveItem: SaveItem, variantKey: string, obtained: boolean): SaveItem => {
+    const others = (saveItem.obtained ?? []).filter(k => k !== variantKey);
+    const next = obtained ? [...others, variantKey] : others;
+    const { obtained: _old, ...rest } = saveItem;
+    return next.length > 0 ? { ...rest, obtained: next } : rest;
+};
+
+/**
+ * Gets the value of a counter for one variant of an item. Computed counters are evaluated.
+ * For a unique variant (when the item is given) the owned counter is 1 when obtained, the
+ * target counter is 1 and every other counter is 0.
+ */
 const getCounterValue = (
     template: Template,
     saveItem: SaveItem | undefined,
     variantKey: string,
-    counterKey: string
+    counterKey: string,
+    item?: TemplateItem
 ): number => {
     const def = template.counterDefs.find(c => c.key === counterKey);
     if (!def || !counterAppliesTo(def, variantKey)) {
         return 0;
+    }
+    if (isVariantUnique(item, variantKey)) {
+        if (def.role === "owned") {
+            return isObtained(saveItem, variantKey) ? 1 : 0;
+        }
+        return def.role === "target" ? 1 : 0;
     }
     if (def.kind === "manual") {
         return saveItem?.counts[variantKey]?.[counterKey] ?? 0;
@@ -68,7 +102,7 @@ const getItemCounterTotal = (
 ): number => {
     let sum = 0;
     for (const variant of getItemVariants(template, item)) {
-        sum += getCounterValue(template, saveItem, variant.key, counterKey);
+        sum += getCounterValue(template, saveItem, variant.key, counterKey, item);
     }
     return sum;
 };
@@ -85,8 +119,8 @@ const getMissing = (template: Template, item: TemplateItem, saveItem: SaveItem |
     }
     let missing = 0;
     for (const variant of getItemVariants(template, item)) {
-        const t = getCounterValue(template, saveItem, variant.key, target.key);
-        const o = getCounterValue(template, saveItem, variant.key, owned.key);
+        const t = getCounterValue(template, saveItem, variant.key, target.key, item);
+        const o = getCounterValue(template, saveItem, variant.key, owned.key, item);
         missing += Math.max(0, t - o);
     }
     return missing;
@@ -158,6 +192,10 @@ export {
     getMissing,
     getSaveItem,
     getVariantCounters,
+    hasUniqueVariants,
+    isObtained,
+    isVariantUnique,
     noVariantKey,
     setCounterValue,
+    setObtained,
 };
