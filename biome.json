@@ -6,7 +6,7 @@
         "useIgnoreFile": false
     },
     "files": {
-        "includes": ["src/**/*.ts", "src/**/*.tsx", "!src/**/*.d.ts"],
+        "includes": ["src/**/*.ts", "src/**/*.tsx", "scripts/**/*.ts", "!src/**/*.d.ts"],
         "ignoreUnknown": false
     },
     "formatter": {
@@ -153,5 +153,17 @@
             "indentStyle": "space",
             "indentWidth": 2
         }
-    }
+    },
+    "overrides": [
+        {
+            "includes": ["scripts/**"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noConsole": "off"
+                    }
+                }
+            }
+        }
+    ]
 }
