@@ -3,14 +3,20 @@ import "./App.css";
 import { faMoon, faSun } from "@fortawesome/free-regular-svg-icons";
 import { faInfo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Switch, Tooltip } from "antd";
+import { Button, Segmented, Switch, Tooltip } from "antd";
 import classNames from "classnames";
 import styled from "styled-components";
 import { useAntdTheme, useAntdToken } from "./Context/AntdThemeContext.tsx";
 import { AboutPopup } from "./Popups/AboutPopup.tsx";
 import { PwaBadge } from "./PwaBadge.tsx";
+import { requestPersistentStorage } from "./Storage/Database.ts";
 import type { BaseProps } from "./Types/BaseTypes.ts";
 import { useLocalStorage } from "./Utilities/UseLocalStorage.tsx";
+import { InventoryEditor } from "./Views/InventoryEditor.tsx";
+import { Library } from "./Views/Library.tsx";
+import { TemplateEditor, type TemplateKey } from "./Views/TemplateEditor.tsx";
+
+type View = "inventory" | "templates" | "library";
 
 type Props = {} & BaseProps;
 
@@ -27,6 +33,33 @@ let App = ({ className }: Props) => {
 
     // Persistent state
     const [darkMode, setDarkMode] = React.useState<boolean>(getItem<boolean>("darkMode", false));
+    const [view, setView] = React.useState<View>(getItem<View>("view", "library"));
+    const [saveId, setSaveId] = React.useState<string | null>(getItem<string | null>("openSaveId", null));
+    const [templateKey, setTemplateKey] = React.useState<TemplateKey | null>(
+        getItem<TemplateKey | null>("openTemplate", null)
+    );
+
+    React.useEffect(() => {
+        void requestPersistentStorage();
+    }, []);
+
+    React.useEffect(() => {
+        setItem("view", view);
+        setItem("openSaveId", saveId);
+        setItem("openTemplate", templateKey);
+    }, [view, saveId, templateKey, setItem]);
+
+    const openSave = React.useCallback((id: string) => {
+        setSaveId(id);
+        setView("inventory");
+    }, []);
+
+    const openTemplate = React.useCallback((key: TemplateKey) => {
+        setTemplateKey(key);
+        setView("templates");
+    }, []);
+
+    const openLibrary = React.useCallback(() => setView("library"), []);
 
     React.useEffect(() => {
         setTheme?.(darkMode ? "dark" : "light");
@@ -48,6 +81,16 @@ let App = ({ className }: Props) => {
     return (
         <div id="App" className={classNames(className, App.name)}>
             <div className="App-toolbar">
+                <Segmented<View>
+                    value={view}
+                    onChange={setView}
+                    options={[
+                        { value: "inventory", label: "Inventory" },
+                        { value: "templates", label: "Templates" },
+                        { value: "library", label: "Library" },
+                    ]}
+                />
+                <div className="App-toolbar-spacer" />
                 <Switch
                     className="App-toolbar-switch"
                     checkedChildren={<FontAwesomeIcon icon={faMoon} />}
@@ -63,7 +106,17 @@ let App = ({ className }: Props) => {
                     />
                 </Tooltip>
             </div>
-            <div className="App-content" />
+            <div className="App-content">
+                {view === "inventory" && <InventoryEditor saveId={saveId} onOpenLibrary={openLibrary} />}
+                {view === "templates" && (
+                    <TemplateEditor
+                        templateKey={templateKey}
+                        onOpenTemplate={openTemplate}
+                        onOpenLibrary={openLibrary}
+                    />
+                )}
+                {view === "library" && <Library onOpenSave={openSave} onOpenTemplate={openTemplate} />}
+            </div>
 
             <AboutPopup //
                 visible={aboutPopupVisible}
@@ -89,12 +142,17 @@ App = styled(App)`
         gap: 10px;
         flex-wrap: wrap;
     }
+    .App-toolbar-spacer {
+        flex: 1;
+    }
     .App-toolbar-switch {
         align-self: center;
     }
     .App-content {
-        height: 100%;
-        overflow: auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
         margin: 10px;
     }
     .Toolbar-button {
