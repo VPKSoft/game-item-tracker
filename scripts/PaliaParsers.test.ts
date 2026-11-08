@@ -130,6 +130,15 @@ describe("fish", () => {
         expect(imageUrls.get("test-eel")).toBe("https://palia.wiki.gg/images/Test_Eel.png");
     });
 
+    it("marks the starred Ancient Cloudminnow as unique", () => {
+        const rows = parseFishTable(fishHtml);
+        rows[1] = { ...rows[1], name: "Ancient Cloudminnow" };
+        const { template } = buildFishTemplate(rows, meta);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.items.find(i => i.name === "Ancient Cloudminnow")?.unique).toEqual(["starred"]);
+        expect(template.items.find(i => i.name === "Test Eel")?.unique).toBeUndefined();
+    });
+
     it("fails clearly when the table is missing", () => {
         expect(() => parseFishTable("<p>nothing</p>")).toThrow("List of Fish");
     });

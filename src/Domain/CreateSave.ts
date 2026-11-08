@@ -1,6 +1,6 @@
 import { type Save, type SaveItem, saveFormat, saveSchemaVersion } from "../Schemas/SaveSchema.ts";
 import { type Template, type TemplateItem, templateFormat, templateSchemaVersion } from "../Schemas/TemplateSchema.ts";
-import { counterAppliesTo, getItemVariants } from "./Counters.ts";
+import { counterAppliesTo, getItemVariants, isVariantUnique } from "./Counters.ts";
 import { newUuid } from "./Ids.ts";
 
 /** Creates the initial save item for a template item, applying the item's default counter values. */
@@ -12,7 +12,7 @@ const createSaveItem = (template: Template, item: TemplateItem): SaveItem => {
             continue;
         }
         for (const variant of getItemVariants(template, item)) {
-            if (counterAppliesTo(def, variant.key)) {
+            if (counterAppliesTo(def, variant.key) && !isVariantUnique(item, variant.key)) {
                 counts[variant.key] = { ...counts[variant.key], [key]: value };
             }
         }

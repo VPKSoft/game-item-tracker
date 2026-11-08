@@ -2,6 +2,7 @@ import { Button, Checkbox, Drawer, Form, Input, InputNumber, Popconfirm, Select,
 import * as React from "react";
 import { ImageDropZone } from "../Components/ImageDropZone.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
+import { getItemVariants } from "../Domain/Counters.ts";
 import { uniqueId } from "../Domain/Ids.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 
@@ -41,6 +42,7 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
     const set = (patch: Partial<TemplateItem>) => setDraft(d => (d ? { ...d, ...patch } : d));
     const imageUrl = image?.dataUrl ?? (draft.imageId ? template.images[draft.imageId] : undefined);
     const manualCounters = template.counterDefs.filter(c => c.kind === "manual");
+    const itemVariants = getItemVariants(template, draft);
     const canSave = draft.name.trim().length > 0 && template.categories.some(c => c.id === draft.categoryId);
 
     const save = () => {
@@ -148,13 +150,44 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                             value={draft.variants ?? template.variantDefs.map(v => v.key)}
                             onChange={values => {
                                 const all = values.length === template.variantDefs.length;
-                                set({ variants: all ? undefined : (values as string[]) });
+                                const variants = values as string[];
+                                const unique = Array.isArray(draft.unique)
+                                    ? draft.unique.filter(k => variants.includes(k))
+                                    : draft.unique;
+                                set({
+                                    variants: all ? undefined : variants,
+                                    unique: Array.isArray(unique) && unique.length === 0 ? undefined : unique,
+                                });
                             }}
                             options={template.variantDefs.map(v => ({ value: v.key, label: v.label }))}
                         />
                     </Form.Item>
                 )}
-                {manualCounters.length > 0 && (
+                <Form.Item
+                    label="Unique"
+                    extra="A unique item is either obtained or not: saves show an obtained checkbox instead of counters."
+                >
+                    <Space orientation="vertical">
+                        <Switch
+                            aria-label="Unique"
+                            checked={draft.unique !== undefined}
+                            onChange={unique => set({ unique: unique ? true : undefined })}
+                        />
+                        {draft.unique !== undefined && itemVariants.length > 1 && (
+                            <Checkbox.Group
+                                aria-label="Unique variants"
+                                value={draft.unique === true ? itemVariants.map(v => v.key) : draft.unique}
+                                onChange={values => {
+                                    const keys = values as string[];
+                                    const all = itemVariants.every(v => keys.includes(v.key));
+                                    set({ unique: all ? true : keys.length > 0 ? keys : undefined });
+                                }}
+                                options={itemVariants.map(v => ({ value: v.key, label: v.label }))}
+                            />
+                        )}
+                    </Space>
+                </Form.Item>
+                {manualCounters.length > 0 && draft.unique !== true && (
                     <Form.Item label="Initial amounts in new saves">
                         <Space wrap>
                             {manualCounters.map(counter => (

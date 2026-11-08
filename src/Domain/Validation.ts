@@ -121,6 +121,18 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
                 issues.push({ path, message: `Item "${item.name}" refers to unknown variant "${key}"` });
             }
         }
+        if (Array.isArray(item.unique)) {
+            for (const key of item.unique) {
+                if (!variantKeys.has(key)) {
+                    issues.push({ path, message: `Item "${item.name}" marks unknown variant "${key}" as unique` });
+                } else if (item.variants && !item.variants.includes(key)) {
+                    issues.push({
+                        path,
+                        message: `Item "${item.name}" marks variant "${key}" as unique but does not have it`,
+                    });
+                }
+            }
+        }
         for (const [key, value] of Object.entries(item.attributes)) {
             const def = template.attributeDefs.find(a => a.key === key);
             if (!def) {

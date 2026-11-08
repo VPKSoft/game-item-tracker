@@ -3,6 +3,7 @@ import * as React from "react";
 import { AttributeBadges } from "../Components/AttributeBadges.tsx";
 import { CounterRows } from "../Components/ItemCard.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
+import { hasUniqueVariants } from "../Domain/Counters.ts";
 import { getEffectiveTags, setEffectiveTags } from "../Domain/EffectiveTags.ts";
 import type { SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
@@ -14,10 +15,11 @@ type Props = {
     onClose: () => void;
     onChange: (itemId: string, update: (saveItem: SaveItem) => SaveItem) => void;
     onCounterChange: (itemId: string, variantKey: string, counterKey: string, value: number) => void;
+    onObtainedChange: (itemId: string, variantKey: string, obtained: boolean) => void;
 };
 
 /** The drawer for one item of a save: all counters, tags and notes. */
-const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounterChange }: Props) => {
+const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounterChange, onObtainedChange }: Props) => {
     // Notes are edited locally and committed on blur and close, so typing does not re-index the search.
     const [notes, setNotes] = React.useState(saveItem?.notes ?? "");
     const itemId = item?.id;
@@ -59,7 +61,7 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                     <Divider titlePlacement="start" plain>
                         Amounts
                     </Divider>
-                    {template.counterDefs.length === 0 ? (
+                    {template.counterDefs.length === 0 && !hasUniqueVariants(template, item) ? (
                         <div style={{ opacity: 0.7 }}>This template does not define any counters.</div>
                     ) : (
                         <CounterRows
@@ -67,6 +69,7 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                             item={item}
                             saveItem={saveItem}
                             onCounterChange={onCounterChange}
+                            onObtainedChange={onObtainedChange}
                             size="middle"
                         />
                     )}

@@ -60,6 +60,11 @@ const templateItemSchema = z.object({
     tags: z.array(z.string()),
     variants: z.array(keySchema).optional(),
     defaults: z.record(z.string(), z.number().int().nonnegative()).optional(),
+    /**
+     * Marks the item as unique: it is either obtained or not, and has no counters in a save.
+     * `true` makes every variant unique; a list makes only those variants unique.
+     */
+    unique: z.union([z.literal(true), z.array(keySchema)]).optional(),
     deprecated: z.boolean().optional(),
 });
 

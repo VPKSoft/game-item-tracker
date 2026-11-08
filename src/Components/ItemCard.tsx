@@ -1,6 +1,6 @@
 import { faImage, faNoteSticky } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Card, Progress, Tag, Tooltip } from "antd";
+import { Card, Checkbox, Progress, Tag, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { styled } from "styled-components";
@@ -10,6 +10,9 @@ import {
     getItemCounterTotal,
     getItemVariants,
     getVariantCounters,
+    hasUniqueVariants,
+    isObtained,
+    isVariantUnique,
     noVariantKey,
 } from "../Domain/Counters.ts";
 import { getEffectiveTags } from "../Domain/EffectiveTags.ts";
@@ -26,6 +29,8 @@ type Props = {
     saveItem?: SaveItem;
     /** Present in a save: changes one manual counter. */
     onCounterChange?: (itemId: string, variantKey: string, counterKey: string, value: number) => void;
+    /** Present in a save: marks a unique variant obtained or not obtained. */
+    onObtainedChange?: (itemId: string, variantKey: string, obtained: boolean) => void;
     onOpen: (itemId: string) => void;
     /** Show counter steppers (save mode). */
     showCounters?: boolean;
@@ -44,6 +49,11 @@ const CounterRowsRoot = styled.div`
         flex-wrap: wrap;
         gap: 6px;
     }
+    .CounterRows-obtained {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
 `;
 
 /** The rows of counters of an item, one per variant. Shared by the card and the item drawer. */
@@ -52,18 +62,40 @@ const CounterRows = ({
     item,
     saveItem,
     onCounterChange,
+    onObtainedChange,
     size,
 }: {
     template: Template;
     item: TemplateItem;
     saveItem?: SaveItem;
     onCounterChange?: Props["onCounterChange"];
+    onObtainedChange?: Props["onObtainedChange"];
     size?: "small" | "middle";
 }) => {
     const variants = getItemVariants(template, item);
     return (
         <CounterRowsRoot className="CounterRows">
             {variants.map(variant => {
+                if (isVariantUnique(item, variant.key)) {
+                    const label = variant.key === noVariantKey ? "Obtained" : `${variant.label}: obtained`;
+                    return (
+                        <div key={variant.key} className="CounterRows-row CounterRows-obtained">
+                            <span onClick={e => e.stopPropagation()}>
+                                <Checkbox
+                                    aria-label={label}
+                                    checked={isObtained(saveItem, variant.key)}
+                                    disabled={!onObtainedChange}
+                                    onChange={e => onObtainedChange?.(item.id, variant.key, e.target.checked)}
+                                >
+                                    {label}
+                                </Checkbox>
+                            </span>
+                            <Tag color="gold" variant="outlined">
+                                Unique
+                            </Tag>
+                        </div>
+                    );
+                }
                 const counters = getVariantCounters(template, variant.key);
                 if (counters.length === 0) {
                     return null;
@@ -95,7 +127,16 @@ const CounterRows = ({
 };
 
 /** A card of one item in the grid. Memoized: only the changed card re-renders. */
-let ItemCard = ({ className, template, item, saveItem, onCounterChange, onOpen, showCounters }: Props) => {
+let ItemCard = ({
+    className,
+    template,
+    item,
+    saveItem,
+    onCounterChange,
+    onObtainedChange,
+    onOpen,
+    showCounters,
+}: Props) => {
     const image = item.imageId ? template.images[item.imageId] : undefined;
     const tags = getEffectiveTags(item, saveItem);
     const category = template.categories.find(c => c.id === item.categoryId);
@@ -133,6 +174,7 @@ let ItemCard = ({ className, template, item, saveItem, onCounterChange, onOpen, 
                     <div className="ItemCard-badges">
                         <AttributeBadges attributeDefs={template.attributeDefs} item={item} />
                         {!showCounters && category && <Tag variant="filled">{category.name}</Tag>}
+                        {!showCounters && hasUniqueVariants(template, item) && <Tag color="gold">Unique</Tag>}
                         {item.deprecated && <Tag color="warning">Deprecated</Tag>}
                     </div>
                 </div>
@@ -145,6 +187,7 @@ let ItemCard = ({ className, template, item, saveItem, onCounterChange, onOpen, 
                         item={item}
                         saveItem={saveItem}
                         onCounterChange={onCounterChange}
+                        onObtainedChange={onObtainedChange}
                     />
                     {owned && target && targetValue > 0 && (
                         <Progress

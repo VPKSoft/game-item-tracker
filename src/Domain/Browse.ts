@@ -124,7 +124,7 @@ const getSortValue = (
     if (sort.startsWith("counter:")) {
         const [counterKey, variantKey] = sort.slice(8).split("@");
         if (variantKey) {
-            return getCounterValue(template, saveItem, variantKey, counterKey);
+            return getCounterValue(template, saveItem, variantKey, counterKey, item);
         }
         return getItemCounterTotal(template, item, saveItem, counterKey);
     }

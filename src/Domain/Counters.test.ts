@@ -8,8 +8,12 @@ import {
     getItemVariants,
     getMissing,
     getVariantCounters,
+    hasUniqueVariants,
+    isObtained,
+    isVariantUnique,
     noVariantKey,
     setCounterValue,
+    setObtained,
 } from "./Counters.ts";
 import { createTemplate } from "./CreateSave.ts";
 import { fishTemplate } from "./TestFixtures.ts";
@@ -108,5 +112,44 @@ describe("setting counters", () => {
         expect(clampCounter(def, 2.6)).toBe(3);
         expect(clampCounter(def, 1000)).toBe(99);
         expect(clampCounter(def, Number.NaN)).toBe(0);
+    });
+});
+
+describe("unique items", () => {
+    const uniqueStarred = () => {
+        const t = fishTemplate();
+        const koi = { ...t.items[1], unique: ["starred"] };
+        return { t: { ...t, items: [t.items[0], koi, t.items[2]] }, koi };
+    };
+
+    it("detects unique variants", () => {
+        const { t, koi } = uniqueStarred();
+        expect(isVariantUnique(koi, "starred")).toBe(true);
+        expect(isVariantUnique(koi, "normal")).toBe(false);
+        expect(isVariantUnique({ ...koi, unique: true }, "normal")).toBe(true);
+        expect(hasUniqueVariants(t, koi)).toBe(true);
+        expect(hasUniqueVariants(t, t.items[0])).toBe(false);
+    });
+
+    it("toggles obtained without touching counts", () => {
+        let s = saveItemWith({ starred: { inventory: 3 } });
+        s = setObtained(s, "starred", true);
+        expect(isObtained(s, "starred")).toBe(true);
+        expect(s.counts.starred.inventory).toBe(3);
+        s = setObtained(s, "starred", false);
+        expect(isObtained(s, "starred")).toBe(false);
+        expect(s.obtained).toBeUndefined();
+    });
+
+    it("counts a unique variant as owned 1 when obtained, target 1, and ignores stored counts", () => {
+        const { t, koi } = uniqueStarred();
+        const s = saveItemWith({ starred: { inventory: 5, target: 4 }, normal: { inventory: 2, target: 3 } });
+        expect(getCounterValue(t, s, "starred", "total", koi)).toBe(0);
+        expect(getCounterValue(t, s, "starred", "target", koi)).toBe(1);
+        expect(getCounterValue(t, s, "starred", "inventory", koi)).toBe(0);
+        expect(getMissing(t, koi, s)).toBe(1 + 1);
+        const obtained = setObtained(s, "starred", true);
+        expect(getItemCounterTotal(t, koi, obtained, "total")).toBe(2 + 1);
+        expect(getMissing(t, koi, obtained)).toBe(1);
     });
 });
