@@ -3,7 +3,7 @@ A [PWA](https://en.wikipedia.org/wiki/Progressive_web_app) for tracking game ite
 
 Built with React, Vite, Ant Design and `vite-plugin-pwa`.
 
-See the [user manual](docs/USER_MANUAL.md) for how to use the app.
+See the [user manual](docs/USER_MANUAL.md) for how to use the app and the [technical manual](docs/TECHNICAL_MANUAL.md) for how it is built.
 
 ## Concepts
 - **Template** (`*.gitemplate.json`): the items of a game, or part of one. A template holds categories, items with images, names and descriptions, numeric attributes (e.g. rarity), predefined tags, **counters** and **variants**. It has a version and is edited in the *Templates* view.
