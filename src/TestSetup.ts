@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
+import "./Localization/I18n.ts";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 

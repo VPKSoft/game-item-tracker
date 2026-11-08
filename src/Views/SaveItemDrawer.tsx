@@ -1,5 +1,6 @@
 import { Divider, Drawer, Input } from "antd";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { AttributeBadges } from "../Components/AttributeBadges.tsx";
 import { CounterRows } from "../Components/ItemCard.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
@@ -22,6 +23,7 @@ type Props = {
 const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounterChange, onObtainedChange }: Props) => {
     // Notes are edited locally and committed on blur and close, so typing does not re-index the search.
     const [notes, setNotes] = React.useState(saveItem?.notes ?? "");
+    const { t } = useTranslation();
     const itemId = item?.id;
     // biome-ignore lint/correctness/useExhaustiveDependencies: reset only when another item is opened
     React.useEffect(() => {
@@ -59,10 +61,10 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                         </div>
                     </div>
                     <Divider titlePlacement="start" plain>
-                        Amounts
+                        {t("saveItem.amounts")}
                     </Divider>
                     {template.counterDefs.length === 0 && !hasUniqueVariants(template, item) ? (
-                        <div style={{ opacity: 0.7 }}>This template does not define any counters.</div>
+                        <div style={{ opacity: 0.7 }}>{t("saveItem.noCounters")}</div>
                     ) : (
                         <CounterRows
                             template={template}
@@ -74,7 +76,7 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                         />
                     )}
                     <Divider titlePlacement="start" plain>
-                        Tags
+                        {t("common.tags")}
                     </Divider>
                     <TagEditor
                         value={getEffectiveTags(item, saveItem)}
@@ -82,15 +84,15 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                         onChange={tags => onChange(item.id, s => setEffectiveTags(item, s, tags))}
                     />
                     <Divider titlePlacement="start" plain>
-                        Notes
+                        {t("common.notes")}
                     </Divider>
                     <Input.TextArea
-                        aria-label="Notes"
+                        aria-label={t("common.notes")}
                         autoSize={{ minRows: 3, maxRows: 12 }}
                         value={notes}
                         onChange={e => setNotes(e.target.value)}
                         onBlur={commitNotes}
-                        placeholder="Your notes about this item"
+                        placeholder={t("saveItem.notesPlaceholder")}
                     />
                 </div>
             )}

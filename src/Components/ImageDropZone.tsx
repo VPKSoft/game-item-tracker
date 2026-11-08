@@ -4,8 +4,10 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { App, Button } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { canReadClipboard, dragHasFiles, imageFromDataTransfer, readClipboardImage } from "../Images/ImageInput.ts";
+import { translateError } from "../Localization/Messages.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
 import { ImagePreviewDialog } from "./ImagePreviewDialog.tsx";
 
@@ -25,6 +27,7 @@ let ImageDropZone = ({ className, image, onAccept, onRemove }: Props) => {
     const [dragging, setDragging] = React.useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const { message } = App.useApp();
+    const { t } = useTranslation();
 
     React.useEffect(() => {
         const onPaste = (event: ClipboardEvent) => {
@@ -44,10 +47,10 @@ let ImageDropZone = ({ className, image, onAccept, onRemove }: Props) => {
             if (file) {
                 setPending(file);
             } else {
-                void message.info("The clipboard does not contain an image.");
+                void message.info(t("image.noClipboardImage"));
             }
         } catch (e) {
-            void message.warning(e instanceof Error ? e.message : String(e));
+            void message.warning(translateError(t, e));
         }
     };
 
@@ -70,16 +73,16 @@ let ImageDropZone = ({ className, image, onAccept, onRemove }: Props) => {
                     if (file) {
                         setPending(file);
                     } else {
-                        void message.warning("Drop an image file.");
+                        void message.warning(t("image.dropImageFile"));
                     }
                 }}
             >
                 {image ? (
-                    <img src={image} alt="Item" className="ImageDropZone-image" />
+                    <img src={image} alt={t("image.itemImage")} className="ImageDropZone-image" />
                 ) : (
                     <FontAwesomeIcon icon={faImage} className="ImageDropZone-placeholder" />
                 )}
-                <div className="ImageDropZone-hint">Drop, paste (Ctrl+V) or choose an image</div>
+                <div className="ImageDropZone-hint">{t("image.hint")}</div>
             </div>
             <div className="ImageDropZone-buttons">
                 <Button
@@ -87,16 +90,16 @@ let ImageDropZone = ({ className, image, onAccept, onRemove }: Props) => {
                     icon={<FontAwesomeIcon icon={faUpload} />}
                     onClick={() => inputRef.current?.click()}
                 >
-                    Choose image…
+                    {t("image.choose")}
                 </Button>
                 {canReadClipboard() && (
                     <Button size="small" icon={<FontAwesomeIcon icon={faPaste} />} onClick={pasteClick}>
-                        Paste
+                        {t("image.paste")}
                     </Button>
                 )}
                 {image && (
                     <Button size="small" danger icon={<FontAwesomeIcon icon={faTrash} />} onClick={onRemove}>
-                        Remove
+                        {t("common.remove")}
                     </Button>
                 )}
             </div>

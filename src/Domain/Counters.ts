@@ -163,25 +163,40 @@ const emptySaveItem = (): SaveItem => ({ counts: {}, notes: "", removedTags: [],
 /** Gets the save item for a template item, or an empty one. */
 const getSaveItem = (save: Save, itemId: string): SaveItem => save.items[itemId] ?? emptySaveItem();
 
-/** A preset of commonly used counters for a new template. */
-const commonCounters = (): CounterDef[] => [
-    { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
-    { key: "placed", label: "Placed", kind: "manual", order: 1 },
-    { key: "storage", label: "Storage", kind: "manual", order: 2 },
+/** The keys of the {@link commonCounters} preset. */
+type CommonCounterKey = "inventory" | "placed" | "storage" | "total" | "target" | "tradeable";
+
+/** The English labels of the {@link commonCounters} preset. */
+const commonCounterLabels: Record<CommonCounterKey, string> = {
+    inventory: "Inventory",
+    placed: "Placed",
+    storage: "Storage",
+    total: "Total",
+    target: "Target",
+    tradeable: "Tradeable",
+};
+
+/** A preset of commonly used counters for a new template, labeled in the given (UI) language. */
+const commonCounters = (labels: Record<CommonCounterKey, string> = commonCounterLabels): CounterDef[] => [
+    { key: "inventory", label: labels.inventory, kind: "manual", order: 0 },
+    { key: "placed", label: labels.placed, kind: "manual", order: 1 },
+    { key: "storage", label: labels.storage, kind: "manual", order: 2 },
     {
         key: "total",
-        label: "Total",
+        label: labels.total,
         kind: "computed",
         sumOf: ["inventory", "placed", "storage"],
         role: "owned",
         order: 3,
     },
-    { key: "target", label: "Target", kind: "manual", role: "target", order: 4 },
-    { key: "tradeable", label: "Tradeable", kind: "manual", order: 5 },
+    { key: "target", label: labels.target, kind: "manual", role: "target", order: 4 },
+    { key: "tradeable", label: labels.tradeable, kind: "manual", order: 5 },
 ];
 
+export type { CommonCounterKey };
 export {
     clampCounter,
+    commonCounterLabels,
     commonCounters,
     counterAppliesTo,
     emptySaveItem,

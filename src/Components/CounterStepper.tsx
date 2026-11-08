@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button, InputNumber, Space } from "antd";
 import classNames from "classnames";
 import type * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import type { BaseProps } from "../Types/BaseTypes.ts";
 
@@ -19,6 +20,7 @@ type Props = {
  * A compact "− [n] +" counter. Shift-click steps by 10. Read-only when no change handler is given.
  */
 let CounterStepper = ({ className, label, value, onChange, max, size = "small" }: Props) => {
+    const { t } = useTranslation();
     const step = (event: React.MouseEvent, delta: number) => {
         event.stopPropagation();
         const amount = event.shiftKey ? delta * 10 : delta;
@@ -35,7 +37,7 @@ let CounterStepper = ({ className, label, value, onChange, max, size = "small" }
             {onChange ? (
                 <Space.Compact size={size}>
                     <Button
-                        aria-label={`Decrease ${label}`}
+                        aria-label={t("stepper.decrease", { label })}
                         icon={<FontAwesomeIcon icon={faMinus} />}
                         onClick={e => step(e, -1)}
                         disabled={value <= 0}
@@ -51,7 +53,7 @@ let CounterStepper = ({ className, label, value, onChange, max, size = "small" }
                         onChange={v => onChange(typeof v === "number" ? v : 0)}
                     />
                     <Button
-                        aria-label={`Increase ${label}`}
+                        aria-label={t("stepper.increase", { label })}
                         icon={<FontAwesomeIcon icon={faPlus} />}
                         onClick={e => step(e, 1)}
                         disabled={max !== undefined && value >= max}

@@ -12,6 +12,7 @@ This manual is for programmers and AI coding agents working on the code. It desc
 |---|---|
 | App type | Client-only PWA. No backend, no network calls at runtime. |
 | Stack | React 19, TypeScript, Vite, Ant Design 6, styled-components, vite-plugin-pwa |
+| Localization | i18next + react-i18next (`src/Localization`): English (default) and Finnish |
 | Data validation | Zod 4 (`src/Schemas`) |
 | Storage | IndexedDB through `idb` (`src/Storage/Database.ts`); localStorage for UI preferences only |
 | Search | Fuse.js (`src/Domain/Search.ts`) |
@@ -76,7 +77,7 @@ Template building blocks:
 ```
 src/
   Main.tsx                 Entry point: StrictMode → AntdThemeProvider → antd App → App
-  App.tsx                  Toolbar, view switching (Inventory | Templates | Library), dark mode
+  App.tsx                  Toolbar, view switching (Inventory | Templates | Library), dark mode, settings
   Schemas/                 Zod schemas and inferred types (single source of truth for data shapes)
     TemplateSchema.ts
     SaveSchema.ts
@@ -116,7 +117,15 @@ src/
     StructureEditors.tsx   Categories, variants, attributes, tags tabs
     CountersEditor.tsx     Counters tab
     UpgradeDialog.tsx      Save upgrade preview
-  Context/AntdThemeContext.tsx   Light/dark theme at runtime
+  Localization/
+    I18n.ts                i18next setup, supported languages, stored language, setLanguage
+    I18next.d.ts           Type augmentation: translation keys are checked by tsc
+    Messages.ts            translateMessage / translateError for coded messages from non-UI code
+    Locales/En.ts          English texts (reference language; defines the Translation type)
+    Locales/Fi.ts          Finnish texts (typed as Translation)
+  Popups/                  AboutPopup.tsx, SettingsPopup.tsx (language)
+  Types/LocalizedMessage.ts  LocalizedMessage, LocalizedError, createMessage, formatMessage
+  Context/AntdThemeContext.tsx   Light/dark theme and antd locale at runtime
   Utilities/UseLocalStorage.tsx  JSON localStorage helper
   TestSetup.ts             jest-dom, fake-indexeddb, matchMedia/ResizeObserver stubs
 scripts/
@@ -198,7 +207,7 @@ sequenceDiagram
 - `TemplateEditor`: `useAutosave(template, putTemplate, 1500)`. Templates can carry megabytes of images, so they are written less often.
 - Before exporting, the views call the `flush()` returned by `useAutosave` so the stored copy matches the file.
 
-`App.tsx` keeps the current view, open save id and open template key in localStorage (`view`, `openSaveId`, `openTemplate`, `darkMode`). `ItemBrowser` remembers category/sort/filters per document under `browser:save:<saveId>` and `browser:template:<templateId>`.
+`App.tsx` keeps the current view, open save id and open template key in localStorage (`view`, `openSaveId`, `openTemplate`, `darkMode`). The UI language is stored under `language` by `Localization/I18n.ts`. `ItemBrowser` remembers category/sort/filters per document under `browser:save:<saveId>` and `browser:template:<templateId>`.
 
 ## 4. Data formats
 
@@ -486,6 +495,21 @@ Conventions:
 - Components are declared as `let X = (props) => …; X = styled(X)\`…\`; export { X };` and take `BaseProps` (`className`).
 - Notifications and confirmations use `App.useApp()` (`message`, `modal`) from antd.
 - Cards stop click propagation in counter areas so a counter click doesn't open the drawer.
+- Every user-visible text, including `aria-label`s, placeholders and tooltips, comes from `t()` (see 9.1).
+
+### 9.1 Localization
+
+The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next`. Supported languages: English (`en`) and Finnish (`fi`).
+
+- **Setup** (`Localization/I18n.ts`): imported once by `Main.tsx` (and `TestSetup.ts`) before rendering. Resources are bundled TypeScript objects, so initialization is synchronous (`initAsync: false`); there is no network loading.
+- **Language choice**: the program always starts in English. The browser language is deliberately **not** detected. The user changes the language in the *Settings* dialog (`Popups/SettingsPopup.tsx`, gear button in the toolbar); `setLanguage()` stores it as JSON in localStorage key `language` and calls `i18next.changeLanguage`. An unknown stored value falls back to English. `<html lang>` follows the language.
+- **antd texts** (modal OK/Cancel, empty tables, pagination) follow the language through the `locale` of the `ConfigProvider` in `AntdThemeContext.tsx` (`en_US` / `fi_FI`).
+- **Texts** live in `Locales/En.ts` (reference) and `Locales/Fi.ts`. Keys are grouped by screen (`library.*`, `templateEditor.*`, `counters.*`…) plus `common.*` for shared words. Interpolation uses `{{name}}`; plurals use the `_one` / `_other` suffixes and a `count` option. Rich text uses `<Trans>` with named components (e.g. `<b>` in `counters.help`).
+- **Type safety**: `I18next.d.ts` registers `typeof en` as the resource type, so `t("unknown.key")` fails `tsc`. `Fi.ts` is typed as `Translation` (the English tree with string leaves), so a missing or extra Finnish key fails `tsc` too. `Localization.test.tsx` also checks that both languages use the same `{{placeholders}}`.
+- **Non-UI code** (Domain, Files, Images) does not import i18next; scripts and tests use it without the UI. It returns coded messages instead: `validateTemplate` issues, `parseFileText` errors and `validateImageFile` problems are `LocalizedMessage`s (`code`, `params`, English `message`), and image/clipboard failures throw `LocalizedError`. Each module keeps its English templates in one table (`validationMessages`, `fileMessages`, `imageMessages`), which `En.ts` spreads into `messages.*`. The UI shows them with `translateMessage(t, message)` / `translateError(t, error)`.
+- **Template and save contents are never translated**: names, labels, tags and descriptions are user data. The only exception is the *Add common counters* preset, which `commonCounters(labels)` creates with labels in the current UI language. The sort selector translates only its fixed options (`relevance`, `name`, `missing`).
+- Dates in the Library are formatted with `toLocaleString(i18n.language)`.
+- Error texts stored in component state when a document is opened (`InventoryEditor`, `TemplateEditor`) stay in the language that was active then.
 
 ## 10. Sample templates (Palia)
 
@@ -510,7 +534,7 @@ npm run coverage
 ```
 
 - Config: `vitest.config.ts` (jsdom, `src/TestSetup.ts`, includes `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.ts`, CSS disabled).
-- `TestSetup.ts` loads `@testing-library/jest-dom`, `fake-indexeddb/auto` and stubs `matchMedia` and `ResizeObserver`.
+- `TestSetup.ts` loads `@testing-library/jest-dom`, `fake-indexeddb/auto`, the i18next setup (tests run in English) and stubs `matchMedia` and `ResizeObserver`.
 - Shared fixtures: `src/Domain/TestFixtures.ts`.
 
 | Test file | Covers |
@@ -523,6 +547,7 @@ npm run coverage
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
 | `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor |
+| `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
 
 Put new logic in `Domain` as pure functions and test it there; add a component test only for UI behavior.
@@ -560,6 +585,7 @@ Code changes must keep these true. Most are enforced by `validateTemplate` or te
 10. Stored images are ≤ 128 × 128 px and ≤ 64 KB, keyed by content hash.
 11. The repository holds software only. No generated templates, saves or game data (the user-manual screenshots are the documented exception).
 12. A change to a file format bumps `schemaVersion` and adds a migration on import.
+13. Every UI text goes through i18next and exists in every language. The program starts in English unless the user chose another language in the settings. Domain, Files and Images code stays free of i18next and reports user-facing problems as coded messages.
 
 ## 14. How-to recipes
 
@@ -592,6 +618,19 @@ Change `CounterDef` in the schema, `getCounterValue`, `validateTemplate` (cycles
 
 Bump `templateSchemaVersion` or `saveSchemaVersion`, accept the old version in `parseFileText` and migrate it to the new shape before Zod validation, and add tests with an old-format fixture.
 
+### Add or change a UI text
+
+1. Add the key to `Locales/En.ts` under the screen's group (or `common`), then the same key to `Locales/Fi.ts` (`tsc` reports it if you forget).
+2. Use it with `const { t } = useTranslation();` and `t("group.key", { value })`. For counts, add `key_one` / `key_other` and pass `count`.
+3. A message from Domain/Files/Images code: add the English template to that module's message table, return it with `createMessage` or throw `LocalizedError`, add the Finnish text under `messages`, and show it with `translateMessage` / `translateError`.
+
+### Add a language
+
+1. Create `Locales/<Code>.ts` typed as `Translation` with every key translated.
+2. Add it to `languages` and `resources` in `I18n.ts`.
+3. Map it to the antd locale in `AntdThemeContext.tsx`.
+4. Extend `Localization.test.tsx` to compare its keys and placeholders with English.
+
 ### Change the IndexedDB layout
 
 Bump the `openDB` version in `Database.ts`, add the upgrade step (use `oldVersion`), and extend `Storage.test.ts`.
@@ -615,7 +654,8 @@ Decisions made while planning (see [PLAN.md](PLAN.md)):
 Later changes:
 
 - PR #2, "Unique items": items or variants that are obtained rather than counted (starred Ancient Cloudminnow); `AGENTS.md` added.
-- PR #3: user manual. PR #4: fix for the visible file input in the item drawer.
+- PR #3: user manual. PR #4: fix for the visible file input in the item drawer. PR #5: this manual.
+- Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
 
 ## 16. Known limitations
 

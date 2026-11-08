@@ -1,3 +1,6 @@
+import { LocalizedError } from "../Types/LocalizedMessage.ts";
+import { imageMessages } from "./ImageMessages.ts";
+
 /** Gets the first image file from a drag-and-drop or clipboard data transfer. */
 const imageFromDataTransfer = (data: DataTransfer | null | undefined): File | null => {
     if (!data) {
@@ -25,7 +28,7 @@ const dragHasFiles = (data: DataTransfer | null | undefined) => !!data && Array.
 /** Reads an image from the system clipboard with the async Clipboard API, when available. */
 const readClipboardImage = async (): Promise<File | null> => {
     if (!navigator.clipboard?.read) {
-        throw new Error("Reading the clipboard is not supported here. Press Ctrl+V (Cmd+V) instead.");
+        throw new LocalizedError(imageMessages, "clipboardUnsupported");
     }
     const items = await navigator.clipboard.read();
     for (const item of items) {

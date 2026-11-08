@@ -1,13 +1,15 @@
 import * as React from "react";
 import "./App.css";
 import { faMoon, faSun } from "@fortawesome/free-regular-svg-icons";
-import { faInfo } from "@fortawesome/free-solid-svg-icons";
+import { faGear, faInfo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button, Segmented, Switch, Tooltip } from "antd";
 import classNames from "classnames";
+import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { useAntdTheme, useAntdToken } from "./Context/AntdThemeContext.tsx";
 import { AboutPopup } from "./Popups/AboutPopup.tsx";
+import { SettingsPopup } from "./Popups/SettingsPopup.tsx";
 import { PwaBadge } from "./PwaBadge.tsx";
 import { requestPersistentStorage } from "./Storage/Database.ts";
 import type { BaseProps } from "./Types/BaseTypes.ts";
@@ -30,6 +32,8 @@ let App = ({ className }: Props) => {
     // Pure state
     const { setTheme, updateBackground } = useAntdTheme();
     const [aboutPopupVisible, setAboutPopupVisible] = React.useState(false);
+    const [settingsPopupVisible, setSettingsPopupVisible] = React.useState(false);
+    const { t } = useTranslation();
 
     // Persistent state
     const [darkMode, setDarkMode] = React.useState<boolean>(getItem<boolean>("darkMode", false));
@@ -85,9 +89,9 @@ let App = ({ className }: Props) => {
                     value={view}
                     onChange={setView}
                     options={[
-                        { value: "inventory", label: "Inventory" },
-                        { value: "templates", label: "Templates" },
-                        { value: "library", label: "Library" },
+                        { value: "inventory", label: t("app.inventory") },
+                        { value: "templates", label: t("app.templates") },
+                        { value: "library", label: t("app.library") },
                     ]}
                 />
                 <div className="App-toolbar-spacer" />
@@ -97,12 +101,22 @@ let App = ({ className }: Props) => {
                     unCheckedChildren={<FontAwesomeIcon icon={faSun} />}
                     checked={darkMode}
                     onChange={onLightDarkSwitchChangeEventHandler}
+                    aria-label={t("app.darkMode")}
                 />
-                <Tooltip title="About">
+                <Tooltip title={t("app.settings")}>
+                    <Button //
+                        icon={<FontAwesomeIcon icon={faGear} />}
+                        onClick={() => setSettingsPopupVisible(true)}
+                        className="Toolbar-button"
+                        aria-label={t("app.settings")}
+                    />
+                </Tooltip>
+                <Tooltip title={t("app.about")}>
                     <Button //
                         icon={<FontAwesomeIcon icon={faInfo} />}
                         onClick={showAboutClick}
                         className="Toolbar-button"
+                        aria-label={t("app.about")}
                     />
                 </Tooltip>
             </div>
@@ -122,6 +136,11 @@ let App = ({ className }: Props) => {
                 visible={aboutPopupVisible}
                 onClose={() => setAboutPopupVisible(false)}
                 darkMode={darkMode}
+            />
+
+            <SettingsPopup //
+                visible={settingsPopupVisible}
+                onClose={() => setSettingsPopupVisible(false)}
             />
 
             <PwaBadge />
