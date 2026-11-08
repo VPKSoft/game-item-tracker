@@ -3,6 +3,8 @@ A [PWA](https://en.wikipedia.org/wiki/Progressive_web_app) for tracking game ite
 
 Built with React, Vite, Ant Design and `vite-plugin-pwa`.
 
+See the [user manual](docs/USER_MANUAL.md) for how to use the app.
+
 ## Concepts
 - **Template** (`*.gitemplate.json`): the items of a game, or part of one. A template holds categories, items with images, names and descriptions, numeric attributes (e.g. rarity), predefined tags, **counters** and **variants**. It has a version and is edited in the *Templates* view.
   - Counters are defined per template. A *manual* counter is edited by the user (e.g. Inventory, Placed). A *computed* counter is the sum of chosen manual counters (e.g. Total = Inventory + Placed). One counter can have the *owned* role and one the *target* role. That pair enables the progress bars and the "missing" sort and filter.
