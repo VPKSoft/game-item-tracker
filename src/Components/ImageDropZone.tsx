@@ -162,6 +162,10 @@ ImageDropZone = styled(ImageDropZone)`
         gap: 6px;
         flex-wrap: wrap;
     }
+    // The antd Form styles show file inputs with display: block, which overrides the hidden attribute.
+    input[type="file"][hidden] {
+        display: none;
+    }
 `;
 
 export { ImageDropZone };
