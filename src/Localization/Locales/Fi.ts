@@ -54,6 +54,7 @@ const fi: Translation = {
         title: "Tietoja - {{appName}}",
         version: "{{appName}}, Copyright © 2025 VPKSoft, v.{{version}}",
         license: "Lisenssi",
+        iconCredit: "Sovelluksen kuvake: {{author}}, lähde:",
         ok: "OK",
     },
     pwa: {

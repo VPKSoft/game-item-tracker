@@ -1,6 +1,8 @@
 # Game Item Tracker
 A [PWA](https://en.wikipedia.org/wiki/Progressive_web_app) for tracking game items.
 
+**Use it online:** https://vpksoft.github.io/game-item-tracker/ — open it in a browser, or install it as an app from the browser's address bar or menu (*Install app* / *Add to Home Screen*). It works offline after the first visit.
+
 Built with React, Vite, Ant Design and `vite-plugin-pwa`.
 
 See the [user manual](docs/USER_MANUAL.md) for how to use the app and the [technical manual](docs/TECHNICAL_MANUAL.md) for how it is built.
@@ -26,7 +28,12 @@ npm run dev
 - `npm run build`: type-check and build into `dist`
 - `npm test`: run the unit and component tests (Vitest); `npm run test:watch` to watch
 - `npm run lint`: run Biome lint, format and check
-- `npm run generate-pwa-assets`: regenerate the PWA icons from `public/favicon.svg`
+- `npm run generate-pwa-assets`: regenerate the PWA icons from `public/app-icon.png`
+
+Every push to `develop` is built and published to GitHub Pages by `.github/workflows/deploy-pages.yml`.
+
+## Credits
+App icon: [List items](https://www.flaticon.com/free-icon/list-items_8161879) by Mehwish from [Flaticon](https://www.flaticon.com) (Flaticon license, attribution required).
 
 ## Sample templates (Palia)
 ```bash

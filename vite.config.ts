@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // The URL path the app is served from. GitHub Pages serves it from /game-item-tracker/ (set by the deploy workflow).
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react(), VitePWA({
     registerType: 'prompt',
     injectRegister: false,
