@@ -11,6 +11,7 @@ This manual is for programmers and AI coding agents working on the code. It desc
 | Topic | Value |
 |---|---|
 | App type | Client-only PWA. No backend, no network calls at runtime. |
+| Hosting | GitHub Pages at `https://vpksoft.github.io/game-item-tracker/` |
 | Stack | React 19, TypeScript, Vite, Ant Design 6, styled-components, vite-plugin-pwa |
 | Localization | i18next + react-i18next (`src/Localization`): English (default) and Finnish |
 | Data validation | Zod 4 (`src/Schemas`) |
@@ -561,10 +562,12 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 | `npm run build` | `tsc -b && vite build` into `dist` |
 | `npm run preview` | Serve the build |
 | `npm run lint` / `npm run lint-fix` | Biome lint, format and check |
-| `npm run generate-pwa-assets` | Icons from `public/favicon.svg` |
+| `npm run generate-pwa-assets` | Icons from `public/app-icon.png` |
 
 - CI (`.github/workflows/node.js.yml`): on pushes and PRs to `develop`, Node 26: `npm install`, `npm run build`, `npm test`, `npm run lint`.
-- PWA: `vite-plugin-pwa` with `registerType: "prompt"`; `PwaBadge.tsx` shows the update prompt.
+- Deploy (`.github/workflows/deploy-pages.yml`): on pushes to `develop`, `npm ci`, `npm test`, then `npm run build` with `BASE_PATH=/game-item-tracker/` and publish `dist` to GitHub Pages. Vite's `base` comes from `BASE_PATH` (default `/`), so local builds still serve from the root. Refer to files in `public` through `import.meta.env.BASE_URL`, never with a leading `/`.
+- PWA: `vite-plugin-pwa` with `registerType: "prompt"`; `PwaBadge.tsx` shows the update prompt. The manifest scope and start URL follow `base`.
+- App icon: `public/app-icon.png` (512 px, "List items" by Mehwish, Flaticon; attribution required and shown in the About popup and README). Change it by replacing that file and running `npm run generate-pwa-assets`.
 - Git workflow (from `AGENTS.md`): never commit to `develop`; branch `feature/<name>` or `fix/<name>` from an up-to-date `develop`; open a PR into `develop`; run lint, `npx tsc -b` and tests first.
 - Code style (Biome): 4-space indent, 120 columns, double quotes, `asNeeded` arrow parentheses, block statements required, `import type` for types, `export { … }` at the end of the file, **PascalCase file names**.
 - TypeScript is strict with `noUnusedLocals`/`noUnusedParameters`; imports use explicit `.ts`/`.tsx` extensions.

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import * as Package from "../../package.json";
-import { GithubLogo, GithubLogoWhite, LogoImage, NetlifyLogo } from "../Utilities/Images";
+import { GithubLogo, GithubLogoWhite, LogoImage } from "../Utilities/Images";
 
 /**
  * The props for the {@link AboutPopup} component.
@@ -22,6 +22,9 @@ type AboutPopupProps = {
 
 const appVersion = Package.version;
 const appName = Package.description;
+const appUrl = "https://vpksoft.github.io/game-item-tracker/";
+const appIconUrl = `${import.meta.env.BASE_URL}pwa-192x192.png`;
+const iconSourceUrl = "https://www.flaticon.com/free-icon/list-items_8161879";
 
 let AboutPopup = ({
     className, //
@@ -41,9 +44,9 @@ let AboutPopup = ({
         void open("https://github.com/VPKSoft/game-item-tracker");
     }, []);
 
-    // Open the latest release from the netlify.app.
-    const openNetlifyUrl = React.useCallback(() => {
-        void open("https://game-item-tracker.netlify.app");
+    // Open the hosted app on GitHub Pages.
+    const openAppUrl = React.useCallback(() => {
+        void open(appUrl);
     }, []);
 
     return (
@@ -88,7 +91,13 @@ SOFTWARE."
 
                     <img src={darkMode ? GithubLogoWhite : GithubLogo} className="LogoImage" onClick={openGitHubUrl} />
 
-                    <img src={NetlifyLogo} className="LogoImage" onClick={openNetlifyUrl} />
+                    <img src={appIconUrl} className="LogoImage" onClick={openAppUrl} />
+                </div>
+                <div className="Popup-iconCredit">
+                    {t("about.iconCredit", { author: "Mehwish" })}{" "}
+                    <a href={iconSourceUrl} target="_blank" rel="noreferrer">
+                        Flaticon
+                    </a>
                 </div>
                 <div className="Popup-ButtonRow">
                     <Button //
@@ -119,6 +128,10 @@ AboutPopup = styled(AboutPopup)`
         white-space: pre-wrap;
         overflow: auto;
         font-family: monospace;
+    }
+    .Popup-iconCredit {
+        margin-top: 10px;
+        font-size: smaller;
     }
     .Popup-ButtonRow {
         display: flex;

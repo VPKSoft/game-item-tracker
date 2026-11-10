@@ -59,6 +59,7 @@ const en = {
         title: "About - {{appName}}",
         version: "{{appName}}, Copyright © 2025 VPKSoft, v.{{version}}",
         license: "License",
+        iconCredit: "App icon by {{author}} from",
         ok: "OK",
     },
     pwa: {
