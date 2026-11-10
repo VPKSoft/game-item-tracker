@@ -405,7 +405,7 @@ const buildPlushieTemplate = (rows: PlushieRow[], meta: TemplateMeta) => {
 
     for (const row of rows) {
         const sectionName = row.section[row.section.length - 1] ?? "Other";
-        const sourceTags = [`source:${sectionName}`, ...row.obtainLinks.filter(l => l !== sectionName)];
+        const sourceTags = [`Source: ${sectionName}`, ...row.obtainLinks.filter(l => l !== sectionName)];
         if (row.tradeable) {
             sourceTags.push("tradeable");
         }

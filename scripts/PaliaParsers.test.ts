@@ -168,7 +168,7 @@ describe("plushies", () => {
         const bee = template.items[0];
         expect(bee.attributes.rarity).toBe(4);
         expect(bee.tags).toEqual(
-            expect.arrayContaining(["source:Bug Catching", "source:Lantern Night", "tradeable", "Test Bee"])
+            expect.arrayContaining(["Source: Bug Catching", "Source: Lantern Night", "tradeable", "Test Bee"])
         );
         expect(conflicts).toHaveLength(1);
         const lantern = template.categories.find(c => c.name === "Lantern Night");

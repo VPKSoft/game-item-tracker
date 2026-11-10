@@ -139,7 +139,7 @@ docs/
   images/manual/           Screenshots for the user manual
 ```
 
-Sample data is **not** in the repository. `npm run build-samples` writes it outside, to `../game-item-tracker-data` by default.
+Sample data is **not** in this repository. It lives in the separate template repository `game-item-tracker-data` (one folder per first letter, then per game: `P/Palia/`). `npm run build-samples` writes to `../game-item-tracker-data/P/Palia` by default.
 
 ## 3. Architecture
 
@@ -514,16 +514,17 @@ The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next
 ## 10. Sample templates (Palia)
 
 ```bash
-npm run build-samples -- --out ../game-item-tracker-data --version 1.0.0
+npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 ```
 
 - `scripts/BuildPaliaTemplates.ts` (Node, `tsx`): fetches the rendered pages through the MediaWiki API (`/api.php?action=parse&page=Fish|Plushies&prop=text&format=json`), downloads full-size images, converts them to 128 px WebP with `sharp`, validates with the Zod schema and `validateTemplate`, and writes `palia-fish.gitemplate.json` and `palia-plushies.gitemplate.json`.
-- Options: `--out <dir>` (default `../game-item-tracker-data`), `--version x.y.z`, `--no-images`.
+- Options: `--out <dir>` (default `../game-item-tracker-data/P/Palia`), `--version x.y.z` (default `1.0.0`), `--no-images`.
 - Template ids are fixed constants, so a regenerated template with a higher `--version` imports as an upgrade for existing saves.
+- **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
 - `scripts/PaliaParsers.ts` holds the pure parsers and builders:
   - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target), Tradeable; attribute `rarity` 1–5; tags `location:`, `time:`, `bait:`, `bundle:`/`quest:`; starred Ancient Cloudminnow is unique.
-  - **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Inventory, Placed, Storage, Total (owned), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `source:` tags.
-- Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
+  - **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Inventory, Placed, Storage, Total (owned), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `Source: ` tags (`Source: Lunar Paths`). New prefixed tags should use this `Prefix: Value` format, as the template repository's README asks.
+- Generated data is CC BY-SA 4.0 (palia.wiki.gg) and is **never committed** to this repository. The images are game assets © Singularity 6 that the wiki uses "with permission for this site only", so they may not meet the template repository's rule that images must be distributable with the template (see the `.LICENSE.txt` files next to the templates there).
 
 ## 11. Testing
 
