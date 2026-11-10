@@ -57,7 +57,7 @@ const en = {
     },
     about: {
         title: "About - {{appName}}",
-        version: "{{appName}}, Copyright © 2025 VPKSoft, v.{{version}}",
+        version: "{{appName}}, Copyright © 2025–2026 VPKSoft, v.{{version}}",
         license: "License",
         iconCredit: "App icon by {{author}} from",
         ok: "OK",
