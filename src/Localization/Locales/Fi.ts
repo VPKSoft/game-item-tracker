@@ -52,7 +52,7 @@ const fi: Translation = {
     },
     about: {
         title: "Tietoja - {{appName}}",
-        version: "{{appName}}, Copyright © 2025 VPKSoft, v.{{version}}",
+        version: "{{appName}}, Copyright © 2025–2026 VPKSoft, v.{{version}}",
         license: "Lisenssi",
         iconCredit: "Sovelluksen kuvake: {{author}}, lähde:",
         ok: "OK",
