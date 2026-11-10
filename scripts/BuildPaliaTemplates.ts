@@ -2,7 +2,7 @@
  * Generates the Palia sample templates from palia.wiki.gg:
  *   npm run build-samples -- [--out <dir>] [--version 1.0.0] [--no-images]
  *
- * The output goes outside the repository by default (../game-item-tracker-data) and is never committed.
+ * The output goes outside the repository by default (../game-item-tracker-data/P/Palia) and is never committed.
  */
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -23,7 +23,7 @@ const plushieTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e02";
 
 const { values } = parseArgs({
     options: {
-        out: { type: "string", default: resolve(process.cwd(), "..", "game-item-tracker-data") },
+        out: { type: "string", default: resolve(process.cwd(), "..", "game-item-tracker-data", "P", "Palia") },
         version: { type: "string", default: "1.0.0" },
         "no-images": { type: "boolean", default: false },
     },

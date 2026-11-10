@@ -301,7 +301,7 @@ The script reads the rendered HTML through the MediaWiki API (`/api.php?action=p
   - Total = Inventory + Placed + Storage, computed, role owned.
   - Target: manual, role target.
   - Tradeable: manual.
-- Some plushies appear in several tables, sometimes with different rarities. One item is created per plushie name. Its category is the first table it appears in, and the other sources become tags (`source:Lunar Paths`). Rarity is taken from the first occurrence. Conflicts are printed in the script's log.
+- Some plushies appear in several tables, sometimes with different rarities. One item is created per plushie name. Its category is the first table it appears in, and the other sources become tags (`Source: Lunar Paths`). Rarity is taken from the first occurrence. Conflicts are printed in the script's log.
 - Tags: source names from "How to Obtain", plus `tradeable` where the cell says "Trading", and `unavailable` for that section.
 
 The two samples show both setups: one template with variants and counters limited to a variant, and one with a flat set of counters.
