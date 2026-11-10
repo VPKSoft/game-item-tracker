@@ -22,8 +22,8 @@ describe("computeTargetSize", () => {
 describe("validateImageFile", () => {
     it("accepts images up to 10 MB and rejects others", () => {
         expect(validateImageFile(blobOf(10, "image/png"))).toBeNull();
-        expect(validateImageFile(blobOf(10, "text/plain"))).toContain("not an image");
-        expect(validateImageFile(blobOf(10 * 1024 * 1024 + 1, "image/png"))).toContain("too large");
+        expect(validateImageFile(blobOf(10, "text/plain"))?.message).toContain("not an image");
+        expect(validateImageFile(blobOf(10 * 1024 * 1024 + 1, "image/png"))?.message).toContain("too large");
     });
 });
 

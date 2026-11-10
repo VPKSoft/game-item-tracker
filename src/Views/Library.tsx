@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Alert, App, Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { createSave, createTemplate } from "../Domain/CreateSave.ts";
 import { compareVersions } from "../Domain/Ids.ts";
@@ -15,6 +16,7 @@ import {
     serialize,
     templateExtension,
 } from "../Files/FileIo.ts";
+import { translateMessage } from "../Localization/Messages.ts";
 import {
     deleteSave,
     deleteTemplate,
@@ -35,8 +37,6 @@ type Props = {
     onOpenTemplate: (key: TemplateKey) => void;
 } & BaseProps;
 
-const formatDate = (iso?: string) => (iso ? new Date(iso).toLocaleString() : "never");
-
 const notBackedUp = (summary: { updatedAt: string; lastExportedAt?: string }) =>
     !summary.lastExportedAt || summary.lastExportedAt < summary.updatedAt;
 
@@ -51,6 +51,9 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
     const [importError, setImportError] = React.useState<string | null>(null);
     const fileInput = React.useRef<HTMLInputElement>(null);
     const { message, modal } = App.useApp();
+    const { t, i18n } = useTranslation();
+
+    const formatDate = (iso?: string) => (iso ? new Date(iso).toLocaleString(i18n.language) : t("library.never"));
 
     const refresh = React.useCallback(async () => {
         const [t, s] = await Promise.all([listTemplates(), listSaves()]);
@@ -67,18 +70,21 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
         for (const file of Array.from(files ?? [])) {
             const parsed = parseFileText(await readFileText(file));
             if (parsed.kind === "error") {
-                setImportError(`${file.name}: ${parsed.message}`);
+                setImportError(`${file.name}: ${translateMessage(t, parsed)}`);
                 continue;
             }
             if (parsed.kind === "template") {
-                const t = parsed.template;
-                const existing = await getTemplate(t.templateId, t.version);
+                const template = parsed.template;
+                const existing = await getTemplate(template.templateId, template.version);
                 if (existing) {
                     const overwrite = await new Promise<boolean>(resolve =>
                         modal.confirm({
-                            title: `Replace ${t.name} v${t.version}?`,
-                            content: "This template version is already in the library.",
-                            okText: "Replace",
+                            title: t("library.replaceTemplateTitle", {
+                                name: template.name,
+                                version: template.version,
+                            }),
+                            content: t("library.replaceTemplateContent"),
+                            okText: t("common.replace"),
                             onOk: () => resolve(true),
                             onCancel: () => resolve(false),
                         })
@@ -87,8 +93,8 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                         continue;
                     }
                 }
-                await putTemplate(t, true);
-                void message.success(`Imported template ${t.name} v${t.version}`);
+                await putTemplate(template, true);
+                void message.success(t("library.importedTemplate", { name: template.name, version: template.version }));
             } else {
                 const s = parsed.save;
                 if (s.bundle && !(await getTemplate(s.bundle.templateId, s.bundle.version))) {
@@ -98,9 +104,12 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 if (existing) {
                     const overwrite = await new Promise<boolean>(resolve =>
                         modal.confirm({
-                            title: `Replace the save "${existing.name}"?`,
-                            content: `The stored save was changed ${formatDate(existing.updatedAt)}; the file is from ${formatDate(s.updatedAt)}.`,
-                            okText: "Replace",
+                            title: t("library.replaceSaveTitle", { name: existing.name }),
+                            content: t("library.replaceSaveContent", {
+                                stored: formatDate(existing.updatedAt),
+                                file: formatDate(s.updatedAt),
+                            }),
+                            okText: t("common.replace"),
                             onOk: () => resolve(true),
                             onCancel: () => resolve(false),
                         })
@@ -112,10 +121,14 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 await putSave(s, true);
                 if (!(await getTemplate(s.template.templateId, s.template.version))) {
                     setImportError(
-                        `${file.name}: imported, but its template "${s.template.name}" v${s.template.version} is missing. Import the template too.`
+                        t("library.importedSaveTemplateMissing", {
+                            file: file.name,
+                            name: s.template.name,
+                            version: s.template.version,
+                        })
                     );
                 } else {
-                    void message.success(`Imported save ${s.name}`);
+                    void message.success(t("library.importedSave", { name: s.name }));
                 }
             }
         }
@@ -123,9 +136,9 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
     };
 
     const exportTemplate = async (summary: TemplateSummary) => {
-        const t = await getTemplate(summary.templateId, summary.version);
-        if (t && (await downloadFile(serialize(t), fileNameFor("template", t.name), "template"))) {
-            await putTemplate(t, true);
+        const template = await getTemplate(summary.templateId, summary.version);
+        if (template && (await downloadFile(serialize(template), fileNameFor("template", template.name), "template"))) {
+            await putTemplate(template, true);
             await refresh();
         }
     };
@@ -135,8 +148,14 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
         if (!s) {
             return;
         }
-        const t = withTemplate ? await getTemplate(s.template.templateId, s.template.version) : undefined;
-        if (await downloadFile(serialize(t ? { ...s, bundle: t } : s), fileNameFor("save", s.name), "save")) {
+        const template = withTemplate ? await getTemplate(s.template.templateId, s.template.version) : undefined;
+        if (
+            await downloadFile(
+                serialize(template ? { ...s, bundle: template } : s),
+                fileNameFor("save", s.name),
+                "save"
+            )
+        ) {
             await putSave(s, true);
             await refresh();
         }
@@ -146,26 +165,27 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
         if (!newSaveFor) {
             return;
         }
-        const t = await getTemplate(newSaveFor.templateId, newSaveFor.version);
-        if (!t) {
+        const template = await getTemplate(newSaveFor.templateId, newSaveFor.version);
+        if (!template) {
             return;
         }
-        const save = createSave(t, newSaveName.trim() || t.name);
+        const save = createSave(template, newSaveName.trim() || template.name);
         await putSave(save);
         setNewSaveFor(null);
         onOpenSave(save.saveId);
     };
 
     const createNewTemplate = async () => {
-        const t = createTemplate(newTemplate.name.trim(), newTemplate.game.trim());
-        await putTemplate(t);
+        const template = createTemplate(newTemplate.name.trim(), newTemplate.game.trim());
+        await putTemplate(template);
         setNewTemplateOpen(false);
-        onOpenTemplate({ templateId: t.templateId, version: t.version });
+        onOpenTemplate({ templateId: template.templateId, version: template.version });
     };
 
     const newestVersion = (templateId: string) =>
-        templates.filter(t => t.templateId === templateId).sort((a, b) => compareVersions(b.version, a.version))[0]
-            ?.version;
+        templates
+            .filter(summary => summary.templateId === templateId)
+            .sort((a, b) => compareVersions(b.version, a.version))[0]?.version;
 
     return (
         <div className={classNames(className, "Library")}>
@@ -175,14 +195,13 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                     icon={<FontAwesomeIcon icon={faFileImport} />}
                     onClick={() => fileInput.current?.click()}
                 >
-                    Import file…
+                    {t("library.importFile")}
                 </Button>
                 <Button icon={<FontAwesomeIcon icon={faPlus} />} onClick={() => setNewTemplateOpen(true)}>
-                    New template
+                    {t("library.newTemplate")}
                 </Button>
                 <span style={{ opacity: 0.7, fontSize: "0.85em" }}>
-                    Templates are {templateExtension} files and saves are {saveExtension} files. Everything is also kept
-                    in this browser.
+                    {t("library.filesHint", { templateExtension, saveExtension })}
                 </span>
             </Space>
             <input
@@ -201,16 +220,16 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 <Alert type="error" showIcon closable title={importError} onClose={() => setImportError(null)} />
             )}
 
-            <Card size="small" title="Saves (your inventory)">
+            <Card size="small" title={t("library.savesTitle")}>
                 <Table
                     size="small"
                     rowKey="saveId"
                     pagination={false}
                     dataSource={saves}
-                    locale={{ emptyText: "No saves yet. Create one from a template below." }}
+                    locale={{ emptyText: t("library.noSaves") }}
                     columns={[
                         {
-                            title: "Name",
+                            title: t("common.name"),
                             render: (_, s) => (
                                 <Button type="link" onClick={() => onOpenSave(s.saveId)} style={{ padding: 0 }}>
                                     {s.name}
@@ -218,28 +237,30 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                             ),
                         },
                         {
-                            title: "Template",
+                            title: t("library.template"),
                             render: (_, s) => {
                                 const newest = newestVersion(s.template.templateId);
                                 return (
                                     <>
                                         {s.template.name} v{s.template.version}{" "}
                                         {newest && compareVersions(newest, s.template.version) > 0 && (
-                                            <Tag color="blue">v{newest} available</Tag>
+                                            <Tag color="blue">{t("library.newerAvailable", { version: newest })}</Tag>
                                         )}
-                                        {!newest && <Tag color="error">template missing</Tag>}
+                                        {!newest && <Tag color="error">{t("library.templateMissing")}</Tag>}
                                     </>
                                 );
                             },
                         },
                         {
-                            title: "Changed",
+                            title: t("library.changed"),
                             render: (_, s) => (
                                 <>
                                     {formatDate(s.updatedAt)}{" "}
                                     {notBackedUp(s) && (
-                                        <Tooltip title={`Last exported: ${formatDate(s.lastExportedAt)}`}>
-                                            <Tag color="warning">not exported</Tag>
+                                        <Tooltip
+                                            title={t("library.lastExported", { date: formatDate(s.lastExportedAt) })}
+                                        >
+                                            <Tag color="warning">{t("library.notExported")}</Tag>
                                         </Tooltip>
                                     )}
                                 </>
@@ -250,18 +271,18 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                             render: (_, s) => (
                                 <Space wrap>
                                     <Button size="small" onClick={() => onOpenSave(s.saveId)}>
-                                        Open
+                                        {t("common.open")}
                                     </Button>
                                     <Button size="small" onClick={() => void exportSave(s, false)}>
-                                        Export
+                                        {t("common.export")}
                                     </Button>
                                     <Button size="small" onClick={() => void exportSave(s, true)}>
-                                        Export with template
+                                        {t("common.exportWithTemplate")}
                                     </Button>
                                     <Popconfirm
-                                        title="Delete this save?"
-                                        description="This cannot be undone. Export it first if you want a backup."
-                                        okText="Delete"
+                                        title={t("library.deleteSaveTitle")}
+                                        description={t("library.deleteSaveDescription")}
+                                        okText={t("common.delete")}
                                         okButtonProps={{ danger: true }}
                                         onConfirm={async () => {
                                             await deleteSave(s.saveId);
@@ -269,7 +290,7 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                                         }}
                                     >
                                         <Button size="small" danger>
-                                            Delete
+                                            {t("common.delete")}
                                         </Button>
                                     </Popconfirm>
                                 </Space>
@@ -279,61 +300,63 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 />
             </Card>
 
-            <Card size="small" title="Templates">
+            <Card size="small" title={t("library.templatesTitle")}>
                 <Table
                     size="small"
-                    rowKey={t => `${t.templateId}@${t.version}`}
+                    rowKey={row => `${row.templateId}@${row.version}`}
                     pagination={false}
                     dataSource={templates}
-                    locale={{ emptyText: "No templates yet. Import a .gitemplate.json file or create a new template." }}
+                    locale={{ emptyText: t("library.noTemplates", { extension: templateExtension }) }}
                     columns={[
-                        { title: "Name", render: (_, t) => t.name },
-                        { title: "Game", render: (_, t) => t.game },
-                        { title: "Version", render: (_, t) => t.version },
-                        { title: "Items", render: (_, t) => t.itemCount },
+                        { title: t("common.name"), render: (_, row) => row.name },
+                        { title: t("common.game"), render: (_, row) => row.game },
+                        { title: t("common.version"), render: (_, row) => row.version },
+                        { title: t("common.items"), render: (_, row) => row.itemCount },
                         {
                             title: "",
-                            render: (_, t) => (
+                            render: (_, row) => (
                                 <Space wrap>
                                     <Button
                                         size="small"
                                         type="primary"
                                         onClick={() => {
-                                            setNewSaveName(t.name);
-                                            setNewSaveFor(t);
+                                            setNewSaveName(row.name);
+                                            setNewSaveFor(row);
                                         }}
                                     >
-                                        New save
+                                        {t("library.newSave")}
                                     </Button>
                                     <Button
                                         size="small"
-                                        onClick={() => onOpenTemplate({ templateId: t.templateId, version: t.version })}
+                                        onClick={() =>
+                                            onOpenTemplate({ templateId: row.templateId, version: row.version })
+                                        }
                                     >
-                                        Edit
+                                        {t("common.edit")}
                                     </Button>
-                                    <Button size="small" onClick={() => void exportTemplate(t)}>
-                                        Export
+                                    <Button size="small" onClick={() => void exportTemplate(row)}>
+                                        {t("common.export")}
                                     </Button>
                                     <Popconfirm
-                                        title="Delete this template version?"
+                                        title={t("library.deleteTemplateTitle")}
                                         description={
                                             saves.some(
                                                 s =>
-                                                    s.template.templateId === t.templateId &&
-                                                    s.template.version === t.version
+                                                    s.template.templateId === row.templateId &&
+                                                    s.template.version === row.version
                                             )
-                                                ? "Saves use this version and cannot be opened without it."
-                                                : "This cannot be undone."
+                                                ? t("library.deleteTemplateUsed")
+                                                : t("common.cannotBeUndone")
                                         }
-                                        okText="Delete"
+                                        okText={t("common.delete")}
                                         okButtonProps={{ danger: true }}
                                         onConfirm={async () => {
-                                            await deleteTemplate(t.templateId, t.version);
+                                            await deleteTemplate(row.templateId, row.version);
                                             await refresh();
                                         }}
                                     >
                                         <Button size="small" danger>
-                                            Delete
+                                            {t("common.delete")}
                                         </Button>
                                     </Popconfirm>
                                 </Space>
@@ -345,34 +368,38 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
 
             <Modal
                 open={newSaveFor !== null}
-                title={`New save from ${newSaveFor?.name}`}
-                okText="Create"
+                title={t("library.newSaveTitle", { name: newSaveFor?.name })}
+                okText={t("common.create")}
                 onOk={() => void createNewSave()}
                 onCancel={() => setNewSaveFor(null)}
             >
-                <Input aria-label="Save name" value={newSaveName} onChange={e => setNewSaveName(e.target.value)} />
+                <Input
+                    aria-label={t("library.saveName")}
+                    value={newSaveName}
+                    onChange={e => setNewSaveName(e.target.value)}
+                />
             </Modal>
             <Modal
                 open={newTemplateOpen}
-                title="New template"
-                okText="Create"
+                title={t("library.newTemplate")}
+                okText={t("common.create")}
                 okButtonProps={{ disabled: !newTemplate.name.trim() }}
                 onOk={() => void createNewTemplate()}
                 onCancel={() => setNewTemplateOpen(false)}
             >
                 <Form layout="vertical">
-                    <Form.Item label="Name" required>
+                    <Form.Item label={t("common.name")} required>
                         <Input
-                            aria-label="New template name"
+                            aria-label={t("library.newTemplateName")}
                             value={newTemplate.name}
-                            onChange={e => setNewTemplate(t => ({ ...t, name: e.target.value }))}
+                            onChange={e => setNewTemplate(n => ({ ...n, name: e.target.value }))}
                         />
                     </Form.Item>
-                    <Form.Item label="Game">
+                    <Form.Item label={t("common.game")}>
                         <Input
-                            aria-label="New template game"
+                            aria-label={t("library.newTemplateGame")}
                             value={newTemplate.game}
-                            onChange={e => setNewTemplate(t => ({ ...t, game: e.target.value }))}
+                            onChange={e => setNewTemplate(n => ({ ...n, game: e.target.value }))}
                         />
                     </Form.Item>
                 </Form>

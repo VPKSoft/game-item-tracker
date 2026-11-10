@@ -1,5 +1,7 @@
 import { Checkbox, Modal } from "antd";
+import type { TFunction } from "i18next";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { upgradeSave } from "../Domain/UpgradeSave.ts";
 import type { Save } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
@@ -13,17 +15,20 @@ type Props = {
     onUpgrade: (save: Save, template: Template) => void;
 };
 
-const list = (label: string, values: string[]) =>
+const list = (t: TFunction, label: string, values: string[]) =>
     values.length > 0 ? (
         <li>
             {label}:{" "}
-            {values.length <= 8 ? values.join(", ") : `${values.slice(0, 8).join(", ")} and ${values.length - 8} more`}
+            {values.length <= 8
+                ? values.join(", ")
+                : t("upgrade.andMore", { list: values.slice(0, 8).join(", "), count: values.length - 8 })}
         </li>
     ) : null;
 
 /** Previews and applies the upgrade of a save to a newer template version. */
 const UpgradeDialog = ({ open, save, oldTemplate, newTemplate, onCancel, onUpgrade }: Props) => {
     const [discardHidden, setDiscardHidden] = React.useState(false);
+    const { t } = useTranslation();
     const preview = React.useMemo(
         () => (newTemplate ? upgradeSave(save, oldTemplate, newTemplate, { discardHidden }) : null),
         [save, oldTemplate, newTemplate, discardHidden]
@@ -39,25 +44,23 @@ const UpgradeDialog = ({ open, save, oldTemplate, newTemplate, onCancel, onUpgra
     return (
         <Modal
             open={open}
-            title={`Upgrade to ${newTemplate.name} v${newTemplate.version}`}
-            okText="Upgrade"
+            title={t("upgrade.title", { name: newTemplate.name, version: newTemplate.version })}
+            okText={t("upgrade.upgrade")}
             onCancel={onCancel}
             onOk={() => onUpgrade(preview.save, newTemplate)}
         >
-            <p>
-                From v{summary.fromVersion} to v{summary.toVersion}. Your amounts, tags and notes are kept.
-            </p>
+            <p>{t("upgrade.fromTo", { from: summary.fromVersion, to: summary.toVersion })}</p>
             <ul>
-                {list("New items", summary.addedItems.map(name))}
-                {list("Obsolete items (kept, marked obsolete)", summary.obsoleteItems.map(name))}
-                {list("New counters", summary.addedCounters)}
-                {list("Removed counters (values hidden)", summary.removedCounters)}
-                {list("New variants", summary.addedVariants)}
-                {list("Removed variants (values hidden)", summary.removedVariants)}
+                {list(t, t("upgrade.newItems"), summary.addedItems.map(name))}
+                {list(t, t("upgrade.obsoleteItems"), summary.obsoleteItems.map(name))}
+                {list(t, t("upgrade.newCounters"), summary.addedCounters)}
+                {list(t, t("upgrade.removedCounters"), summary.removedCounters)}
+                {list(t, t("upgrade.newVariants"), summary.addedVariants)}
+                {list(t, t("upgrade.removedVariants"), summary.removedVariants)}
             </ul>
             {hasHidden && (
                 <Checkbox checked={discardHidden} onChange={e => setDiscardHidden(e.target.checked)}>
-                    Discard the hidden values of removed counters and variants
+                    {t("upgrade.discardHidden")}
                 </Checkbox>
             )}
         </Modal>

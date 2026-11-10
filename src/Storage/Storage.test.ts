@@ -59,7 +59,11 @@ describe("file io", () => {
     });
 
     it("explains invalid input", () => {
-        expect(parseFileText("{nope")).toEqual({ kind: "error", message: "The file is not valid JSON." });
+        expect(parseFileText("{nope")).toEqual({
+            kind: "error",
+            code: "invalidJson",
+            message: "The file is not valid JSON.",
+        });
         expect(parseFileText('{"hello": 1}')).toMatchObject({ kind: "error" });
         const broken = parseFileText(serialize({ ...fishTemplate(), version: "x" }));
         expect(broken.kind).toBe("error");

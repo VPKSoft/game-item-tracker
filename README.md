@@ -15,6 +15,8 @@ Both are plain JSON with a `format` field (`game-item-tracker/template` or `game
 
 Images are added by file open, drag and drop, or paste (Ctrl+V). They are resized to at most 128×128 px WebP when you accept them in the preview.
 
+The program is available in English and Finnish. It starts in English; the language can be changed in the settings (⚙ in the toolbar).
+
 ## Development
 ```bash
 npm install

@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Badge, Button, Checkbox, Empty, Input, Popover, Select, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { type BrowseFilters, browseItems, getCategoryWithChildren, getSortOptions } from "../Domain/Browse.ts";
 import { searchItems } from "../Domain/Search.ts";
@@ -73,6 +74,7 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
     const [query, setQuery] = React.useState("");
     const debouncedQuery = useDebounced(query, 150);
     const index = useSearchIndex(template, save);
+    const { t } = useTranslation();
 
     React.useEffect(() => {
         if (stateKey) {
@@ -87,7 +89,15 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
     const searchRanks = React.useMemo(() => searchItems(index, debouncedQuery), [index, debouncedQuery]);
     const hasSearch = searchRanks !== null;
 
-    const sortOptions = React.useMemo(() => getSortOptions(template, !!save, hasSearch), [template, save, hasSearch]);
+    const sortOptions = React.useMemo(() => {
+        // The fixed sorts are translated here; attribute and counter sorts use the template's own labels.
+        const fixedLabels: Record<string, string> = {
+            relevance: t("browser.sortRelevance"),
+            name: t("browser.sortName"),
+            missing: t("browser.sortMissing"),
+        };
+        return getSortOptions(template, !!save, hasSearch).map(o => ({ ...o, label: fixedLabels[o.value] ?? o.label }));
+    }, [template, save, hasSearch, t]);
 
     // Fall back to a valid sort when the current one is unavailable (e.g. search cleared, counter removed).
     let sort = state.sort;
@@ -125,7 +135,7 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
         }
         const sorted = [...template.categories].sort((a, b) => a.order - b.order);
         const result: { value: string; label: string }[] = [
-            { value: "", label: `All categories (${template.items.length})` },
+            { value: "", label: t("browser.allCategories", { count: template.items.length }) },
         ];
         const addLevel = (parentId: string | undefined, depth: number) => {
             for (const category of sorted.filter(c => c.parentId === parentId)) {
@@ -145,7 +155,7 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
             }
         }
         return result;
-    }, [template]);
+    }, [template, t]);
 
     const setFilters = (patch: Partial<BrowseFilters>) =>
         setState(s => ({ ...s, filters: { ...s.filters, ...patch } }));
@@ -157,15 +167,15 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                     checked={!!state.filters.missingOnly}
                     onChange={e => setFilters({ missingOnly: e.target.checked })}
                 >
-                    Only missing
+                    {t("browser.onlyMissing")}
                 </Checkbox>
             )}
             <Checkbox checked={!!state.filters.withNotes} onChange={e => setFilters({ withNotes: e.target.checked })}>
-                Only with notes
+                {t("browser.onlyWithNotes")}
             </Checkbox>
             <Select
                 allowClear
-                placeholder="Counter above zero"
+                placeholder={t("browser.counterAboveZero")}
                 value={state.filters.counterAboveZero}
                 onChange={value => setFilters({ counterAboveZero: value })}
                 options={template.counterDefs.map(c => ({ value: c.key, label: `${c.label} > 0` }))}
@@ -173,14 +183,14 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
             <Select
                 mode="multiple"
                 allowClear
-                placeholder="Has tags"
+                placeholder={t("browser.hasTags")}
                 value={state.filters.tags ?? []}
                 onChange={value => setFilters({ tags: value })}
                 options={template.tags.map(t => ({ value: t, label: t }))}
                 maxTagCount="responsive"
             />
             <Button size="small" onClick={() => setState(s => ({ ...s, filters: {} }))}>
-                Clear filters
+                {t("browser.clearFilters")}
             </Button>
         </div>
     ) : null;
@@ -193,17 +203,17 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                     value={categoryId ?? ""}
                     onChange={value => setState(s => ({ ...s, categoryId: value === "" ? null : value }))}
                     options={categoryOptions}
-                    aria-label="Category"
+                    aria-label={t("common.category")}
                     popupMatchSelectWidth={false}
                 />
                 <Input
                     className="ItemBrowser-search"
                     allowClear
                     prefix={<FontAwesomeIcon icon={faMagnifyingGlass} />}
-                    placeholder="Search names, tags, descriptions and notes"
+                    placeholder={t("browser.searchPlaceholder")}
                     value={query}
                     onChange={e => setQuery(e.target.value)}
-                    aria-label="Search"
+                    aria-label={t("browser.search")}
                 />
                 <Select
                     className="ItemBrowser-sort"
@@ -218,12 +228,12 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                         }
                     }}
                     options={sortOptions}
-                    aria-label="Sort by"
+                    aria-label={t("browser.sortBy")}
                     popupMatchSelectWidth={false}
                 />
-                <Tooltip title={state.direction === "asc" ? "Ascending" : "Descending"}>
+                <Tooltip title={state.direction === "asc" ? t("browser.ascending") : t("browser.descending")}>
                     <Button
-                        aria-label="Sort direction"
+                        aria-label={t("browser.sortDirection")}
                         disabled={effectiveSort === "relevance"}
                         icon={
                             <FontAwesomeIcon
@@ -236,7 +246,7 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                 {filterContent && (
                     <Popover content={filterContent} trigger="click" placement="bottomRight">
                         <Badge count={countActiveFilters(state.filters)} size="small">
-                            <Button icon={<FontAwesomeIcon icon={faFilter} />} aria-label="Filters" />
+                            <Button icon={<FontAwesomeIcon icon={faFilter} />} aria-label={t("browser.filters")} />
                         </Badge>
                     </Popover>
                 )}
@@ -248,7 +258,7 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
             {items.length === 0 ? (
                 <Empty
                     className="ItemBrowser-empty"
-                    description={template.items.length === 0 ? "No items yet" : "No items match"}
+                    description={template.items.length === 0 ? t("browser.noItemsYet") : t("browser.noItemsMatch")}
                 />
             ) : (
                 <VirtualGrid items={items} getKey={item => item.id} renderItem={renderCard} />

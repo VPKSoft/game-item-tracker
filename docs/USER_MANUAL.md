@@ -54,9 +54,16 @@ The toolbar at the top has:
 
 - **Inventory | Templates | Library**: switches between the three views. The app remembers the last view and the last opened save and template.
 - **Light/dark switch** (sun/moon): changes the theme.
+- **⚙ Settings**: program settings (see below).
 - **ⓘ**: shows the About dialog.
 
 ![Dark mode](images/manual/28-dark-mode.png)
+
+### 2.1 Settings and language
+
+The **⚙** button opens the settings. **Language** switches the program between **English** and **Suomi** (Finnish). The change applies immediately and is remembered in this browser. The program starts in English until you choose another language.
+
+Only the program's own texts are translated. Names, descriptions, tags, counter labels and other contents of templates and saves stay as they were written. **Add common counters** in a template creates the counters with labels in the current language.
 
 ## 3. Getting started
 

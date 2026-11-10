@@ -2,6 +2,7 @@ import { faArrowDown, faArrowUp, faTrash } from "@fortawesome/free-solid-svg-ico
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button, Card, Empty, Input, InputNumber, Popconfirm, Select, Space } from "antd";
 import * as React from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { commonCounters } from "../Domain/Counters.ts";
 import { uniqueId } from "../Domain/Ids.ts";
 import { deleteCounter, moveOrdered, touch } from "../Domain/TemplateEdits.ts";
@@ -21,6 +22,7 @@ const describeFormula = (template: Template, counter: CounterDef) => {
 /** Edits the amount counters of a template: manual counters and computed sums. */
 const CountersEditor = ({ template, onChange }: Props) => {
     const [newLabel, setNewLabel] = React.useState("");
+    const { t } = useTranslation();
     const counters = [...template.counterDefs].sort((a, b) => a.order - b.order);
 
     const update = (key: string, patch: Partial<CounterDef>) => {
@@ -55,17 +57,29 @@ const CountersEditor = ({ template, onChange }: Props) => {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 900 }}>
             <p style={{ margin: 0 }}>
-                Counters are the amounts users track per item. Manual counters are edited by the user. A computed
-                counter is the sum of chosen manual counters. Mark one counter as <b>owned</b> and one as <b>target</b>{" "}
-                to get progress bars and the &quot;missing&quot; sort and filter.
+                <Trans i18nKey="counters.help" components={{ b: <b /> }} />
             </p>
             {counters.length === 0 && (
-                <Empty description="This template has no counters">
+                <Empty description={t("counters.noCounters")}>
                     <Button
-                        onClick={() => onChange(touch({ ...template, counterDefs: commonCounters() }))}
+                        onClick={() =>
+                            onChange(
+                                touch({
+                                    ...template,
+                                    counterDefs: commonCounters({
+                                        inventory: t("counters.common.inventory"),
+                                        placed: t("counters.common.placed"),
+                                        storage: t("counters.common.storage"),
+                                        total: t("counters.common.total"),
+                                        target: t("counters.common.target"),
+                                        tradeable: t("counters.common.tradeable"),
+                                    }),
+                                })
+                            )
+                        }
                         type="primary"
                     >
-                        Add common counters
+                        {t("counters.addCommon")}
                     </Button>
                 </Empty>
             )}
@@ -76,19 +90,21 @@ const CountersEditor = ({ template, onChange }: Props) => {
                     title={
                         <Space>
                             <Input
-                                aria-label="Counter label"
+                                aria-label={t("counters.counterLabel")}
                                 value={counter.label}
                                 onChange={e => update(counter.key, { label: e.target.value })}
                                 style={{ width: 180 }}
                             />
-                            <span style={{ opacity: 0.6, fontWeight: 400 }}>key: {counter.key}</span>
+                            <span style={{ opacity: 0.6, fontWeight: 400 }}>
+                                {t("common.key", { key: counter.key })}
+                            </span>
                         </Space>
                     }
                     extra={
                         <Space>
                             <Button
                                 size="small"
-                                aria-label="Move up"
+                                aria-label={t("common.moveUp")}
                                 icon={<FontAwesomeIcon icon={faArrowUp} />}
                                 disabled={index === 0}
                                 onClick={() =>
@@ -97,7 +113,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                             />
                             <Button
                                 size="small"
-                                aria-label="Move down"
+                                aria-label={t("common.moveDown")}
                                 icon={<FontAwesomeIcon icon={faArrowDown} />}
                                 disabled={index === counters.length - 1}
                                 onClick={() =>
@@ -105,14 +121,14 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 }
                             />
                             <Popconfirm
-                                title="Delete this counter?"
-                                description="Saves keep their values hidden until upgraded."
+                                title={t("counters.deleteTitle")}
+                                description={t("counters.deleteDescription")}
                                 onConfirm={() => onChange(deleteCounter(template, counter.key))}
                             >
                                 <Button
                                     size="small"
                                     danger
-                                    aria-label="Delete counter"
+                                    aria-label={t("counters.deleteCounter")}
                                     icon={<FontAwesomeIcon icon={faTrash} />}
                                 />
                             </Popconfirm>
@@ -121,7 +137,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                 >
                     <Space wrap align="start">
                         <Select
-                            aria-label="Counter type"
+                            aria-label={t("counters.counterType")}
                             value={counter.kind}
                             style={{ width: 130 }}
                             onChange={kind =>
@@ -133,16 +149,16 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 )
                             }
                             options={[
-                                { value: "manual", label: "Manual" },
-                                { value: "computed", label: "Computed sum" },
+                                { value: "manual", label: t("counters.manual") },
+                                { value: "computed", label: t("counters.computed") },
                             ]}
                         />
                         {counter.kind === "computed" && (
                             <Select
                                 mode="multiple"
-                                aria-label="Sum of"
+                                aria-label={t("counters.sumOf")}
                                 style={{ minWidth: 260 }}
-                                placeholder="Counters to add up"
+                                placeholder={t("counters.countersToAdd")}
                                 value={counter.sumOf ?? []}
                                 onChange={sumOf => update(counter.key, { sumOf })}
                                 options={template.counterDefs
@@ -151,24 +167,24 @@ const CountersEditor = ({ template, onChange }: Props) => {
                             />
                         )}
                         <Select
-                            aria-label="Role"
+                            aria-label={t("counters.role")}
                             allowClear
-                            placeholder="No role"
+                            placeholder={t("counters.noRole")}
                             style={{ width: 130 }}
                             value={counter.role}
                             onChange={role => update(counter.key, { role })}
                             options={[
-                                { value: "owned", label: "Owned" },
-                                { value: "target", label: "Target" },
+                                { value: "owned", label: t("counters.owned") },
+                                { value: "target", label: t("counters.target") },
                             ]}
                         />
                         {template.variantDefs.length > 0 && (
                             <Select
                                 mode="multiple"
-                                aria-label="Variants"
+                                aria-label={t("common.variants")}
                                 allowClear
                                 style={{ minWidth: 200 }}
-                                placeholder="All variants"
+                                placeholder={t("counters.allVariants")}
                                 value={counter.variants ?? []}
                                 onChange={variants =>
                                     update(counter.key, { variants: variants.length > 0 ? variants : undefined })
@@ -178,10 +194,10 @@ const CountersEditor = ({ template, onChange }: Props) => {
                         )}
                         {counter.kind === "manual" && (
                             <InputNumber
-                                aria-label="Maximum"
+                                aria-label={t("common.maximum")}
                                 min={0}
                                 precision={0}
-                                placeholder="No max"
+                                placeholder={t("counters.noMax")}
                                 value={counter.max}
                                 onChange={max =>
                                     update(counter.key, { max: typeof max === "number" ? max : undefined })
@@ -196,14 +212,14 @@ const CountersEditor = ({ template, onChange }: Props) => {
             ))}
             <Space.Compact style={{ maxWidth: 400 }}>
                 <Input
-                    aria-label="New counter label"
-                    placeholder="New counter, e.g. Inventory"
+                    aria-label={t("counters.newCounterLabel")}
+                    placeholder={t("counters.newCounterPlaceholder")}
                     value={newLabel}
                     onChange={e => setNewLabel(e.target.value)}
                     onPressEnter={add}
                 />
                 <Button onClick={add} disabled={!newLabel.trim()}>
-                    Add counter
+                    {t("counters.addCounter")}
                 </Button>
             </Space.Compact>
         </div>

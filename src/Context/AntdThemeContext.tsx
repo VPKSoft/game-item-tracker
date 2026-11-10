@@ -1,5 +1,8 @@
 import { ConfigProvider, type GlobalToken, theme } from "antd";
+import enUS from "antd/locale/en_US";
+import fiFI from "antd/locale/fi_FI";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 
 /**
  * The type for the theming context payload.
@@ -29,12 +32,15 @@ type Props = {
 const { useToken } = theme;
 
 /**
- * A component for the antd theme changing at runtime.
+ * A component for the antd theme and locale changing at runtime.
  * @param param0 The children for the component.
  * @returns {JSX.Element} The rendered component.
  */
 const AntdThemeProvider = ({ children }: Props) => {
     const [antdTheme, setAntdTheme] = React.useState<"dark" | "light">("light");
+    // The antd built-in texts (OK / Cancel buttons, empty tables, pagination) follow the UI language.
+    const { i18n } = useTranslation();
+    const locale = i18n.language === "fi" ? fiFI : enUS;
 
     const setTheme = React.useCallback((value: "dark" | "light") => {
         setAntdTheme(value);
@@ -61,6 +67,7 @@ const AntdThemeProvider = ({ children }: Props) => {
 
     return (
         <ConfigProvider
+            locale={locale}
             theme={{
                 algorithm: antdTheme === "dark" ? theme.darkAlgorithm : theme.defaultAlgorithm,
             }}

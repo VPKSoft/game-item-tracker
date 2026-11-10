@@ -1,6 +1,7 @@
 import { Button, Modal } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import * as Package from "../../package.json";
 import { GithubLogo, GithubLogoWhite, LogoImage, NetlifyLogo } from "../Utilities/Images";
@@ -28,6 +29,8 @@ let AboutPopup = ({
     darkMode,
     onClose,
 }: AboutPopupProps) => {
+    const { t } = useTranslation();
+
     // Open my GitHub profile URL when the corresponding component is clicked.
     const openVPKSoftUrl = React.useCallback(() => {
         void open("https://github.com/VPKSoft");
@@ -45,7 +48,7 @@ let AboutPopup = ({
 
     return (
         <Modal //
-            title={`About - ${appName}`}
+            title={t("about.title", { appName })}
             onOk={onClose}
             open={visible}
             width={700}
@@ -54,8 +57,8 @@ let AboutPopup = ({
             footer={null}
         >
             <div className={classNames(AboutPopup.name, className)}>
-                <div className="Popup-versionText">{`${appName}, Copyright © 2025 VPKSoft, v.${appVersion}`}</div>
-                <div className="Popup-licenseText">License</div>
+                <div className="Popup-versionText">{t("about.version", { appName, version: appVersion })}</div>
+                <div className="Popup-licenseText">{t("about.license")}</div>
                 <div className="Popup-licenseContent">
                     {`MIT License
 
@@ -91,7 +94,7 @@ SOFTWARE."
                     <Button //
                         onClick={onClose}
                     >
-                        Ok
+                        {t("about.ok")}
                     </Button>
                 </div>
             </div>

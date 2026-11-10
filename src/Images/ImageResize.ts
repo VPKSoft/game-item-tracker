@@ -1,3 +1,6 @@
+import { createMessage, LocalizedError, type LocalizedMessage } from "../Types/LocalizedMessage.ts";
+import { type ImageMessageCode, imageMessages } from "./ImageMessages.ts";
+
 /** The maximum width and height of a stored item image, in pixels. */
 const maxImageSide = 128;
 
@@ -22,13 +25,13 @@ type ResizedImage = {
 /** Encodes the canvas content into a blob of the given type and quality. */
 type Encoder = (type: string, quality: number) => Promise<Blob>;
 
-/** Gets an error message when the file cannot be used as an image, otherwise null. */
-const validateImageFile = (file: Blob): string | null => {
+/** Gets the problem when the file cannot be used as an image, otherwise null. */
+const validateImageFile = (file: Blob): LocalizedMessage<ImageMessageCode> | null => {
     if (!file.type.startsWith("image/")) {
-        return "The file is not an image.";
+        return createMessage(imageMessages, "notAnImage");
     }
     if (file.size > maxInputBytes) {
-        return `The image is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). The maximum is 10 MB.`;
+        return createMessage(imageMessages, "imageTooLarge", { size: (file.size / 1024 / 1024).toFixed(1) });
     }
     return null;
 };
@@ -53,7 +56,7 @@ const encodeWithinLimit = async (encode: Encoder, maxBytes = maxOutputBytes): Pr
         // The browser fell back to PNG; PNG has no quality setting.
         blob = await encode("image/png", 1);
         if (blob.size > maxBytes) {
-            throw new Error("The resized image is too large to store.");
+            throw new LocalizedError(imageMessages, "resizedImageTooLarge");
         }
         return blob;
     }
@@ -62,7 +65,7 @@ const encodeWithinLimit = async (encode: Encoder, maxBytes = maxOutputBytes): Pr
         blob = await encode("image/webp", quality);
     }
     if (blob.size > maxBytes) {
-        throw new Error("The resized image is too large to store.");
+        throw new LocalizedError(imageMessages, "resizedImageTooLarge");
     }
     return blob;
 };
@@ -80,9 +83,9 @@ const dataUrlToBlob = async (dataUrl: string) => (await fetch(dataUrl)).blob();
 
 /** Resizes an image file in the browser into a small WebP (or PNG) image. */
 const resizeImage = async (file: Blob): Promise<ResizedImage> => {
-    const error = validateImageFile(file);
-    if (error) {
-        throw new Error(error);
+    const problem = validateImageFile(file);
+    if (problem) {
+        throw new LocalizedError(imageMessages, problem.code, problem.params);
     }
     const bitmap = await createImageBitmap(file);
     const { width, height } = computeTargetSize(bitmap.width, bitmap.height);
@@ -91,7 +94,7 @@ const resizeImage = async (file: Blob): Promise<ResizedImage> => {
     canvas.height = height;
     const context = canvas.getContext("2d");
     if (!context) {
-        throw new Error("Image resizing is not supported in this browser.");
+        throw new LocalizedError(imageMessages, "resizeUnsupported");
     }
     context.imageSmoothingQuality = "high";
     context.drawImage(bitmap, 0, 0, width, height);
@@ -99,7 +102,11 @@ const resizeImage = async (file: Blob): Promise<ResizedImage> => {
 
     const encode: Encoder = (type, quality) =>
         new Promise((resolve, reject) => {
-            canvas.toBlob(b => (b ? resolve(b) : reject(new Error("Encoding the image failed."))), type, quality);
+            canvas.toBlob(
+                b => (b ? resolve(b) : reject(new LocalizedError(imageMessages, "encodingFailed"))),
+                type,
+                quality
+            );
         });
     const blob = await encodeWithinLimit(encode);
     return { blob, dataUrl: await blobToDataUrl(blob), width, height, type: blob.type };

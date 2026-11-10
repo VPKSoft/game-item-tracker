@@ -1,8 +1,10 @@
 import { Alert, Modal } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { computeTargetSize, hashImage, resizeImage, validateImageFile } from "../Images/ImageResize.ts";
+import { translateError, translateMessage } from "../Localization/Messages.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
 
 type Props = {
@@ -23,10 +25,13 @@ let ImagePreviewDialog = ({ className, file, onAccept, onCancel }: Props) => {
     const [size, setSize] = React.useState<{ width: number; height: number } | null>(null);
     const [error, setError] = React.useState<string | null>(null);
     const [busy, setBusy] = React.useState(false);
+    const { t } = useTranslation();
 
+    // biome-ignore lint/correctness/useExhaustiveDependencies: validate only when another file is given
     React.useEffect(() => {
         setSize(null);
-        setError(file ? validateImageFile(file) : null);
+        const problem = file ? validateImageFile(file) : null;
+        setError(problem ? translateMessage(t, problem) : null);
         if (!file) {
             setUrl(null);
             return;
@@ -47,7 +52,7 @@ let ImagePreviewDialog = ({ className, file, onAccept, onCancel }: Props) => {
             const resized = await resizeImage(file);
             onAccept(await hashImage(resized.blob), resized.dataUrl);
         } catch (e) {
-            setError(e instanceof Error ? e.message : String(e));
+            setError(translateError(t, e));
         } finally {
             setBusy(false);
         }
@@ -56,8 +61,8 @@ let ImagePreviewDialog = ({ className, file, onAccept, onCancel }: Props) => {
     return (
         <Modal
             open={file !== null}
-            title="Add image"
-            okText="Accept"
+            title={t("image.addImage")}
+            okText={t("image.accept")}
             onOk={accept}
             onCancel={onCancel}
             okButtonProps={{ disabled: !!error || !size, loading: busy }}
@@ -68,24 +73,21 @@ let ImagePreviewDialog = ({ className, file, onAccept, onCancel }: Props) => {
                     <img
                         className="ImagePreviewDialog-image"
                         src={url}
-                        alt="Preview"
+                        alt={t("image.preview")}
                         onLoad={e =>
                             setSize({ width: e.currentTarget.naturalWidth, height: e.currentTarget.naturalHeight })
                         }
-                        onError={() => setError("The image could not be read.")}
+                        onError={() => setError(t("image.couldNotRead"))}
                     />
                 )}
                 {file && (
                     <div className="ImagePreviewDialog-info">
                         <div>
-                            Original: {size ? `${size.width} × ${size.height} px, ` : ""}
-                            {formatBytes(file.size)}
+                            {t("image.original", {
+                                size: `${size ? `${size.width} × ${size.height} px, ` : ""}${formatBytes(file.size)}`,
+                            })}
                         </div>
-                        {target && (
-                            <div>
-                                Stored as: {target.width} × {target.height} px WebP (resized when you accept)
-                            </div>
-                        )}
+                        {target && <div>{t("image.storedAs", { width: target.width, height: target.height })}</div>}
                     </div>
                 )}
                 {error && <Alert type="error" title={error} showIcon />}

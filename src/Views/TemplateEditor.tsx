@@ -3,12 +3,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Alert, App, Badge, Button, Dropdown, Empty, Form, Input, Spin, Tabs } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
 import { addImage, deleteItem, newVersion, touch, upsertItem } from "../Domain/TemplateEdits.ts";
 import { validateTemplate } from "../Domain/Validation.ts";
 import { downloadFile, fileNameFor, serialize } from "../Files/FileIo.ts";
+import { translateMessage } from "../Localization/Messages.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 import { getTemplate, putTemplate } from "../Storage/Database.ts";
 import { useAutosave } from "../Storage/UseAutosave.ts";
@@ -34,9 +36,11 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
     const [editing, setEditing] = React.useState<TemplateItem | null>(null);
     const [tab, setTab] = React.useState("items");
     const { modal } = App.useApp();
+    const { t } = useTranslation();
 
     const templateId = templateKey?.templateId;
     const version = templateKey?.version;
+    // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when another template is opened
     React.useEffect(() => {
         let cancelled = false;
         setTemplate(null);
@@ -46,12 +50,12 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
         }
         setLoading(true);
         getTemplate(templateId, version)
-            .then(t => {
+            .then(loaded => {
                 if (!cancelled) {
-                    if (t) {
-                        setTemplate(t);
+                    if (loaded) {
+                        setTemplate(loaded);
                     } else {
-                        setError("The template was not found. It may have been deleted.");
+                        setError(t("templateEditor.notFound"));
                     }
                 }
             })
@@ -79,9 +83,9 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
 
     if (!templateKey) {
         return (
-            <Empty className={className} description="No template is open">
+            <Empty className={className} description={t("templateEditor.noTemplateOpen")}>
                 <Button type="primary" onClick={onOpenLibrary}>
-                    Open the library
+                    {t("common.openLibrary")}
                 </Button>
             </Empty>
         );
@@ -92,7 +96,7 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
     if (error || !template) {
         return (
             <div className={className}>
-                <Alert type="error" showIcon title={error ?? "The template could not be opened."} />
+                <Alert type="error" showIcon title={error ?? t("templateEditor.couldNotOpen")} />
             </div>
         );
     }
@@ -103,8 +107,8 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
         if (issues.length > 0) {
             const proceed = await new Promise<boolean>(resolve =>
                 modal.confirm({
-                    title: "The template has problems",
-                    content: `${issues.length} problem(s) were found. See the Details tab. Export anyway?`,
+                    title: t("templateEditor.problemsTitle"),
+                    content: t("templateEditor.problemsContent", { count: issues.length }),
                     onOk: () => resolve(true),
                     onCancel: () => resolve(false),
                 })
@@ -137,9 +141,9 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                     icon={<FontAwesomeIcon icon={faPlus} />}
                     onClick={() => setEditing(newItemDraft(template))}
                     disabled={template.categories.length === 0}
-                    title={template.categories.length === 0 ? "Add a category first" : undefined}
+                    title={template.categories.length === 0 ? t("common.addCategoryFirst") : undefined}
                 >
-                    Add item
+                    {t("templateEditor.addItem")}
                 </Button>
             }
         />
@@ -148,32 +152,32 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
     const details = (
         <div style={{ maxWidth: 700, display: "flex", flexDirection: "column", gap: 12 }}>
             <Form layout="vertical">
-                <Form.Item label="Name">
+                <Form.Item label={t("common.name")}>
                     <Input
-                        aria-label="Template name"
+                        aria-label={t("templateEditor.templateName")}
                         value={template.name}
                         onChange={e => change(touch({ ...template, name: e.target.value }))}
                     />
                 </Form.Item>
-                <Form.Item label="Game">
+                <Form.Item label={t("common.game")}>
                     <Input
-                        aria-label="Game"
+                        aria-label={t("common.game")}
                         value={template.game}
                         onChange={e => change(touch({ ...template, game: e.target.value }))}
                     />
                 </Form.Item>
-                <Form.Item label="Description">
+                <Form.Item label={t("common.description")}>
                     <Input.TextArea
-                        aria-label="Template description"
+                        aria-label={t("templateEditor.templateDescription")}
                         autoSize={{ minRows: 2 }}
                         value={template.description}
                         onChange={e => change(touch({ ...template, description: e.target.value }))}
                     />
                 </Form.Item>
-                <Form.Item label="Source / attribution">
+                <Form.Item label={t("templateEditor.source")}>
                     <Input
-                        aria-label="Source"
-                        placeholder="Source name"
+                        aria-label={t("templateEditor.sourceLabel")}
+                        placeholder={t("templateEditor.sourceName")}
                         value={template.source?.name}
                         onChange={e =>
                             change(
@@ -182,8 +186,8 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                         }
                     />
                     <Input
-                        aria-label="Source URL"
-                        placeholder="URL"
+                        aria-label={t("templateEditor.sourceUrl")}
+                        placeholder={t("templateEditor.url")}
                         style={{ marginTop: 6 }}
                         value={template.source?.url}
                         onChange={e =>
@@ -193,8 +197,8 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                         }
                     />
                     <Input
-                        aria-label="License"
-                        placeholder="License"
+                        aria-label={t("templateEditor.license")}
+                        placeholder={t("templateEditor.license")}
                         style={{ marginTop: 6 }}
                         value={template.source?.license}
                         onChange={e =>
@@ -208,20 +212,20 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                     />
                 </Form.Item>
                 <Form.Item
-                    label={`Version ${template.version}`}
-                    extra="Saves upgrade to a new version when the game changes. The current version stays for saves that use it."
+                    label={t("templateEditor.versionLabel", { version: template.version })}
+                    extra={t("templateEditor.versionHint")}
                 >
                     <Dropdown
                         menu={{
                             items: [
-                                { key: "patch", label: "Patch version (fixes)" },
-                                { key: "minor", label: "Minor version (new items)" },
-                                { key: "major", label: "Major version (big changes)" },
+                                { key: "patch", label: t("templateEditor.patchVersion") },
+                                { key: "minor", label: t("templateEditor.minorVersion") },
+                                { key: "major", label: t("templateEditor.majorVersion") },
                             ],
                             onClick: ({ key }) => void saveAsNewVersion(key as "major" | "minor" | "patch"),
                         }}
                     >
-                        <Button>Save as new version…</Button>
+                        <Button>{t("templateEditor.saveAsNewVersion")}</Button>
                     </Dropdown>
                 </Form.Item>
             </Form>
@@ -229,17 +233,17 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                 <Alert
                     type="warning"
                     showIcon
-                    title={`${issues.length} problem(s)`}
+                    title={t("templateEditor.problems", { count: issues.length })}
                     description={
                         <ul style={{ margin: 0, paddingLeft: 18 }}>
                             {issues.slice(0, 50).map(issue => (
-                                <li key={`${issue.path}-${issue.message}`}>{issue.message}</li>
+                                <li key={`${issue.path}-${issue.message}`}>{translateMessage(t, issue)}</li>
                             ))}
                         </ul>
                     }
                 />
             ) : (
-                <Alert type="success" showIcon title="No problems found" />
+                <Alert type="success" showIcon title={t("templateEditor.noProblems")} />
             )}
         </div>
     );
@@ -250,11 +254,15 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                 <div className="TemplateEditor-title">
                     {template.name}
                     <span className="TemplateEditor-subtitle">
-                        {template.game} · v{template.version} · {template.items.length} items
+                        {t("templateEditor.subtitle", {
+                            game: template.game,
+                            version: template.version,
+                            count: template.items.length,
+                        })}
                     </span>
                 </div>
                 <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportTemplate()}>
-                    Export
+                    {t("common.export")}
                 </Button>
             </div>
             <Tabs
@@ -262,37 +270,37 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                 activeKey={tab}
                 onChange={setTab}
                 items={[
-                    { key: "items", label: "Items", children: items },
+                    { key: "items", label: t("templateEditor.tabItems"), children: items },
                     {
                         key: "categories",
-                        label: "Categories",
+                        label: t("templateEditor.tabCategories"),
                         children: <CategoriesEditor template={template} onChange={change} />,
                     },
                     {
                         key: "counters",
-                        label: "Counters",
+                        label: t("templateEditor.tabCounters"),
                         children: <CountersEditor template={template} onChange={change} />,
                     },
                     {
                         key: "variants",
-                        label: "Variants",
+                        label: t("templateEditor.tabVariants"),
                         children: <VariantsEditor template={template} onChange={change} />,
                     },
                     {
                         key: "attributes",
-                        label: "Attributes",
+                        label: t("templateEditor.tabAttributes"),
                         children: <AttributesEditor template={template} onChange={change} />,
                     },
                     {
                         key: "tags",
-                        label: "Tags",
+                        label: t("templateEditor.tabTags"),
                         children: <TagsVocabularyEditor template={template} onChange={change} />,
                     },
                     {
                         key: "details",
                         label: (
                             <Badge count={issues.length} size="small" offset={[8, 0]}>
-                                Details
+                                {t("templateEditor.tabDetails")}
                             </Badge>
                         ),
                         children: details,

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Alert, Button, Dropdown, Empty, Modal, Space, Spin, Table } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
@@ -32,7 +33,10 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
     const [openItemId, setOpenItemId] = React.useState<string | null>(null);
     const [upgradeOpen, setUpgradeOpen] = React.useState(false);
     const [obsoleteOpen, setObsoleteOpen] = React.useState(false);
+    const { t } = useTranslation();
 
+    // The error texts are translated when the save is opened; changing the language does not reload it.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when another save is opened
     React.useEffect(() => {
         let cancelled = false;
         setSave(null);
@@ -46,12 +50,12 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
         (async () => {
             const loaded = await getSave(saveId);
             if (!loaded) {
-                throw new Error("The save was not found. It may have been deleted.");
+                throw new Error(t("inventory.saveNotFound"));
             }
             const loadedTemplate = await getTemplate(loaded.template.templateId, loaded.template.version);
             if (!loadedTemplate) {
                 throw new Error(
-                    `The template "${loaded.template.name}" v${loaded.template.version} is missing. Import it in the Library.`
+                    t("inventory.templateMissing", { name: loaded.template.name, version: loaded.template.version })
                 );
             }
             const versions = await listTemplateVersions(loaded.template.templateId);
@@ -133,9 +137,9 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
 
     if (!saveId) {
         return (
-            <Empty className={className} description="No save is open">
+            <Empty className={className} description={t("inventory.noSaveOpen")}>
                 <Button type="primary" onClick={onOpenLibrary}>
-                    Open the library
+                    {t("common.openLibrary")}
                 </Button>
             </Empty>
         );
@@ -146,9 +150,9 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
     if (error || !save || !template) {
         return (
             <div className={className}>
-                <Alert type="error" title={error ?? "The save could not be opened."} showIcon />
+                <Alert type="error" title={error ?? t("inventory.couldNotOpen")} showIcon />
                 <Button style={{ marginTop: 10 }} onClick={onOpenLibrary}>
-                    Open the library
+                    {t("common.openLibrary")}
                 </Button>
             </div>
         );
@@ -170,10 +174,10 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                     <Alert
                         type="info"
                         showIcon
-                        title={`A newer template version (v${newer.version}) is available.`}
+                        title={t("inventory.newerVersion", { version: newer.version })}
                         action={
                             <Button size="small" type="primary" onClick={() => setUpgradeOpen(true)}>
-                                Upgrade…
+                                {t("inventory.upgrade")}
                             </Button>
                         }
                     />
@@ -191,21 +195,21 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                                 icon={<FontAwesomeIcon icon={faTriangleExclamation} />}
                                 onClick={() => setObsoleteOpen(true)}
                             >
-                                Obsolete ({orphans.length})
+                                {t("inventory.obsolete", { count: orphans.length })}
                             </Button>
                         )}
                         <Space.Compact>
                             <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
-                                Export
+                                {t("common.export")}
                             </Button>
                             <Dropdown
                                 menu={{
-                                    items: [{ key: "bundle", label: "Export with template" }],
+                                    items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
                                     onClick: () => void exportSave(true),
                                 }}
                             >
                                 <Button
-                                    aria-label="More export options"
+                                    aria-label={t("inventory.moreExportOptions")}
                                     icon={<FontAwesomeIcon icon={faChevronDown} />}
                                 />
                             </Dropdown>
@@ -237,21 +241,21 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
             />
             <Modal
                 open={obsoleteOpen}
-                title="Obsolete items"
+                title={t("inventory.obsoleteTitle")}
                 footer={null}
                 onCancel={() => setObsoleteOpen(false)}
                 width={700}
             >
-                <p>These items are no longer in the template. Their data is kept until you remove it.</p>
+                <p>{t("inventory.obsoleteDescription")}</p>
                 <Table
                     size="small"
                     rowKey={([id]) => id}
                     pagination={false}
                     dataSource={orphans}
                     columns={[
-                        { title: "Item", render: (_, [id, s]) => s.orphan?.name ?? id },
+                        { title: t("common.item"), render: (_, [id, s]) => s.orphan?.name ?? id },
                         {
-                            title: "Amounts",
+                            title: t("inventory.amounts"),
                             render: (_, [, s]) =>
                                 Object.entries(s.counts)
                                     .flatMap(([variant, values]) =>
@@ -259,10 +263,14 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                                             ([k, v]) => `${variant === "_" ? "" : `${variant} `}${k}: ${v}`
                                         )
                                     )
-                                    .concat((s.obtained ?? []).map(v => `${v === "_" ? "" : `${v} `}obtained`))
+                                    .concat(
+                                        (s.obtained ?? []).map(
+                                            v => `${v === "_" ? "" : `${v} `}${t("inventory.obtained")}`
+                                        )
+                                    )
                                     .join(", "),
                         },
-                        { title: "Notes", render: (_, [, s]) => s.notes },
+                        { title: t("common.notes"), render: (_, [, s]) => s.notes },
                         {
                             title: "",
                             render: (_, [id]) => (
@@ -279,7 +287,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                                         })
                                     }
                                 >
-                                    Remove
+                                    {t("common.remove")}
                                 </Button>
                             ),
                         },

@@ -3,6 +3,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Card, Checkbox, Progress, Tag, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import {
     findRoleCounter,
@@ -73,11 +74,15 @@ const CounterRows = ({
     size?: "small" | "middle";
 }) => {
     const variants = getItemVariants(template, item);
+    const { t } = useTranslation();
     return (
         <CounterRowsRoot className="CounterRows">
             {variants.map(variant => {
                 if (isVariantUnique(item, variant.key)) {
-                    const label = variant.key === noVariantKey ? "Obtained" : `${variant.label}: obtained`;
+                    const label =
+                        variant.key === noVariantKey
+                            ? t("itemCard.obtained")
+                            : t("itemCard.variantObtained", { variant: variant.label });
                     return (
                         <div key={variant.key} className="CounterRows-row CounterRows-obtained">
                             <span onClick={e => e.stopPropagation()}>
@@ -91,7 +96,7 @@ const CounterRows = ({
                                 </Checkbox>
                             </span>
                             <Tag color="gold" variant="outlined">
-                                Unique
+                                {t("common.unique")}
                             </Tag>
                         </div>
                     );
@@ -137,6 +142,7 @@ let ItemCard = ({
     onOpen,
     showCounters,
 }: Props) => {
+    const { t } = useTranslation();
     const image = item.imageId ? template.images[item.imageId] : undefined;
     const tags = getEffectiveTags(item, saveItem);
     const category = template.categories.find(c => c.id === item.categoryId);
@@ -174,8 +180,10 @@ let ItemCard = ({
                     <div className="ItemCard-badges">
                         <AttributeBadges attributeDefs={template.attributeDefs} item={item} />
                         {!showCounters && category && <Tag variant="filled">{category.name}</Tag>}
-                        {!showCounters && hasUniqueVariants(template, item) && <Tag color="gold">Unique</Tag>}
-                        {item.deprecated && <Tag color="warning">Deprecated</Tag>}
+                        {!showCounters && hasUniqueVariants(template, item) && (
+                            <Tag color="gold">{t("common.unique")}</Tag>
+                        )}
+                        {item.deprecated && <Tag color="warning">{t("common.deprecated")}</Tag>}
                     </div>
                 </div>
             </div>

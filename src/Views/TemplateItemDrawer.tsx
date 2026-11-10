@@ -1,5 +1,6 @@
 import { Button, Checkbox, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Switch } from "antd";
 import * as React from "react";
+import { useTranslation } from "react-i18next";
 import { ImageDropZone } from "../Components/ImageDropZone.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
 import { getItemVariants } from "../Domain/Counters.ts";
@@ -30,6 +31,7 @@ const newItemDraft = (template: Template, categoryId?: string): TemplateItem => 
 const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props) => {
     const [draft, setDraft] = React.useState<TemplateItem | null>(item);
     const [image, setImage] = React.useState<{ id: string; dataUrl: string } | undefined>();
+    const { t } = useTranslation();
     React.useEffect(() => {
         setDraft(item);
         setImage(undefined);
@@ -59,49 +61,53 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
         <Drawer
             open
             onClose={onClose}
-            title={isNew ? "New item" : `Edit ${item?.name}`}
+            title={isNew ? t("templateItem.newItem") : t("templateItem.editItem", { name: item?.name })}
             size={480}
             extra={
                 <Space>
                     {!isNew && (
-                        <Popconfirm title="Delete this item?" onConfirm={() => onDelete(draft.id)}>
-                            <Button danger>Delete</Button>
+                        <Popconfirm title={t("templateItem.deleteTitle")} onConfirm={() => onDelete(draft.id)}>
+                            <Button danger>{t("common.delete")}</Button>
                         </Popconfirm>
                     )}
                     <Button type="primary" onClick={save} disabled={!canSave}>
-                        Save
+                        {t("common.save")}
                     </Button>
                 </Space>
             }
         >
             <Form layout="vertical">
-                {!isNew && <Form.Item label="Id">{draft.id}</Form.Item>}
-                <Form.Item label="Name" required>
+                {!isNew && <Form.Item label={t("templateItem.id")}>{draft.id}</Form.Item>}
+                <Form.Item label={t("common.name")} required>
                     <Input
-                        aria-label="Name"
+                        aria-label={t("common.name")}
                         value={draft.name}
                         onChange={e => set({ name: e.target.value })}
                         autoFocus
                     />
                 </Form.Item>
-                <Form.Item label="Category" required>
+                <Form.Item label={t("common.category")} required>
                     <Select
-                        aria-label="Category"
+                        aria-label={t("common.category")}
                         value={draft.categoryId || undefined}
                         onChange={categoryId => set({ categoryId })}
                         options={template.categories.map(c => ({ value: c.id, label: c.name }))}
-                        placeholder={template.categories.length === 0 ? "Add a category first" : "Choose a category"}
+                        placeholder={
+                            template.categories.length === 0
+                                ? t("common.addCategoryFirst")
+                                : t("templateItem.chooseCategory")
+                        }
                     />
                 </Form.Item>
-                <Form.Item label="Description">
+                <Form.Item label={t("common.description")}>
                     <Input.TextArea
-                        aria-label="Description"
+                        aria-label={t("common.description")}
                         autoSize={{ minRows: 2, maxRows: 8 }}
                         value={draft.description}
                         onChange={e => set({ description: e.target.value })}
                     />
                 </Form.Item>
-                <Form.Item label="Image">
+                <Form.Item label={t("templateItem.image")}>
                     <ImageDropZone
                         image={imageUrl}
                         onAccept={(id, dataUrl) => setImage({ id, dataUrl })}
@@ -141,11 +147,11 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                         )}
                     </Form.Item>
                 ))}
-                <Form.Item label="Tags">
+                <Form.Item label={t("common.tags")}>
                     <TagEditor value={draft.tags} suggestions={template.tags} onChange={tags => set({ tags })} />
                 </Form.Item>
                 {template.variantDefs.length > 0 && (
-                    <Form.Item label="Variants">
+                    <Form.Item label={t("common.variants")}>
                         <Checkbox.Group
                             value={draft.variants ?? template.variantDefs.map(v => v.key)}
                             onChange={values => {
@@ -163,19 +169,16 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                         />
                     </Form.Item>
                 )}
-                <Form.Item
-                    label="Unique"
-                    extra="A unique item is either obtained or not: saves show an obtained checkbox instead of counters."
-                >
+                <Form.Item label={t("common.unique")} extra={t("templateItem.uniqueHint")}>
                     <Space orientation="vertical">
                         <Switch
-                            aria-label="Unique"
+                            aria-label={t("common.unique")}
                             checked={draft.unique !== undefined}
                             onChange={unique => set({ unique: unique ? true : undefined })}
                         />
                         {draft.unique !== undefined && itemVariants.length > 1 && (
                             <Checkbox.Group
-                                aria-label="Unique variants"
+                                aria-label={t("templateItem.uniqueVariants")}
                                 value={draft.unique === true ? itemVariants.map(v => v.key) : draft.unique}
                                 onChange={values => {
                                     const keys = values as string[];
@@ -188,13 +191,13 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                     </Space>
                 </Form.Item>
                 {manualCounters.length > 0 && draft.unique !== true && (
-                    <Form.Item label="Initial amounts in new saves">
+                    <Form.Item label={t("templateItem.initialAmounts")}>
                         <Space wrap>
                             {manualCounters.map(counter => (
                                 <Space.Compact key={counter.key}>
                                     <Space.Addon>{counter.label}</Space.Addon>
                                     <InputNumber
-                                        aria-label={`Default ${counter.label}`}
+                                        aria-label={t("templateItem.defaultAmount", { label: counter.label })}
                                         min={0}
                                         precision={0}
                                         style={{ width: 70 }}
@@ -213,7 +216,7 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                         </Space>
                     </Form.Item>
                 )}
-                <Form.Item label="Deprecated (removed from the game, kept for old saves)">
+                <Form.Item label={t("templateItem.deprecated")}>
                     <Switch
                         checked={!!draft.deprecated}
                         onChange={deprecated => set({ deprecated: deprecated || undefined })}
