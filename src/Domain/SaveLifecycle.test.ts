@@ -5,7 +5,7 @@ import { createSave } from "./CreateSave.ts";
 import { getEffectiveTags, setEffectiveTags } from "./EffectiveTags.ts";
 import { bumpVersion, compareVersions, slugify, uniqueId } from "./Ids.ts";
 import { fishTemplate } from "./TestFixtures.ts";
-import { upgradeSave } from "./UpgradeSave.ts";
+import { getRemovedItemIds, removeSaveItems, upgradeSave } from "./UpgradeSave.ts";
 
 describe("createSave", () => {
     it("creates an entry for every non-deprecated item with defaults per applicable variant", () => {
@@ -70,16 +70,70 @@ describe("upgradeSave", () => {
         save = upgraded;
         expect(save.template.version).toBe("1.1.0");
         expect(summary.addedItems).toEqual(["ray"]);
-        expect(summary.obsoleteItems).toEqual(["koi"]);
+        expect(summary.removedItems).toEqual(["koi"]);
+        expect(summary.deprecatedItems).toEqual([]);
         expect(summary.addedCounters).toEqual(["gift"]);
         expect(summary.removedCounters).toEqual(["tradeable"]);
         expect(save.items.ray.counts.normal.target).toBe(2);
         expect(save.items.koi.notes).toBe("keep me");
-        expect(save.items.koi.orphan).toEqual({ name: "Ancient Koi" });
+        expect(save.items.koi.orphan).toEqual({ name: "Ancient Koi", removedIn: "1.1.0" });
         // The deprecated eel had no user data, so it is dropped.
         expect(save.items.eel).toBeUndefined();
         // Hidden values of removed counters are kept by default...
         expect(save.items.bass.counts.normal.tradeable).toBe(5);
+    });
+
+    it("keeps deleted items without user data, marked as removed", () => {
+        const v1 = fishTemplate();
+        const save = createSave(v1, "s");
+        const { save: upgraded, summary } = upgradeSave(save, v1, v2());
+        expect(summary.removedItems).toEqual(["koi"]);
+        expect(upgraded.items.koi.orphan).toEqual({ name: "Ancient Koi", removedIn: "1.1.0" });
+        expect(getRemovedItemIds(upgraded)).toEqual(["koi"]);
+    });
+
+    it("keeps the removal version over later upgrades and clears it when the item returns", () => {
+        const v1 = fishTemplate();
+        const { save: onV2 } = upgradeSave(createSave(v1, "s"), v1, v2());
+        const v3 = { ...v2(), version: "1.2.0" };
+        const { save: onV3, summary } = upgradeSave(onV2, v2(), v3);
+        expect(summary.removedItems).toEqual([]);
+        expect(onV3.items.koi.orphan).toEqual({ name: "Ancient Koi", removedIn: "1.1.0" });
+
+        const v4 = { ...v1, version: "2.0.0" };
+        const { save: onV4 } = upgradeSave(onV3, v3, v4);
+        expect(onV4.items.koi.orphan).toBeUndefined();
+        expect("orphan" in onV4.items.koi).toBe(false);
+    });
+
+    it("counts the items whose values a removed counter or variant hides", () => {
+        const v1 = fishTemplate();
+        const save = createSave(v1, "s");
+        save.items.bass = setCounterValue(v1, save.items.bass, "normal", "tradeable", 5);
+        save.items.bass = setCounterValue(v1, save.items.bass, "starred", "inventory", 1);
+        // Items already marked as removed are not counted.
+        save.items.koi = { ...setCounterValue(v1, save.items.koi, "normal", "tradeable", 1), orphan: { name: "Koi" } };
+        const v2NoStars = { ...v2(), variantDefs: v1.variantDefs.filter(v => v.key !== "starred") };
+        const { summary } = upgradeSave(save, v1, v2NoStars);
+        expect(summary.removedCounterData).toEqual({ tradeable: 1 });
+        expect(summary.removedVariantData).toEqual({ starred: 1 });
+    });
+
+    it("never discards the data of removed items", () => {
+        const v1 = fishTemplate();
+        const save = createSave(v1, "s");
+        save.items.koi = setCounterValue(v1, save.items.koi, "normal", "tradeable", 3);
+        const { save: upgraded } = upgradeSave(save, v1, v2(), { discardHidden: true });
+        expect(upgraded.items.koi.counts.normal.tradeable).toBe(3);
+    });
+
+    it("removes chosen items from a save", () => {
+        const v1 = fishTemplate();
+        const { save } = upgradeSave(createSave(v1, "s"), v1, v2());
+        const removed = removeSaveItems(save, getRemovedItemIds(save));
+        expect(removed.items.koi).toBeUndefined();
+        expect(removed.items.bass).toBeDefined();
+        expect(getRemovedItemIds(removed)).toEqual([]);
     });
 
     it("discards hidden values only when asked", () => {

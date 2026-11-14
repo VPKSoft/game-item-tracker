@@ -152,9 +152,9 @@ The drawer contains:
 
 The **Export** button in the toolbar downloads the save. The arrow next to it offers **Export with template**.
 
-### 5.4 Obsolete items
+### 5.4 Items removed from the template
 
-If a template upgrade removes an item that has data in your save, the toolbar shows an **Obsolete (N)** button. It lists those items with their amounts and notes. The data is kept until you click **Remove**.
+A template upgrade never deletes items from your save. If the new template version no longer has an item, the item stays in the save and is marked as removed. The Inventory view then shows a warning, **N items in this save no longer exist in the template**, with a **Review…** button. The dialog lists those items with the version that removed them, their amounts and notes. Click **Remove** next to an item, or **Remove all**, and confirm to delete them from the save. Until then their data is kept and exported with the save.
 
 ## 6. Finding items: categories, search, sorting and filters
 
@@ -339,8 +339,8 @@ When the game gets an update, update the template instead of starting over:
 When a save's template has a newer version in the library, the Inventory view shows **A newer template version is available** with an **Upgrade…** button. The upgrade dialog lists what will change:
 
 - **New items, counters and variants** start at their initial amounts, or 0.
-- **Obsolete items** (removed or deprecated) are kept with their data and shown under *Obsolete*.
-- **Removed counters and variants** have their values hidden, not deleted. They reappear if a later version brings them back. Tick **Discard the hidden values of removed counters and variants** to remove them instead.
+- **Items deleted from the template** are kept in the save and marked as removed (see [5.4](#54-items-removed-from-the-template)). Deprecated items with data are kept as well.
+- **Removed counters and variants** are shown in a warning that tells how many items have values for each of them. Their values are hidden, not deleted, and reappear if a later version brings them back. Tick **Discard the hidden values of removed counters and variants** to delete them instead; the upgrade then asks for confirmation before deleting values you have entered.
 - Name, description, category, attribute, image and formula changes apply automatically.
 
 Upgrades only go forward.

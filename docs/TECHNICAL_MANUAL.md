@@ -289,7 +289,7 @@ type SaveItem = {
     removedTags: string[];       // template tags the user removed
     customTags: string[];        // tags the user added
     obtained?: string[];         // variant keys ("_" when no variants) of obtained unique variants
-    orphan?: { name: string };   // item no longer in the template; keeps a display name
+    orphan?: { name: string; removedIn?: string }; // item deleted from the template; display name + version that removed it
 };
 ```
 
@@ -383,15 +383,20 @@ Storing the difference instead of a copy means tags added in a newer template ve
 
 | Case | Result |
 |---|---|
-| Item removed or deprecated, has user data | Kept; `orphan: { name }` set when removed; listed in `obsoleteItems` |
-| Item removed or deprecated, no user data | Dropped |
+| Item deleted from the template | **Always kept**, with or without user data; `orphan: { name, removedIn }` set (`removedIn` = the new version); listed in `removedItems`. Already orphaned items keep their original `removedIn`. Their values are never discarded, not even with `discardHidden`. |
+| Item deprecated, has user data | Kept; listed in `deprecatedItems` |
+| Item deprecated, no user data | Dropped |
 | Orphaned item comes back | `orphan` cleared |
 | New item | `createSaveItem` |
 | New counter or variant | Its default filled in where no value exists |
-| Removed counter or variant | Values kept (hidden) unless `discardHidden` |
+| Removed counter or variant | Values kept (hidden) unless `discardHidden`; `removedCounterData` / `removedVariantData` count the non-orphan items with values > 0 (or obtained marks) for each |
 | Different `templateId` | Throws |
 
 "User data" (`hasUserData`) = notes, custom or removed tags, obtained marks, or any count > 0. Upgrades go forward only; the UI offers the newest stored version (`compareVersions`).
+
+Orphaned items are only dropped by the user: `getRemovedItemIds(save)` lists them and `removeSaveItems(save, ids)` removes them. `InventoryEditor` shows a warning banner while a save has orphaned items; its *Review…* dialog removes them one by one or all at once, each behind a `Popconfirm`.
+
+`UpgradeDialog` shows removed counters and variants in a warning `Alert` with the affected item counts. When *Discard the hidden values* is ticked and any of those counts is above zero, the OK button turns red and a `modal.confirm` asks before the upgrade is applied.
 
 ### 5.6 Template editing (`TemplateEdits.ts`)
 
@@ -482,7 +487,7 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 |---|---|
 | `App.tsx` | Toolbar with `Segmented` view switch, theme switch, About. Persists view and open documents. |
 | `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags. |
-| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; obsolete items dialog; export. |
+| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export. |
 | `SaveItemDrawer.tsx` | Amounts, effective tags editor, notes (committed on blur). |
 | `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Details (metadata, version, validation issues). |
 | `TemplateItemDrawer.tsx` | Edits a draft copy of an item; *Save* applies it with `upsertItem`. |
@@ -584,7 +589,7 @@ Code changes must keep these true. Most are enforced by `validateTemplate` or te
 5. Items without variants use variant key `"_"` in `counts` and `obtained`.
 6. A unique variant has no stored counts; its value comes from `obtained`.
 7. Domain functions are pure and immutable. State updates create new references (autosave depends on it).
-8. Upgrades never lose user data unless `discardHidden` is chosen; obsolete items with data are kept.
+8. Upgrades never lose user data unless `discardHidden` is chosen (and confirmed in the UI). Items deleted from the template are never dropped by an upgrade; only the user removes them.
 9. Imports are decided by the `format` field and validated with Zod before storage.
 10. Stored images are ≤ 128 × 128 px and ≤ 64 KB, keyed by content hash.
 11. The repository holds software only. No generated templates, saves or game data (the user-manual screenshots are the documented exception).
@@ -659,6 +664,7 @@ Later changes:
 
 - PR #2, "Unique items": items or variants that are obtained rather than counted (starred Ancient Cloudminnow); `AGENTS.md` added.
 - PR #3: user manual. PR #4: fix for the visible file input in the item drawer. PR #5: this manual.
+- Template upgrade safety: items deleted from a template are always kept in the save as orphans (`orphan.removedIn` records the version), shown in a warning banner and removed only by the user with a confirmation. The upgrade dialog warns about removed counters and variants with affected item counts and confirms before discarding their values.
 - Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
 
 ## 16. Known limitations

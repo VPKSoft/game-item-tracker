@@ -1,6 +1,6 @@
 import { faChevronDown, faDownload, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, Button, Dropdown, Empty, Modal, Space, Spin, Table } from "antd";
+import { Alert, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,7 @@ import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
 import { getSaveItem, setCounterValue, setObtained } from "../Domain/Counters.ts";
 import { compareVersions } from "../Domain/Ids.ts";
+import { removeSaveItems } from "../Domain/UpgradeSave.ts";
 import { downloadFile, fileNameFor, serialize } from "../Files/FileIo.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
@@ -32,7 +33,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
     const [error, setError] = React.useState<string | null>(null);
     const [openItemId, setOpenItemId] = React.useState<string | null>(null);
     const [upgradeOpen, setUpgradeOpen] = React.useState(false);
-    const [obsoleteOpen, setObsoleteOpen] = React.useState(false);
+    const [removedOpen, setRemovedOpen] = React.useState(false);
     const { t } = useTranslation();
 
     // The error texts are translated when the save is opened; changing the language does not reload it.
@@ -89,6 +90,10 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                   }
                 : s
         );
+    }, []);
+
+    const removeItems = React.useCallback((itemIds: string[]) => {
+        setSave(s => (s ? removeSaveItems(s, itemIds) : s));
     }, []);
 
     const onCounterChange = React.useCallback(
@@ -170,6 +175,19 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                         {template.name} v{template.version}
                     </span>
                 </div>
+                {orphans.length > 0 && (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        icon={<FontAwesomeIcon icon={faTriangleExclamation} />}
+                        title={t("inventory.removedItemsBanner", { count: orphans.length })}
+                        action={
+                            <Button size="small" onClick={() => setRemovedOpen(true)}>
+                                {t("inventory.review")}
+                            </Button>
+                        }
+                    />
+                )}
                 {newer && (
                     <Alert
                         type="info"
@@ -189,32 +207,22 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                 renderCard={renderCard}
                 stateKey={`browser:save:${save.saveId}`}
                 toolbarExtra={
-                    <>
-                        {orphans.length > 0 && (
+                    <Space.Compact>
+                        <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
+                            {t("common.export")}
+                        </Button>
+                        <Dropdown
+                            menu={{
+                                items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
+                                onClick: () => void exportSave(true),
+                            }}
+                        >
                             <Button
-                                icon={<FontAwesomeIcon icon={faTriangleExclamation} />}
-                                onClick={() => setObsoleteOpen(true)}
-                            >
-                                {t("inventory.obsolete", { count: orphans.length })}
-                            </Button>
-                        )}
-                        <Space.Compact>
-                            <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
-                                {t("common.export")}
-                            </Button>
-                            <Dropdown
-                                menu={{
-                                    items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
-                                    onClick: () => void exportSave(true),
-                                }}
-                            >
-                                <Button
-                                    aria-label={t("inventory.moreExportOptions")}
-                                    icon={<FontAwesomeIcon icon={faChevronDown} />}
-                                />
-                            </Dropdown>
-                        </Space.Compact>
-                    </>
+                                aria-label={t("inventory.moreExportOptions")}
+                                icon={<FontAwesomeIcon icon={faChevronDown} />}
+                            />
+                        </Dropdown>
+                    </Space.Compact>
                 }
             />
             <SaveItemDrawer
@@ -240,13 +248,29 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                 }}
             />
             <Modal
-                open={obsoleteOpen}
-                title={t("inventory.obsoleteTitle")}
-                footer={null}
-                onCancel={() => setObsoleteOpen(false)}
-                width={700}
+                open={removedOpen && orphans.length > 0}
+                title={t("inventory.removedItemsTitle")}
+                onCancel={() => setRemovedOpen(false)}
+                width={760}
+                footer={
+                    <Space>
+                        <Popconfirm
+                            title={t("inventory.removeAllTitle", { count: orphans.length })}
+                            description={t("inventory.removeDescription")}
+                            okText={t("common.remove")}
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => {
+                                removeItems(orphans.map(([id]) => id));
+                                setRemovedOpen(false);
+                            }}
+                        >
+                            <Button danger>{t("inventory.removeAll")}</Button>
+                        </Popconfirm>
+                        <Button onClick={() => setRemovedOpen(false)}>{t("common.close")}</Button>
+                    </Space>
+                }
             >
-                <p>{t("inventory.obsoleteDescription")}</p>
+                <p>{t("inventory.removedItemsDescription")}</p>
                 <Table
                     size="small"
                     rowKey={([id]) => id}
@@ -255,13 +279,17 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                     columns={[
                         { title: t("common.item"), render: (_, [id, s]) => s.orphan?.name ?? id },
                         {
+                            title: t("inventory.removedIn"),
+                            render: (_, [, s]) => (s.orphan?.removedIn ? `v${s.orphan.removedIn}` : ""),
+                        },
+                        {
                             title: t("inventory.amounts"),
                             render: (_, [, s]) =>
                                 Object.entries(s.counts)
                                     .flatMap(([variant, values]) =>
-                                        Object.entries(values).map(
-                                            ([k, v]) => `${variant === "_" ? "" : `${variant} `}${k}: ${v}`
-                                        )
+                                        Object.entries(values)
+                                            .filter(([, v]) => v > 0)
+                                            .map(([k, v]) => `${variant === "_" ? "" : `${variant} `}${k}: ${v}`)
                                     )
                                     .concat(
                                         (s.obtained ?? []).map(
@@ -273,22 +301,18 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                         { title: t("common.notes"), render: (_, [, s]) => s.notes },
                         {
                             title: "",
-                            render: (_, [id]) => (
-                                <Button
-                                    size="small"
-                                    danger
-                                    onClick={() =>
-                                        setSave(s => {
-                                            if (!s) {
-                                                return s;
-                                            }
-                                            const { [id]: _removed, ...items } = s.items;
-                                            return { ...s, items, updatedAt: new Date().toISOString() };
-                                        })
-                                    }
+                            render: (_, [id, s]) => (
+                                <Popconfirm
+                                    title={t("inventory.removeTitle", { name: s.orphan?.name ?? id })}
+                                    description={t("inventory.removeDescription")}
+                                    okText={t("common.remove")}
+                                    okButtonProps={{ danger: true }}
+                                    onConfirm={() => removeItems([id])}
                                 >
-                                    {t("common.remove")}
-                                </Button>
+                                    <Button size="small" danger>
+                                        {t("common.remove")}
+                                    </Button>
+                                </Popconfirm>
                             ),
                         },
                     ]}
