@@ -524,7 +524,7 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
 - `scripts/PaliaParsers.ts` holds the pure parsers and builders:
   - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target), Tradeable; attribute `rarity` 1–5; tags `location:`, `time:`, `bait:`, `bundle:`/`quest:`; starred Ancient Cloudminnow is unique.
-- **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Inventory, Placed, Storage, Total (owned), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `source:` tags.
+- **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Placed, Storage, Total = Placed + Storage (owned; no Inventory counter), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `source:` tags.
 - Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
 
 ## 11. Testing
