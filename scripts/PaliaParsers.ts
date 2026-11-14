@@ -101,12 +101,12 @@ const parseBait = (text: string) => {
 /** Classifies a "Needed For" entry by its icon's alt text. */
 const neededForTag = (alt: string) => {
     if (/quest/i.test(alt)) {
-        return `quest:${alt}`;
+        return `Quest: ${alt}`;
     }
     if (/bundle/i.test(alt)) {
-        return `bundle:${alt}`;
+        return `Bundle: ${alt}`;
     }
-    return `recipe:${alt}`;
+    return `Recipe: ${alt}`;
 };
 
 const headerTexts = (table: HTMLElement) =>
@@ -332,9 +332,9 @@ const buildFishTemplate = (rows: FishRow[], meta: TemplateMeta) => {
             attributes: row.rarity ? { rarity: row.rarity } : {},
             tags: [
                 ...new Set([
-                    `location:${row.location}`,
-                    ...parseTimes(row.time).map(t => `time:${t}`),
-                    ...row.bait.map(b => `bait:${b}`),
+                    `Location: ${row.location}`,
+                    ...parseTimes(row.time).map(t => `Time: ${t}`),
+                    ...row.bait.map(b => `Bait: ${b}`),
                     ...row.neededFor,
                 ]),
             ],

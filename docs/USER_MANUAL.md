@@ -44,7 +44,7 @@ Key template building blocks:
 - **Variants**: one item can have several forms that are tracked separately. Palia fish have *Normal* and *★ Starred* variants. A counter can be limited to some variants, e.g. *Placed* only applies to starred fish.
 - **Unique items**: an item, or just some of its variants, that you either have or don't. Instead of counters you get an **obtained** checkbox. See [Unique items](#7-unique-items).
 - **Attributes**: read-only numbers such as rarity or quality, shown as colored badges.
-- **Tags**: text labels for searching and filtering, such as `location:Kilima Lake` or `bait:Worm`.
+- **Tags**: text labels for searching and filtering, such as `Location: Kilima Lake` or `Bait: Worm`.
 
 ## 2. The main window
 

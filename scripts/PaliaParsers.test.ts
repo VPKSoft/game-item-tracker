@@ -111,7 +111,7 @@ describe("fish", () => {
             location: "Caves",
             time: "Morning and Day (3:00 AM - 6:00 PM)",
             bait: ["Worm"],
-            neededFor: ["quest:Daily Quest", "bundle:Flamerod Bundle"],
+            neededFor: ["Quest: Daily Quest", "Bundle: Flamerod Bundle"],
             imageUrl: "https://palia.wiki.gg/images/Test_Eel.png",
         });
     });
@@ -125,7 +125,7 @@ describe("fish", () => {
         expect(getVariantCounters(template, "normal").map(c => c.key)).not.toContain("placed");
         expect(getVariantCounters(template, "starred").map(c => c.key)).toContain("placed");
         expect(template.items[0].tags).toEqual(
-            expect.arrayContaining(["location:Caves", "time:Morning", "bait:Worm", "bundle:Flamerod Bundle"])
+            expect.arrayContaining(["Location: Caves", "Time: Morning", "Bait: Worm", "Bundle: Flamerod Bundle"])
         );
         expect(imageUrls.get("test-eel")).toBe("https://palia.wiki.gg/images/Test_Eel.png");
     });
