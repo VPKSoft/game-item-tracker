@@ -12,15 +12,18 @@ import sharp from "sharp";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { fileNameFor, serialize } from "../src/Files/FileFormat.ts";
 import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts";
+import { majiMarketItemNames, majiMarketShops } from "./MajiMarketItems.ts";
 import {
     buildBugTemplate,
     buildFishTemplate,
+    buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseWikiItemPage,
 } from "./PaliaParsers.ts";
 
 const wikiBase = "https://palia.wiki.gg";
@@ -31,6 +34,7 @@ const fishTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e01";
 const plushieTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e02";
 const potatoPodTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e03";
 const bugTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e04";
+const majiMarketTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e05";
 
 const { values } = parseArgs({
     options: {
@@ -41,7 +45,7 @@ const { values } = parseArgs({
 });
 
 const fetchPageHtml = async (page: string) => {
-    const url = `${wikiBase}/api.php?action=parse&page=${encodeURIComponent(page)}&prop=text&format=json&formatversion=2`;
+    const url = `${wikiBase}/api.php?action=parse&page=${encodeURIComponent(page)}&prop=text&format=json&formatversion=2&redirects=1`;
     const response = await fetch(url, { headers: { "User-Agent": userAgent } });
     if (!response.ok) {
         throw new Error(`Fetching ${page} failed: ${response.status}`);
@@ -173,6 +177,28 @@ const main = async () => {
         await addImages(bugs.template, bugs.imageUrls);
     }
     await writeTemplate(bugs.template);
+
+    console.log(`Fetching ${majiMarketItemNames.length} Maji Market item pages…`);
+    const majiItems = [];
+    for (const name of majiMarketItemNames) {
+        // One page at a time, to be gentle with the wiki.
+        majiItems.push(parseWikiItemPage(name, await fetchPageHtml(name), wikiBase));
+    }
+    const maji = buildMajiMarketTemplate(
+        majiItems,
+        {
+            templateId: majiMarketTemplateId,
+            version: values.version,
+            name: "Palia – Maji Market",
+            description: "The items sold at the Maji Market, by shop. Item list from paliatracker.com.",
+            sourceUrl: `${wikiBase}/wiki/Maji_Market`,
+        },
+        majiMarketShops
+    );
+    if (!values["no-images"]) {
+        await addImages(maji.template, maji.imageUrls);
+    }
+    await writeTemplate(maji.template);
 };
 
 main().catch(error => {
