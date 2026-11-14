@@ -72,6 +72,7 @@ Only the program's own texts are translated. Names, descriptions, tags, counter 
    ![Empty library](images/manual/01-library-empty.png)
 
 2. Get a template:
+   - **Online templates…** and **Install** a template shared by the community (see [Online templates](#41-online-templates)), or
    - **Import file…** and choose one or more `.gitemplate.json` files (for example the Palia samples), or
    - **New template** to make your own (see [Templates](#8-templates-defining-a-games-items)).
 
@@ -111,6 +112,22 @@ The Library lists everything stored in this browser.
 | Delete | Deletes this template version. You are warned if saves use it. |
 
 **Import file…** accepts both templates and saves, several at a time. The app reads the `format` field inside the file, so a renamed file is still recognized. If the same template version or save already exists, you are asked whether to replace it. Importing a save that has an embedded template also imports the template when it is missing.
+
+### 4.1 Online templates
+
+**Online templates…** lists the templates shared in the
+[community template repository](https://github.com/VPKSoft/game-item-tracker-data). It needs an internet
+connection; everything else in the app works offline.
+
+- Type in the search field to find a game or template.
+- **Install** downloads the template into the Library. Then create a save from it with **New save**.
+- **Update to vX** appears when a newer version of a template you have is available. After updating, open
+  your save and use the upgrade banner to move it to the new version (see
+  [Template versions and save upgrades](#9-template-versions-and-save-upgrades)).
+- **Installed** means you already have that version. **older than yours** means your library has a newer
+  version than the online one, for example because you edited it yourself.
+
+To share a template of your own, follow **Share your own template** in the dialog.
 
 ## 5. Inventory: tracking your items
 

@@ -1,4 +1,4 @@
-import { faFileImport, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faCloudArrowDown, faFileImport, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Alert, App, Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Tooltip } from "antd";
 import classNames from "classnames";
@@ -30,6 +30,7 @@ import {
     type TemplateSummary,
 } from "../Storage/Database.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
+import { OnlineTemplatesDialog } from "./OnlineTemplatesDialog.tsx";
 import type { TemplateKey } from "./TemplateEditor.tsx";
 
 type Props = {
@@ -49,6 +50,7 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
     const [newTemplateOpen, setNewTemplateOpen] = React.useState(false);
     const [newTemplate, setNewTemplate] = React.useState({ name: "", game: "" });
     const [importError, setImportError] = React.useState<string | null>(null);
+    const [onlineOpen, setOnlineOpen] = React.useState(false);
     const fileInput = React.useRef<HTMLInputElement>(null);
     const { message, modal } = App.useApp();
     const { t, i18n } = useTranslation();
@@ -196,6 +198,9 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                     onClick={() => fileInput.current?.click()}
                 >
                     {t("library.importFile")}
+                </Button>
+                <Button icon={<FontAwesomeIcon icon={faCloudArrowDown} />} onClick={() => setOnlineOpen(true)}>
+                    {t("library.onlineTemplates")}
                 </Button>
                 <Button icon={<FontAwesomeIcon icon={faPlus} />} onClick={() => setNewTemplateOpen(true)}>
                     {t("library.newTemplate")}
@@ -366,6 +371,12 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 />
             </Card>
 
+            <OnlineTemplatesDialog
+                open={onlineOpen}
+                stored={templates}
+                onClose={() => setOnlineOpen(false)}
+                onInstalled={() => void refresh()}
+            />
             <Modal
                 open={newSaveFor !== null}
                 title={t("library.newSaveTitle", { name: newSaveFor?.name })}

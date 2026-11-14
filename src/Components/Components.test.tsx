@@ -2,13 +2,18 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { App as AntdApp } from "antd";
 import * as React from "react";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { getSaveItem, setCounterValue } from "../Domain/Counters.ts";
 import { createSave } from "../Domain/CreateSave.ts";
 import { fishTemplate } from "../Domain/TestFixtures.ts";
+import { serialize } from "../Files/FileFormat.ts";
+import { defaultCatalogUrl } from "../Files/OnlineCatalog.ts";
+import { catalogFormat } from "../Schemas/CatalogSchema.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
+import { getTemplate } from "../Storage/Database.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
+import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
 import { UpgradeDialog } from "../Views/UpgradeDialog.tsx";
 import { CounterStepper } from "./CounterStepper.tsx";
@@ -307,5 +312,78 @@ describe("UpgradeDialog", () => {
         const [upgraded] = onUpgrade.mock.calls[0] as [Save];
         expect(upgraded.items.bass.counts.normal.tradeable).toBeUndefined();
         expect(upgraded.items.koi.orphan).toEqual({ name: "Ancient Koi", removedIn: "1.1.0" });
+    });
+});
+
+describe("OnlineTemplatesDialog", () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it("lists the online templates and installs an update", async () => {
+        const template = { ...fishTemplate(), version: "1.1.0" };
+        const listed = (name: string, templateId: string, version: string) => ({
+            templateId,
+            version,
+            name,
+            game: "Palia",
+            itemCount: 3,
+            updatedAt: template.updatedAt,
+            path: `P/Palia/${templateId}.gitemplate.json`,
+            size: 2048,
+        });
+        const catalog = {
+            format: catalogFormat,
+            schemaVersion: 1,
+            generatedAt: template.updatedAt,
+            templates: [listed("Fish", template.templateId, "1.1.0"), listed("Plushies", "plushies", "1.0.0")],
+        };
+        const files: Record<string, string> = {
+            [defaultCatalogUrl]: JSON.stringify(catalog),
+            [new URL(`P/Palia/${template.templateId}.gitemplate.json`, defaultCatalogUrl).toString()]:
+                serialize(template),
+        };
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async (url: string) => new Response(files[url] ?? "", { status: files[url] ? 200 : 404 }))
+        );
+        const onInstalled = vi.fn();
+        render(
+            <AntdApp>
+                <OnlineTemplatesDialog
+                    open
+                    stored={[
+                        { templateId: template.templateId, version: "1.0.0" },
+                        { templateId: "plushies", version: "1.0.0" },
+                    ]}
+                    onClose={vi.fn()}
+                    onInstalled={onInstalled}
+                />
+            </AntdApp>
+        );
+
+        expect(await screen.findByText("Fish")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Installed" })).toBeDisabled();
+        await userEvent.type(screen.getByLabelText("Search games and templates"), "plush");
+        expect(screen.queryByText("Fish")).toBeNull();
+        await userEvent.clear(screen.getByLabelText("Search games and templates"));
+
+        await userEvent.click(screen.getByRole("button", { name: "Update to v1.1.0" }));
+        await waitFor(() => expect(onInstalled).toHaveBeenCalled());
+        expect((await getTemplate(template.templateId, "1.1.0"))?.version).toBe("1.1.0");
+    });
+
+    it("shows a retry button when the list cannot be loaded", async () => {
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response("", { status: 500 }))
+        );
+        render(
+            <AntdApp>
+                <OnlineTemplatesDialog open stored={[]} onClose={vi.fn()} onInstalled={vi.fn()} />
+            </AntdApp>
+        );
+        expect(await screen.findByText("The online template list could not be loaded (HTTP 500).")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     });
 });

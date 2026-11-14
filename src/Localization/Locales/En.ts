@@ -1,5 +1,6 @@
 import { validationMessages } from "../../Domain/Validation.ts";
 import { fileMessages } from "../../Files/FileFormat.ts";
+import { catalogMessages } from "../../Files/OnlineCatalog.ts";
 import { imageMessages } from "../../Images/ImageMessages.ts";
 
 /**
@@ -68,6 +69,7 @@ const en = {
     },
     library: {
         importFile: "Import file…",
+        onlineTemplates: "Online templates…",
         newTemplate: "New template",
         filesHint:
             "Templates are {{templateExtension}} files and saves are {{saveExtension}} files. Everything is also kept in this browser.",
@@ -91,7 +93,8 @@ const en = {
         deleteSaveTitle: "Delete this save?",
         deleteSaveDescription: "This cannot be undone. Export it first if you want a backup.",
         templatesTitle: "Templates",
-        noTemplates: "No templates yet. Import a {{extension}} file or create a new template.",
+        noTemplates:
+            "No templates yet. Get one from Online templates, import a {{extension}} file or create a new template.",
         newSave: "New save",
         deleteTemplateTitle: "Delete this template version?",
         deleteTemplateUsed: "Saves use this version and cannot be opened without it.",
@@ -99,6 +102,22 @@ const en = {
         saveName: "Save name",
         newTemplateName: "New template name",
         newTemplateGame: "New template game",
+    },
+    online: {
+        title: "Online templates",
+        hint: "Templates shared by the community. Install one to create saves from it.",
+        shareLink: "Share your own template",
+        search: "Search games and templates",
+        retry: "Retry",
+        noMatches: "No templates match the search.",
+        details_one: "{{game}} · {{count}} item · {{size}}",
+        details_other: "{{game}} · {{count}} items · {{size}}",
+        install: "Install",
+        update: "Update to v{{version}}",
+        isInstalled: "Installed",
+        olderThanYours: "older than yours",
+        installed: "Installed {{name}} v{{version}}",
+        updated: "Updated {{name}} to v{{version}}. Open a save to upgrade it.",
     },
     inventory: {
         saveNotFound: "The save was not found. It may have been deleted.",
@@ -324,6 +343,7 @@ const en = {
     messages: {
         ...validationMessages,
         ...fileMessages,
+        ...catalogMessages,
         ...imageMessages,
     },
 };
