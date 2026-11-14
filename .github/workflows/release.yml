@@ -1,0 +1,79 @@
+name: Release
+
+# Creates a vX.Y.Z tag and a GitHub release when a merge to develop changes the version in package.json.
+# A push whose version already has a tag (no version bump) does nothing.
+on:
+  push:
+    branches: [ "develop" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Never run two releases at once; queue the next one instead.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        # Full history and tags, so the existing tags and the release notes range are known.
+        fetch-depth: 0
+
+    - name: Read the version
+      id: version
+      run: |
+        version=$(node -p "require('./package.json').version")
+        semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+        if ! [[ "$version" =~ $semver ]]; then
+          echo "::error::package.json version '$version' is not a valid SemVer version."
+          exit 1
+        fi
+        tag="v$version"
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+        if git rev-parse -q --verify "refs/tags/$tag" > /dev/null; then
+          echo "Tag $tag already exists; the version was not bumped. Nothing to release."
+          echo "release=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # The newest existing release tag (by version order, ignoring pre-releases).
+        latest=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
+        core="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+        if [ -n "$latest" ] && [ "$core" != "$latest" ] && \
+           [ "$(printf '%s\n%s\n' "$latest" "$core" | sort -V | tail -n 1)" != "$core" ]; then
+          echo "::error::Version $tag is lower than the latest release $latest."
+          exit 1
+        fi
+
+        if [[ "$version" == *-* ]]; then
+          echo "prerelease=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "release=true" >> "$GITHUB_OUTPUT"
+        echo "Releasing $tag (previous release: ${latest:-none})."
+
+    - name: Create the tag and the release
+      if: steps.version.outputs.release == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ steps.version.outputs.tag }}
+        PRERELEASE: ${{ steps.version.outputs.prerelease }}
+      run: |
+        flags=()
+        if [ "$PRERELEASE" = "true" ]; then
+          flags+=(--prerelease)
+        fi
+        # gh creates the tag on the merged commit and lists the merged pull requests in the notes.
+        gh release create "$TAG" \
+          --target "$GITHUB_SHA" \
+          --title "$TAG" \
+          --generate-notes \
+          "${flags[@]}"

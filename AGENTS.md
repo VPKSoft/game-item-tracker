@@ -17,6 +17,15 @@ npx tsc -b
 npm test
 ```
 
+## Versioning
+
+The app uses [Semantic Versioning](https://semver.org) (`MAJOR.MINOR.PATCH`) with `version` in `package.json` as
+the only source. In a PR that changes the app, bump it with `npm version <major|minor|patch> --no-git-tag-version`:
+MAJOR for incompatible changes (minor while the version is `0.x`), MINOR for new features, PATCH for bug fixes;
+docs-, test- or tooling-only changes need no bump. When the PR is merged into `develop`, the Release workflow
+creates the `vX.Y.Z` tag and a GitHub release automatically; never create release tags by hand.
+See "Versioning and releases" in [docs/TECHNICAL_MANUAL.md](docs/TECHNICAL_MANUAL.md#121-versioning-and-releases).
+
 ## Project knowledge
 
 Read [docs/TECHNICAL_MANUAL.md](docs/TECHNICAL_MANUAL.md) before changing code. It describes the architecture,

@@ -3,8 +3,8 @@ import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
-import * as Package from "../../package.json";
 import { GithubLogo, GithubLogoWhite, LogoImage } from "../Utilities/Images";
+import { appName, appVersion } from "../Utilities/Version.ts";
 
 /**
  * The props for the {@link AboutPopup} component.
@@ -20,8 +20,6 @@ type AboutPopupProps = {
     onClose: () => void;
 };
 
-const appVersion = Package.version;
-const appName = Package.description;
 const appUrl = "https://vpksoft.github.io/game-item-tracker/";
 const appIconUrl = `${import.meta.env.BASE_URL}pwa-192x192.png`;
 const iconSourceUrl = "https://www.flaticon.com/free-icon/list-items_8161879";
