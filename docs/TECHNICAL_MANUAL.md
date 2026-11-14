@@ -125,7 +125,7 @@ src/
     CountersEditor.tsx     Counters tab
     UpgradeDialog.tsx      Save upgrade preview
     OnlineTemplatesDialog.tsx  Online template list: install and update
-    ExchangePanel.tsx      Exchange list drawer: entries, quick fill, image options, copy / save PNG
+    ExchangePanel.tsx      Exchange list side panel: entries, quick fill, image options, copy / save PNG
   Localization/
     I18n.ts                i18next setup, supported languages, stored language, setLanguage
     I18next.d.ts           Type augmentation: translation keys are checked by tsc
@@ -525,7 +525,7 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
 | `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
 | `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle. |
-| `ExchangePanel.tsx` | Exchange list drawer (no mask): entries with amounts, quick fill, image options, preview, Copy image and Save PNG (section 9.1). |
+| `ExchangePanel.tsx` | Exchange list side panel next to the grid (an `<aside>` in `InventoryEditor-body`, not an overlay drawer, so the grid reflows to fewer columns; stacked below the grid under 760 px): entries with amounts, quick fill, image options, preview, Copy image and Save PNG (section 9.1). |
 | `SaveItemDrawer.tsx` | Amounts, effective tags editor, notes (committed on blur). |
 | `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Details (metadata, version, validation issues). |
 | `TemplateItemDrawer.tsx` | Edits a draft copy of an item; *Save* applies it with `upsertItem`. |

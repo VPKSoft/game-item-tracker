@@ -269,54 +269,59 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                     />
                 )}
             </div>
-            <ItemBrowser
-                template={template}
-                save={save}
-                renderCard={renderCard}
-                stateKey={`browser:save:${save.saveId}`}
-                onItemsChange={onItemsChange}
-                toolbarExtra={
-                    <>
-                        <Tooltip title={t("exchange.toggleTooltip")}>
-                            <Badge count={entries.length} size="small" overflowCount={999}>
+            <div className="InventoryEditor-body">
+                <ItemBrowser
+                    template={template}
+                    save={save}
+                    renderCard={renderCard}
+                    stateKey={`browser:save:${save.saveId}`}
+                    onItemsChange={onItemsChange}
+                    toolbarExtra={
+                        <>
+                            <Tooltip title={t("exchange.toggleTooltip")}>
+                                <Badge count={entries.length} size="small" overflowCount={999}>
+                                    <Button
+                                        type={exchangeOpen ? "primary" : "default"}
+                                        aria-pressed={exchangeOpen}
+                                        icon={<FontAwesomeIcon icon={faRightLeft} />}
+                                        onClick={() => setExchangeOpen(o => !o)}
+                                    >
+                                        {t("exchange.toggle")}
+                                    </Button>
+                                </Badge>
+                            </Tooltip>
+                            <Space.Compact>
                                 <Button
-                                    type={exchangeOpen ? "primary" : "default"}
-                                    aria-pressed={exchangeOpen}
-                                    icon={<FontAwesomeIcon icon={faRightLeft} />}
-                                    onClick={() => setExchangeOpen(o => !o)}
+                                    icon={<FontAwesomeIcon icon={faDownload} />}
+                                    onClick={() => void exportSave(false)}
                                 >
-                                    {t("exchange.toggle")}
+                                    {t("common.export")}
                                 </Button>
-                            </Badge>
-                        </Tooltip>
-                        <Space.Compact>
-                            <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
-                                {t("common.export")}
-                            </Button>
-                            <Dropdown
-                                menu={{
-                                    items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
-                                    onClick: () => void exportSave(true),
-                                }}
-                            >
-                                <Button
-                                    aria-label={t("inventory.moreExportOptions")}
-                                    icon={<FontAwesomeIcon icon={faChevronDown} />}
-                                />
-                            </Dropdown>
-                        </Space.Compact>
-                    </>
-                }
-            />
-            <ExchangePanel
-                open={exchangeOpen}
-                onClose={() => setExchangeOpen(false)}
-                template={template}
-                save={save}
-                entries={entries}
-                onChange={updateExchange}
-                getVisibleItems={() => visibleItems.current}
-            />
+                                <Dropdown
+                                    menu={{
+                                        items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
+                                        onClick: () => void exportSave(true),
+                                    }}
+                                >
+                                    <Button
+                                        aria-label={t("inventory.moreExportOptions")}
+                                        icon={<FontAwesomeIcon icon={faChevronDown} />}
+                                    />
+                                </Dropdown>
+                            </Space.Compact>
+                        </>
+                    }
+                />
+                <ExchangePanel
+                    open={exchangeOpen}
+                    onClose={() => setExchangeOpen(false)}
+                    template={template}
+                    save={save}
+                    entries={entries}
+                    onChange={updateExchange}
+                    getVisibleItems={() => visibleItems.current}
+                />
+            </div>
             <SaveItemDrawer
                 template={template}
                 item={openItem}
@@ -424,6 +429,15 @@ InventoryEditor = styled(InventoryEditor)`
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+    .InventoryEditor-body {
+        display: flex;
+        gap: 10px;
+        flex: 1;
+        min-height: 0;
+        @media (max-width: 760px) {
+            flex-direction: column;
+        }
     }
     .InventoryEditor-title {
         font-size: 1.2em;

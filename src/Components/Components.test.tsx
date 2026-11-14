@@ -488,6 +488,9 @@ describe("exchange list", () => {
     it("says when there is nothing to add", async () => {
         const t = fishTemplate();
         render(<PanelHarness template={t} save={createSave(t, "s")} />);
+        // A side column next to the grid, not an overlay drawer that would hide cards.
+        expect(screen.getByRole("complementary", { name: "Exchange list" })).toBeInTheDocument();
+        expect(document.querySelector(".ant-drawer")).toBeNull();
         await userEvent.click(screen.getByRole("button", { name: "Add as Give" }));
         expect(await screen.findByText("Nothing to add from the items shown.")).toBeInTheDocument();
     });
