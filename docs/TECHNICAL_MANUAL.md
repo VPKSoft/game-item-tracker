@@ -23,6 +23,7 @@ This manual is for programmers and AI coding agents working on the code. It desc
 | Node | 26.x (CI) |
 | Default branch | `develop`. All changes go through pull requests. |
 | Required checks | `npm run lint`, `npx tsc -b`, `npm test` |
+| Versioning | Semantic Versioning in `package.json`; a version bump merged to `develop` creates a `vX.Y.Z` tag and GitHub release (section 12.1) |
 
 ## Contents
 
@@ -136,6 +137,7 @@ src/
   Types/LocalizedMessage.ts  LocalizedMessage, LocalizedError, createMessage, formatMessage
   Context/AntdThemeContext.tsx   Light/dark theme and antd locale at runtime
   Utilities/UseLocalStorage.tsx  JSON localStorage helper
+  Utilities/Version.ts     App version and name from package.json, SemVer check
   TestSetup.ts             jest-dom, fake-indexeddb, matchMedia/ResizeObserver stubs
 scripts/
   BuildPaliaTemplates.ts   Node CLI: builds the Palia sample templates from the wiki
@@ -634,6 +636,7 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 | `npm run screenshots` | Retake every user manual screenshot into `docs/images/manual` (see the recipe in section 14) |
 
 - CI (`.github/workflows/node.js.yml`): on pushes and PRs to `develop`, Node 26: `npm install`, `npm run build`, `npm test`, `npm run lint`.
+- Release (`.github/workflows/release.yml`): tags and releases a version bump; see section 12.1.
 - Deploy (`.github/workflows/deploy-pages.yml`): on pushes to `develop`, `npm ci`, `npm test`, then `npm run build` with `BASE_PATH=/game-item-tracker/` and publish `dist` to GitHub Pages. Vite's `base` comes from `BASE_PATH` (default `/`), so local builds still serve from the root. Refer to files in `public` through `import.meta.env.BASE_URL`, never with a leading `/`.
 - PWA: `vite-plugin-pwa` with `registerType: "prompt"`; `PwaBadge.tsx` shows the update prompt. The manifest scope and start URL follow `base`.
 - App icon: `public/app-icon.png` (512 px, "List items" by Mehwish, Flaticon; attribution required and shown in the About popup and README). Change it by replacing that file and running `npm run generate-pwa-assets`.
@@ -641,6 +644,22 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 - Code style (Biome): 4-space indent, 120 columns, double quotes, `asNeeded` arrow parentheses, block statements required, `import type` for types, `export { … }` at the end of the file, **PascalCase file names**.
 - TypeScript is strict with `noUnusedLocals`/`noUnusedParameters`; imports use explicit `.ts`/`.tsx` extensions.
 - Comments: a JSDoc line on exported functions and non-obvious types.
+
+### 12.1 Versioning and releases
+
+The app follows [Semantic Versioning 2.0.0](https://semver.org): the version is `MAJOR.MINOR.PATCH`. Bump **MAJOR**
+for an incompatible change (for example a template or save format that older versions cannot open or that needs
+users to act), **MINOR** for a new backward-compatible feature, and **PATCH** for a backward-compatible bug fix.
+While the major version is `0`, a breaking change bumps MINOR instead. Changes that only touch docs, tests or
+tooling need no bump. The single source of truth is `version` in `package.json`; change it with
+`npm version <major|minor|patch> --no-git-tag-version` so `package-lock.json` follows. The app reads it through
+`src/Utilities/Version.ts` (shown in the About popup), and `Version.test.ts` fails if it is not valid SemVer.
+The app version is unrelated to template versions and `schemaVersion` (section 4).
+
+- Release (`.github/workflows/release.yml`): on pushes to `develop` (a merged PR), reads the version and, if no
+  `v<version>` tag exists yet, creates the tag on the merged commit and a GitHub release with notes generated
+  from the merged pull requests. A version with a pre-release part (`1.0.0-beta.1`) becomes a pre-release. A
+  push without a version bump does nothing; a version lower than the latest release fails the job.
 
 ## 13. Invariants
 
