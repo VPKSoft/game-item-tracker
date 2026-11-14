@@ -73,10 +73,10 @@ Only the program's own texts are translated. Names, descriptions, tags, counter 
 
 2. Get a template:
    - **Online templates…** and **Install** a template shared by the community (see [Online templates](#41-online-templates)), or
-   - **Import file…** and choose one or more `.gitemplate.json` files (for example the Palia samples), or
+   - **Import file…** and choose one or more `.gitemplate.json` files, or
    - **New template** to make your own (see [Templates](#8-templates-defining-a-games-items)).
 
-   ![Library after importing the Palia templates](images/manual/02-library-templates.png)
+   ![Library after installing the Palia templates from Online templates](images/manual/02-library-templates.png)
 
 3. Click **New save** on a template row, give the save a name and click **Create**.
 
@@ -118,6 +118,8 @@ The Library lists everything stored in this browser.
 **Online templates…** lists the templates shared in the
 [community template repository](https://github.com/VPKSoft/game-item-tracker-data). It needs an internet
 connection; everything else in the app works offline.
+
+![Online templates dialog with the Palia templates](images/manual/29-online-templates.png)
 
 - Type in the search field to find a game or template.
 - **Install** downloads the template into the Library. Then create a save from it with **New save**.
