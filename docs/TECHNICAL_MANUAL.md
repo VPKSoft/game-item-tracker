@@ -10,7 +10,7 @@ This manual is for programmers and AI coding agents working on the code. It desc
 
 | Topic | Value |
 |---|---|
-| App type | Client-only PWA. No backend, no network calls at runtime. |
+| App type | Client-only PWA. No backend. The only network call is the optional online template catalog (section 7.1). |
 | Hosting | GitHub Pages at `https://vpksoft.github.io/game-item-tracker/` |
 | Stack | React 19, TypeScript, Vite, Ant Design 6, styled-components, vite-plugin-pwa |
 | Localization | i18next + react-i18next (`src/Localization`): English (default) and Finnish |
@@ -82,12 +82,14 @@ src/
   Schemas/                 Zod schemas and inferred types (single source of truth for data shapes)
     TemplateSchema.ts
     SaveSchema.ts
+    CatalogSchema.ts       Online template catalog (index.json)
   Domain/                  Pure functions, no React, no I/O. Most logic and tests live here.
     Counters.ts            Variants, counter evaluation, roles, unique/obtained, missing
     CreateSave.ts          createSave, createSaveItem, createTemplate
     UpgradeSave.ts         upgradeSave (template version migration of a save)
     TemplateEdits.ts       Immutable template edit operations (upsert/delete/rename/move…)
     Validation.ts          validateTemplate: cross-reference checks beyond the Zod shape
+    Catalog.ts             getCatalogStatus, filterCatalog, catalogFileUrl (online templates)
     Browse.ts              Filtering + sorting for the item grid, sort options
     Search.ts              Fuse.js index and query
     EffectiveTags.ts       Tag difference model (template tags − removed + custom)
@@ -99,6 +101,7 @@ src/
   Files/
     FileFormat.ts          Extensions, parseFileText (format detection + Zod), serialize
     FileIo.ts              downloadFile (File System Access API or download link), readFileText
+    OnlineCatalog.ts       Catalog URL, fetchCatalog, fetchCatalogTemplate
   Images/
     ImageInput.ts          File from drag-and-drop / clipboard
     ImageResize.ts         Validation, resize to 128 px WebP, size limits, hashing
@@ -118,6 +121,7 @@ src/
     StructureEditors.tsx   Categories, variants, attributes, tags tabs
     CountersEditor.tsx     Counters tab
     UpgradeDialog.tsx      Save upgrade preview
+    OnlineTemplatesDialog.tsx  Online template list: install and update
   Localization/
     I18n.ts                i18next setup, supported languages, stored language, setLanguage
     I18next.d.ts           Type augmentation: translation keys are checked by tsc
@@ -133,6 +137,9 @@ scripts/
   BuildPaliaTemplates.ts   Node CLI: builds the Palia sample templates from the wiki
   PaliaParsers.ts          HTML table parsers and template builders (pure, tested)
   PaliaParsers.test.ts
+  BuildCatalog.ts          Node CLI: validates the template repository, writes the online catalog site
+  CatalogBuilder.ts        Pure catalog builder, layout checks and HTML listing (tested)
+  CatalogBuilder.test.ts
 docs/
   PLAN.md                  Design document (implemented)
   USER_MANUAL.md           End-user manual
@@ -469,6 +476,26 @@ Changing the database layout requires bumping the version in `openDB` and adding
 
 Import (`Library.tsx`): several files at once; asks before replacing an existing template version or save; imports an embedded `bundle` template when its version is missing; warns when a save's template is missing.
 
+### 7.1 Online templates
+
+Templates are shared through the template repository `game-item-tracker-data` without users touching GitHub:
+
+```mermaid
+flowchart LR
+    Push["push / merged PR to main<br/>game-item-tracker-data"] --> CI["publish.yml:<br/>npm run build-catalog"]
+    CI --> Pages["GitHub Pages<br/>vpksoft.github.io/game-item-tracker-data/"]
+    Pages -->|index.json + template files| Dialog["Library → Online templates"]
+    Dialog -->|putTemplate| DB[(IndexedDB)]
+```
+
+- **Publishing** (data repository, `.github/workflows/publish.yml`): on pull requests and pushes to `main` it checks out this repository's `develop`, runs `npm ci` and `npm run build-catalog -- --data ../data --out ../site`. On `main` it publishes `site` to GitHub Pages. Pull requests only run the checks. A change to the builder in `develop` therefore affects the next data repository run.
+- **Builder** (`scripts/BuildCatalog.ts` + `CatalogBuilder.ts`): finds every `*.gitemplate.json` (skipping dot folders), parses it with `parseFileText`, runs `validateTemplate`, checks the `<Letter>/<Game>/<file>` layout (game folder = `template.game`; letter = its first letter, not checked for names starting with a digit) and rejects one `templateId` in two files. Any problem fails the run and writes nothing. Without `--out` it only checks. The output is the template files at their repository paths, `index.json` and an `index.html` listing with download links.
+- **Catalog** (`CatalogSchema.ts`): `{ format: "game-item-tracker/catalog", schemaVersion: 1, generatedAt, templates: CatalogEntry[] }`. An entry repeats the template's `templateId`, `version`, `name`, `game`, `description`, `source`, plus `itemCount`, `updatedAt`, `path` (relative to `index.json`, `/`-separated, not URL-encoded) and `size` in bytes.
+- **App** (`OnlineCatalog.ts`): the catalog URL is `defaultCatalogUrl` unless `VITE_CATALOG_URL` is set at build time (useful for a local copy of the site). Requests use `cache: "no-cache"` so the GitHub Pages cache (10 minutes) never hides a new version. Downloads go through `parseFileText`, and the template must have the listed `templateId` and `version`. Failures are `LocalizedError`s with `catalogMessages` codes (file format errors keep their `fileMessages` code).
+- **Dialog** (`OnlineTemplatesDialog.tsx`): loads the catalog whenever it opens; `getCatalogStatus` compares each entry with the stored summaries (`new`, `installed`, `update`, `older`). Install and update store the template with `putTemplate(template, true)`, because an online copy exists, so it is not marked *not exported*. Saves are not touched; the existing upgrade banner moves them to the new version.
+- GitHub Pages sends `Access-Control-Allow-Origin: *`, and the app and the data site share the `vpksoft.github.io` origin in production, so there are no CORS issues. The service worker does not cache the catalog; the dialog needs a connection.
+- Changing the catalog shape incompatibly: bump `catalogSchemaVersion` only together with a builder change, and remember that installed PWAs keep the old app until they reload; they show *catalogInvalid* in the meantime. Prefer adding optional fields.
+
 ## 8. Images
 
 Pipeline (`ImageDropZone` → `ImagePreviewDialog` → `ImageResize`):
@@ -488,7 +515,8 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | View / component | Responsibility |
 |---|---|
 | `App.tsx` | Toolbar with `Segmented` view switch, theme switch, About. Persists view and open documents. |
-| `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags. |
+| `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
+| `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
 | `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export. |
 | `SaveItemDrawer.tsx` | Amounts, effective tags editor, notes (committed on blur). |
 | `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Details (metadata, version, validation issues). |
@@ -555,9 +583,11 @@ npm run coverage
 | `Domain/Browse.test.ts` | Search, sorting, filters, 10k-item performance smoke test |
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
-| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor |
+| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog |
 | `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
+| `Domain/Catalog.test.ts` | Catalog status, search and URLs; catalog and template download with a mocked `fetch` |
+| `scripts/CatalogBuilder.test.ts` | Catalog building, error reporting, layout checks, HTML escaping |
 
 Put new logic in `Domain` as pure functions and test it there; add a component test only for UI behavior.
 
@@ -570,6 +600,7 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 | `npm run preview` | Serve the build |
 | `npm run lint` / `npm run lint-fix` | Biome lint, format and check |
 | `npm run generate-pwa-assets` | Icons from `public/app-icon.png` |
+| `npm run build-catalog -- --data <dir> [--out <dir>]` | Validate the template repository and optionally write the online catalog site (section 7.1) |
 
 - CI (`.github/workflows/node.js.yml`): on pushes and PRs to `develop`, Node 26: `npm install`, `npm run build`, `npm test`, `npm run lint`.
 - Deploy (`.github/workflows/deploy-pages.yml`): on pushes to `develop`, `npm ci`, `npm test`, then `npm run build` with `BASE_PATH=/game-item-tracker/` and publish `dist` to GitHub Pages. Vite's `base` comes from `BASE_PATH` (default `/`), so local builds still serve from the root. Refer to files in `public` through `import.meta.env.BASE_URL`, never with a leading `/`.
@@ -667,6 +698,7 @@ Later changes:
 - PR #2, "Unique items": items or variants that are obtained rather than counted (starred Ancient Cloudminnow); `AGENTS.md` added.
 - PR #3: user manual. PR #4: fix for the visible file input in the item drawer. PR #5: this manual.
 - Template upgrade safety: items deleted from a template are always kept in the save as orphans (`orphan.removedIn` records the version), shown in a warning banner and removed only by the user with a confirmation. The upgrade dialog warns about removed counters and variants with affected item counts and confirms before discarding their values.
+- Online templates: the template repository publishes a validated catalog to GitHub Pages from CI, and *Library → Online templates* installs and updates templates from it, so players never need GitHub.
 - Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
 
 ## 16. Known limitations

@@ -15,7 +15,8 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "coverage": "vitest run --coverage",
-        "build-samples": "tsx scripts/BuildPaliaTemplates.ts"
+        "build-samples": "tsx scripts/BuildPaliaTemplates.ts",
+        "build-catalog": "tsx scripts/BuildCatalog.ts"
     },
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^7.3.1",

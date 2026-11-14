@@ -63,6 +63,7 @@ const fi: Translation = {
     },
     library: {
         importFile: "Tuo tiedosto…",
+        onlineTemplates: "Verkon mallipohjat…",
         newTemplate: "Uusi mallipohja",
         filesHint:
             "Mallipohjat ovat {{templateExtension}}-tiedostoja ja tallenteet {{saveExtension}}-tiedostoja. Kaikki säilytetään myös tässä selaimessa.",
@@ -86,7 +87,8 @@ const fi: Translation = {
         deleteSaveTitle: "Poistetaanko tämä tallenne?",
         deleteSaveDescription: "Tätä ei voi perua. Vie tallenne ensin, jos haluat varmuuskopion.",
         templatesTitle: "Mallipohjat",
-        noTemplates: "Ei vielä mallipohjia. Tuo {{extension}}-tiedosto tai luo uusi mallipohja.",
+        noTemplates:
+            "Ei vielä mallipohjia. Hae mallipohja verkon mallipohjista, tuo {{extension}}-tiedosto tai luo uusi mallipohja.",
         newSave: "Uusi tallenne",
         deleteTemplateTitle: "Poistetaanko tämä mallipohjan versio?",
         deleteTemplateUsed: "Tallenteet käyttävät tätä versiota, eikä niitä voi avata ilman sitä.",
@@ -94,6 +96,22 @@ const fi: Translation = {
         saveName: "Tallenteen nimi",
         newTemplateName: "Uuden mallipohjan nimi",
         newTemplateGame: "Uuden mallipohjan peli",
+    },
+    online: {
+        title: "Verkon mallipohjat",
+        hint: "Yhteisön jakamia mallipohjia. Asenna mallipohja, niin voit luoda siitä tallenteita.",
+        shareLink: "Jaa oma mallipohjasi",
+        search: "Hae pelejä ja mallipohjia",
+        retry: "Yritä uudelleen",
+        noMatches: "Haulla ei löytynyt mallipohjia.",
+        details_one: "{{game}} · {{count}} esine · {{size}}",
+        details_other: "{{game}} · {{count}} esinettä · {{size}}",
+        install: "Asenna",
+        update: "Päivitä versioon {{version}}",
+        isInstalled: "Asennettu",
+        olderThanYours: "omaasi vanhempi",
+        installed: "{{name}} v{{version}} asennettiin",
+        updated: "{{name}} päivitettiin versioon {{version}}. Avaa tallenne päivittääksesi sen.",
     },
     inventory: {
         saveNotFound: "Tallennetta ei löytynyt. Se on ehkä poistettu.",
@@ -354,6 +372,11 @@ const fi: Translation = {
         resizeUnsupported: "Tämä selain ei tue kuvien koon muuttamista.",
         encodingFailed: "Kuvan koodaus epäonnistui.",
         clipboardUnsupported: "Leikepöydän lukemista ei tueta tässä. Paina sen sijaan Ctrl+V (Cmd+V).",
+        catalogUnavailable: "Verkon mallipohjaluetteloa ei voitu ladata ({{details}}).",
+        catalogInvalid:
+            "Verkon mallipohjaluettelo on tuntemattomassa muodossa. Lataa sovellus uudelleen saadaksesi uusimman version.",
+        onlineTemplateUnavailable: "Mallipohjaa ei voitu ladata ({{details}}).",
+        onlineTemplateMismatch: "Ladattu tiedosto ei ole {{name}} v{{version}}. Yritä myöhemmin uudelleen.",
     },
 };
 
