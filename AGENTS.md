@@ -22,3 +22,10 @@ npm test
 Read [docs/TECHNICAL_MANUAL.md](docs/TECHNICAL_MANUAL.md) before changing code. It describes the architecture,
 data formats, invariants and step-by-step recipes for common changes. Keep it up to date when you change
 the data model, storage or file formats.
+
+## Tag format in examples and generated data
+
+When you write tags into code examples, sample-template generators, test data or documentation, use the
+`Name: value` format: capitalized name, colon, one space, value (e.g. `Location: Kilima Lake`, `Bait: Worm`).
+It is more readable than the older `name:value` format (`location:Kilima Lake`), so prefer it with new templates.
+See "Tag format" in [docs/TECHNICAL_MANUAL.md](docs/TECHNICAL_MANUAL.md#53-tags-effectivetagsts).

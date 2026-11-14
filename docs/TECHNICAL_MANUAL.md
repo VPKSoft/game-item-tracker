@@ -311,7 +311,7 @@ Template item:
     "description": "A legendary minnow ...",
     "imageId": "3f2a...",
     "attributes": { "rarity": 5 },
-    "tags": ["location:Temple of the Gales", "time:Any time", "bait:No bait", "quest:Main Quest"],
+    "tags": ["Location: Temple of the Gales", "Time: Any time", "Bait: No bait", "Quest: Main Quest"],
     "unique": ["starred"]
 }
 ```
@@ -371,6 +371,8 @@ Design:
 Effective tags = `(item.tags − saveItem.removedTags) ∪ saveItem.customTags`.
 
 Storing the difference instead of a copy means tags added in a newer template version appear for the user, while tags the user removed stay removed. `setEffectiveTags(item, saveItem, tags)` converts a full tag list back into the difference.
+
+**Tag format.** Tags are free text, but a tag that names a property and its value should be written as `Name: value`: the name capitalized, then a colon and one space, e.g. `Location: Kilima Lake`, `Bait: Worm`, `Source: Lantern Night`. This is more readable in tag chips and filters than the older `name:value` style (`location:Kilima Lake`), so prefer it in new templates, generated samples (`scripts/`), test data and documentation examples. Plain flag tags without a value (e.g. `tradeable`) stay as they are. Older templates may still contain `name:value` tags; nothing in the app parses the prefix, so both styles keep working.
 
 ### 5.4 Creating saves and templates (`CreateSave.ts`)
 
@@ -528,8 +530,8 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - Template ids are fixed constants, so a regenerated template with a higher `--version` imports as an upgrade for existing saves.
 - **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
 - `scripts/PaliaParsers.ts` holds the pure parsers and builders:
-  - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target), Tradeable; attribute `rarity` 1–5; tags `location:`, `time:`, `bait:`, `bundle:`/`quest:`; starred Ancient Cloudminnow is unique.
-- **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Placed, Storage, Total = Placed + Storage (owned; no Inventory counter), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `source:` tags.
+  - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target), Tradeable; attribute `rarity` 1–5; tags `Location: …`, `Time: …`, `Bait: …`, `Bundle: …`/`Quest: …`/`Recipe: …`; starred Ancient Cloudminnow is unique.
+- **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Placed, Storage, Total = Placed + Storage (owned; no Inventory counter), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `Source: …` tags.
 - Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
 
 ## 11. Testing
