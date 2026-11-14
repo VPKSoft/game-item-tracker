@@ -176,6 +176,7 @@ describe("plushies", () => {
         expect(market?.name).toBe("Maji Market");
         // Placeholder "Unknown" images are not downloaded.
         expect(imageUrls.has("lantern-plush")).toBe(false);
-        expect(template.counterDefs.find(c => c.key === "total")?.sumOf).toEqual(["inventory", "placed", "storage"]);
+        expect(template.counterDefs.find(c => c.key === "total")?.sumOf).toEqual(["placed", "storage"]);
+        expect(template.counterDefs.some(c => c.key === "inventory")).toBe(false);
     });
 });

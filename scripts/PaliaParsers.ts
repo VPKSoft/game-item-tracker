@@ -252,21 +252,13 @@ const fishCounters = (): CounterDef[] => [
     { key: "tradeable", label: "Tradeable", kind: "manual", order: 4 },
 ];
 
-/** The counters of the plushies sample. */
+/** The counters of the plushies sample. Plushies are placed or stored, so there is no inventory counter. */
 const plushieCounters = (): CounterDef[] => [
-    { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
-    { key: "placed", label: "Placed", kind: "manual", order: 1 },
-    { key: "storage", label: "Storage", kind: "manual", order: 2 },
-    {
-        key: "total",
-        label: "Total",
-        kind: "computed",
-        sumOf: ["inventory", "placed", "storage"],
-        role: "owned",
-        order: 3,
-    },
-    { key: "target", label: "Target", kind: "manual", role: "target", order: 4 },
-    { key: "tradeable", label: "Tradeable", kind: "manual", order: 5 },
+    { key: "placed", label: "Placed", kind: "manual", order: 0 },
+    { key: "storage", label: "Storage", kind: "manual", order: 1 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["placed", "storage"], role: "owned", order: 2 },
+    { key: "target", label: "Target", kind: "manual", role: "target", order: 3 },
+    { key: "tradeable", label: "Tradeable", kind: "manual", order: 4 },
 ];
 
 type TemplateMeta = {
