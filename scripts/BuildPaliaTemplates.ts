@@ -13,9 +13,11 @@ import { validateTemplate } from "../src/Domain/Validation.ts";
 import { fileNameFor, serialize } from "../src/Files/FileFormat.ts";
 import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
+    buildBugTemplate,
     buildFishTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,
@@ -28,6 +30,7 @@ const userAgent = "game-item-tracker-sample-builder/1.0 (+https://github.com/VPK
 const fishTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e01";
 const plushieTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e02";
 const potatoPodTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e03";
+const bugTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e04";
 
 const { values } = parseArgs({
     options: {
@@ -157,6 +160,19 @@ const main = async () => {
         await addImages(pods.template, pods.imageUrls);
     }
     await writeTemplate(pods.template);
+
+    console.log("Fetching Bugs…");
+    const bugs = buildBugTemplate(parseBugTable(await fetchPageHtml("Bugs"), wikiBase), {
+        templateId: bugTemplateId,
+        version: values.version,
+        name: "Palia – Bugs",
+        description: "The bugs of Palia, by behavior, with normal and starred variants.",
+        sourceUrl: `${wikiBase}/wiki/Bugs`,
+    });
+    if (!values["no-images"]) {
+        await addImages(bugs.template, bugs.imageUrls);
+    }
+    await writeTemplate(bugs.template);
 };
 
 main().catch(error => {

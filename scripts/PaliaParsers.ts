@@ -41,6 +41,18 @@ type PlushieRow = ImageRef & {
     section: string[];
 };
 
+type BugRow = ImageRef & {
+    name: string;
+    description: string;
+    rarity?: number;
+    locations: string[];
+    /** The time cell's text; empty when the wiki leaves it blank. */
+    time: string;
+    behavior: string;
+    /** `Quest: …` and `Bundle: …` tags for the quests and bundles that need the bug. */
+    neededFor: string[];
+};
+
 type PotatoPodRow = ImageRef & {
     name: string;
     /** The pod set, e.g. "Bonsai Pods". */
@@ -249,6 +261,76 @@ const parsePlushieTables = (html: string, base = "https://palia.wiki.gg"): Plush
     return rows;
 };
 
+/** Known typos in the wiki's location names. */
+const locationFixes: Record<string, string> = { "Steps or Renova": "Steps of Renova" };
+
+/**
+ * Reads a bug's "Needed For" cell: each entry is a type icon (alt "Daily Quest", "Brightbug Bundle", …)
+ * linking to the same page as the entry's name link.
+ */
+const parseBugNeededFor = (cell: HTMLElement | undefined) => {
+    if (!cell) {
+        return [];
+    }
+    const links = cell.querySelectorAll("a");
+    const tags = new Set<string>();
+    for (const icon of links.filter(a => a.querySelector("img"))) {
+        const alt = icon.querySelector("img")?.getAttribute("alt") ?? "";
+        const href = icon.getAttribute("href");
+        const name = links
+            .find(a => !a.querySelector("img") && a.getAttribute("href") === href)
+            ?.textContent.trim()
+            // Link texts can carry the wiki's page disambiguation, e.g. "Jel's Pin (Quest)".
+            .replace(/\s*\((?:Quest|Bundle)\)$/, "");
+        if (!name) {
+            continue;
+        }
+        tags.add(/bundle/i.test(alt) ? `Bundle: ${name}` : /quest/i.test(alt) ? `Quest: ${name}` : `Recipe: ${name}`);
+    }
+    return [...tags];
+};
+
+/** Parses the "List of Bugs" table (the paliatable with a Bug/Description/Rarity/Location header). */
+const parseBugTable = (html: string, base = "https://palia.wiki.gg"): BugRow[] => {
+    const root = parse(html);
+    const table = root.querySelectorAll("table").find(t => {
+        const headers = headerTexts(t);
+        return headers[0] === "Bug" && headers.includes("Location") && headers.includes("Behavior");
+    });
+    if (!table) {
+        throw new Error("The List of Bugs table was not found");
+    }
+    const headers = headerTexts(table);
+    const col = (name: string) => headers.indexOf(name);
+    const rows: BugRow[] = [];
+    for (const tr of table.querySelectorAll("tr").slice(1)) {
+        const cells = tr.querySelectorAll("td");
+        if (cells.length < headers.length) {
+            continue;
+        }
+        const nameCell = cells[col("Bug")];
+        const name = cleanText(nameCell);
+        if (!name) {
+            continue;
+        }
+        rows.push({
+            name,
+            description: cleanText(cells[col("Description")]).replace(/\n/g, " "),
+            rarity: rarityValue(cleanText(cells[col("Rarity")])),
+            locations: cleanText(cells[col("Location")])
+                .split("•")
+                .map(l => l.trim())
+                .filter(l => l.length > 0)
+                .map(l => locationFixes[l] ?? l),
+            time: cleanText(cells[col("Time")]),
+            behavior: cleanText(cells[col("Behavior")]),
+            neededFor: parseBugNeededFor(cells[col("Needed For")]),
+            imageUrl: fullImageUrl(nameCell.querySelector("img")?.getAttribute("src"), base),
+        });
+    }
+    return rows;
+};
+
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
 const parsePotatoPodTable = (html: string, base = "https://palia.wiki.gg"): PotatoPodRow[] => {
     const root = parse(html);
@@ -275,7 +357,7 @@ const parsePotatoPodTable = (html: string, base = "https://palia.wiki.gg"): Pota
     return rows;
 };
 
-/** The counters of the fish sample: placed only for starred fish. No tradeable counter: fish can only be gifted. */
+/** The counters of the fish and bugs samples: placed only for starred items. No tradeable counter: fish can only be gifted. */
 const fishCounters = (): CounterDef[] => [
     { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
     { key: "placed", label: "Placed", kind: "manual", variants: ["starred"], order: 1 },
@@ -475,6 +557,72 @@ const buildPlushieTemplate = (rows: PlushieRow[], meta: TemplateMeta) => {
 };
 
 /**
+ * Builds the bugs template: categories by behavior (many bugs live in several locations), Normal and
+ * ★ Starred variants and the fish counters.
+ */
+const buildBugTemplate = (rows: BugRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const row of rows) {
+        const categoryName = row.behavior || "Other";
+        let category = categories.find(c => c.name === categoryName);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    categoryName,
+                    categories.map(c => c.id)
+                ),
+                name: categoryName,
+                order: 0,
+            };
+            categories.push(category);
+        }
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: category.id,
+            name: row.name,
+            description: row.description,
+            attributes: row.rarity ? { rarity: row.rarity } : {},
+            tags: [
+                ...new Set([
+                    ...row.locations.map(l => `Location: ${l}`),
+                    ...(row.time ? parseTimes(row.time) : []).map(t => `Time: ${t}`),
+                    ...(row.behavior ? [`Behavior: ${row.behavior}`] : []),
+                    ...row.neededFor,
+                ]),
+            ],
+        });
+    }
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+    categories.forEach((c, i) => {
+        c.order = i;
+    });
+    return {
+        template: {
+            ...template,
+            variantDefs: [
+                { key: "normal", label: "Normal", order: 0 },
+                { key: "starred", label: "★ Starred", order: 1 },
+            ],
+            counterDefs: fishCounters(),
+            categories,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
+/**
  * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
  * rarity for pods, so the template has no rarity attribute.
  */
@@ -532,14 +680,16 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { FishRow, PlushieRow, PotatoPodRow, TemplateMeta };
+export type { BugRow, FishRow, PlushieRow, PotatoPodRow, TemplateMeta };
 export {
+    buildBugTemplate,
     buildFishTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     cleanText,
     fullImageUrl,
     parseBait,
+    parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,

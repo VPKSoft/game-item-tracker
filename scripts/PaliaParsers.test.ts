@@ -3,11 +3,13 @@ import { getVariantCounters } from "../src/Domain/Counters.ts";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
+    buildBugTemplate,
     buildFishTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     fullImageUrl,
     parseBait,
+    parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,
@@ -231,5 +233,72 @@ describe("potato pods", () => {
 
     it("fails clearly when the table is missing", () => {
         expect(() => parsePotatoPodTable("<p>nothing</p>")).toThrow("Available Pods");
+    });
+});
+
+const bugHtml = `
+<div class="mw-parser-output">
+<table class="paliatable sortable">
+<tr><th>Bug</th><th>Description</th><th>Rarity</th><th>Location</th><th>Time</th><th>Behavior</th><th>Needed For</th></tr>
+<tr>
+<td><span><a href="/wiki/Test_Mantis"><img alt="Test Mantis.png" src="/images/thumb/Test_Mantis.png/65px-Test_Mantis.png?aa"></a> <br><div><a href="/wiki/Test_Mantis"><span>Test Mantis</span></a></div></span></td>
+<td>A made-up mantis.</td>
+<td><style>.x{}</style><font class="template-rarity"><b>Uncommon</b></font></td>
+<td><a><span>Kilima Fields</span></a> &#8226; <a><span>Steps or Renova</span></a></td>
+<td><style>.y{}</style><b>Evening and Night (6:00 PM - 3:00 AM)</b></td>
+<td>Jumping</td>
+<td>* <a href="/wiki/Test_Quest" title="Daily Quest"><img alt="Daily Quest" src="/images/thumb/Daily_Quest_Icon.png/28px-Daily_Quest_Icon.png?1"></a> <a href="/wiki/Test_Quest">Test Quest (Quest)</a>
+* <a href="/wiki/Test_Bundle"><img alt="Test Bundle" src="/images/thumb/Bundle.png/28px-Bundle.png?2"></a> <a href="/wiki/Test_Bundle">Test Bundle</a></td>
+</tr>
+<tr>
+<td><a><img alt="Test Moth.png" src="/images/thumb/Test_Moth.png/65px-Test_Moth.png?bb"></a><br><a><span>Test Moth</span></a></td>
+<td>A made-up moth.</td>
+<td><b>Common</b></td>
+<td></td>
+<td></td>
+<td>Flying</td>
+<td></td>
+</tr>
+</table>
+</div>`;
+
+describe("bugs", () => {
+    it("parses locations, times, behavior and the quests and bundles that need a bug", () => {
+        const rows = parseBugTable(bugHtml, "https://palia.wiki.gg");
+        expect(rows).toHaveLength(2);
+        expect(rows[0]).toMatchObject({
+            name: "Test Mantis",
+            rarity: 2,
+            locations: ["Kilima Fields", "Steps of Renova"],
+            behavior: "Jumping",
+            neededFor: ["Quest: Test Quest", "Bundle: Test Bundle"],
+            imageUrl: "https://palia.wiki.gg/images/Test_Mantis.png",
+        });
+        expect(rows[1]).toMatchObject({ name: "Test Moth", locations: [], time: "", neededFor: [] });
+    });
+
+    it("builds behavior categories with the fish counters and variants", () => {
+        const { template, imageUrls } = buildBugTemplate(parseBugTable(bugHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual(["Flying", "Jumping"]);
+        expect(template.variantDefs.map(v => v.key)).toEqual(["normal", "starred"]);
+        expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
+        expect(template.items[0].tags).toEqual([
+            "Location: Kilima Fields",
+            "Location: Steps of Renova",
+            "Time: Evening",
+            "Time: Night",
+            "Behavior: Jumping",
+            "Quest: Test Quest",
+            "Bundle: Test Bundle",
+        ]);
+        // A blank time cell gives no time tags rather than "Any time".
+        expect(template.items[1].tags).toEqual(["Behavior: Flying"]);
+        expect(imageUrls.size).toBe(2);
+    });
+
+    it("fails clearly when the table is missing", () => {
+        expect(() => parseBugTable("<p>nothing</p>")).toThrow("List of Bugs");
     });
 });
