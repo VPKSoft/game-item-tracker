@@ -1,6 +1,6 @@
 import { faImage, faNoteSticky } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Card, Checkbox, Progress, Tag, Tooltip } from "antd";
+import { Button, Card, Checkbox, Progress, Tag, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,7 @@ import {
     noVariantKey,
 } from "../Domain/Counters.ts";
 import { getEffectiveTags } from "../Domain/EffectiveTags.ts";
+import { canExchange, type ExchangeEntry, type ExchangeMode, exchangeModes } from "../Domain/Exchange.ts";
 import type { SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
@@ -35,7 +36,87 @@ type Props = {
     onOpen: (itemId: string) => void;
     /** Show counter steppers (save mode). */
     showCounters?: boolean;
+    /** In exchange mode: this item's exchange entries. Give/Need toggles are shown when present. */
+    exchangeEntries?: ExchangeEntry[];
+    /** In exchange mode: adds or removes the exchange entry of a variant. */
+    onExchangeToggle?: (itemId: string, variantKey: string, mode: ExchangeMode) => void;
 } & BaseProps;
+
+const ExchangeTogglesRoot = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 0;
+    .ExchangeToggles-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .ExchangeToggles-variant {
+        font-size: 0.8em;
+        font-weight: 600;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+`;
+
+const exchangeColors: Record<ExchangeMode, "green" | "blue"> = { give: "green", need: "blue" };
+
+/** The Give / Need toggle buttons of each variant of an item in exchange mode. */
+const ExchangeToggles = ({
+    template,
+    item,
+    entries,
+    onToggle,
+}: {
+    template: Template;
+    item: TemplateItem;
+    entries: ExchangeEntry[];
+    onToggle: NonNullable<Props["onExchangeToggle"]>;
+}) => {
+    const { t } = useTranslation();
+    return (
+        <ExchangeTogglesRoot className="ExchangeToggles" onClick={e => e.stopPropagation()}>
+            {getItemVariants(template, item).map(variant => {
+                const name = variant.key === noVariantKey ? item.name : `${item.name} (${variant.label})`;
+                return (
+                    <div key={variant.key} className="ExchangeToggles-row">
+                        <span className="ExchangeToggles-variant">
+                            {variant.key === noVariantKey ? "" : variant.label}
+                        </span>
+                        {exchangeModes.map(mode => {
+                            if (!canExchange(item, variant.key, mode)) {
+                                return null;
+                            }
+                            const entry = entries.find(e => e.variantKey === variant.key && e.mode === mode);
+                            const label = mode === "give" ? t("exchange.give") : t("exchange.need");
+                            return (
+                                <Button
+                                    key={mode}
+                                    size="small"
+                                    color={exchangeColors[mode]}
+                                    variant={entry ? "solid" : "outlined"}
+                                    aria-pressed={!!entry}
+                                    aria-label={
+                                        mode === "give"
+                                            ? t("exchange.giveItem", { name })
+                                            : t("exchange.needItem", { name })
+                                    }
+                                    onClick={() => onToggle(item.id, variant.key, mode)}
+                                >
+                                    {entry ? `${label} ×${entry.amount}` : label}
+                                </Button>
+                            );
+                        })}
+                    </div>
+                );
+            })}
+        </ExchangeTogglesRoot>
+    );
+};
 
 const CounterRowsRoot = styled.div`
     display: flex;
@@ -141,6 +222,8 @@ let ItemCard = ({
     onObtainedChange,
     onOpen,
     showCounters,
+    exchangeEntries,
+    onExchangeToggle,
 }: Props) => {
     const { t } = useTranslation();
     const image = item.imageId ? template.images[item.imageId] : undefined;
@@ -188,6 +271,14 @@ let ItemCard = ({
                 </div>
             </div>
             {!showCounters && item.description && <div className="ItemCard-description">{item.description}</div>}
+            {exchangeEntries && onExchangeToggle && (
+                <ExchangeToggles
+                    template={template}
+                    item={item}
+                    entries={exchangeEntries}
+                    onToggle={onExchangeToggle}
+                />
+            )}
             {showCounters && (
                 <>
                     <CounterRows

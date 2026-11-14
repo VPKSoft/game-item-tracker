@@ -1,6 +1,6 @@
-import { faChevronDown, faDownload, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faDownload, faRightLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table } from "antd";
+import { Alert, Badge, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,14 @@ import { styled } from "styled-components";
 import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
 import { getSaveItem, setCounterValue, setObtained } from "../Domain/Counters.ts";
+import {
+    type ExchangeEntry,
+    type ExchangeMode,
+    groupEntriesByItem,
+    pruneEntries,
+    suggestAmount,
+    toggleEntry,
+} from "../Domain/Exchange.ts";
 import { compareVersions } from "../Domain/Ids.ts";
 import { removeSaveItems } from "../Domain/UpgradeSave.ts";
 import { downloadFile, fileNameFor, serialize } from "../Files/FileIo.ts";
@@ -16,16 +24,23 @@ import type { Template } from "../Schemas/TemplateSchema.ts";
 import { getSave, getTemplate, listTemplateVersions, putSave } from "../Storage/Database.ts";
 import { useAutosave } from "../Storage/UseAutosave.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
+import { ExchangePanel, type ExchangeUpdate, getStoredGiveSource } from "./ExchangePanel.tsx";
 import { SaveItemDrawer } from "./SaveItemDrawer.tsx";
 import { UpgradeDialog } from "./UpgradeDialog.tsx";
 
 type Props = {
     saveId: string | null;
     onOpenLibrary: () => void;
+    /** The exchange list of the open save (kept in memory by the app, never stored). */
+    exchangeEntries?: ExchangeEntry[];
+    /** Updates the exchange list of a save. */
+    onExchangeChange?: (saveId: string, update: (entries: ExchangeEntry[]) => ExchangeEntry[]) => void;
 } & BaseProps;
 
+const noEntries: ExchangeEntry[] = [];
+
 /** The editor of the user's own item data (a save). */
-let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
+let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onExchangeChange }: Props) => {
     const [save, setSave] = React.useState<Save | null>(null);
     const [template, setTemplate] = React.useState<Template | null>(null);
     const [newer, setNewer] = React.useState<Template | null>(null);
@@ -34,6 +49,8 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
     const [openItemId, setOpenItemId] = React.useState<string | null>(null);
     const [upgradeOpen, setUpgradeOpen] = React.useState(false);
     const [removedOpen, setRemovedOpen] = React.useState(false);
+    const [exchangeOpen, setExchangeOpen] = React.useState(false);
+    const visibleItems = React.useRef<Template["items"]>([]);
     const { t } = useTranslation();
 
     // The error texts are translated when the save is opened; changing the language does not reload it.
@@ -113,6 +130,55 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
         [updateItem]
     );
 
+    // The exchange list: entries that no longer fit the template (e.g. after an upgrade) are left out.
+    const rawEntries = exchangeEntries ?? noEntries;
+    const entries = React.useMemo(
+        () => (template ? pruneEntries(template, rawEntries) : rawEntries),
+        [template, rawEntries]
+    );
+    const entryGroupsRef = React.useRef<Map<string, ExchangeEntry[]>>(new Map());
+    const entryGroups = React.useMemo(() => {
+        entryGroupsRef.current = groupEntriesByItem(entries, entryGroupsRef.current);
+        return entryGroupsRef.current;
+    }, [entries]);
+
+    const updateExchange = React.useCallback<ExchangeUpdate>(
+        update => {
+            if (saveId && template) {
+                onExchangeChange?.(saveId, list => update(pruneEntries(template, list)));
+            }
+        },
+        [saveId, template, onExchangeChange]
+    );
+
+    // The latest save for the toggle callback, so that cards do not re-render on every counter change.
+    const saveRef = React.useRef(save);
+    saveRef.current = save;
+
+    const onExchangeToggle = React.useCallback(
+        (itemId: string, variantKey: string, mode: ExchangeMode) => {
+            const current = saveRef.current;
+            const item = template?.items.find(i => i.id === itemId);
+            if (!current || !template || !item) {
+                return;
+            }
+            const amount = suggestAmount(
+                template,
+                item,
+                current.items[itemId],
+                variantKey,
+                mode,
+                getStoredGiveSource()
+            );
+            updateExchange(list => toggleEntry(list, { itemId, variantKey, mode, amount }));
+        },
+        [template, updateExchange]
+    );
+
+    const onItemsChange = React.useCallback((items: Template["items"]) => {
+        visibleItems.current = items;
+    }, []);
+
     const exportSave = async (withTemplate: boolean) => {
         if (!save || !template) {
             return;
@@ -135,9 +201,11 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                     onObtainedChange={onObtainedChange}
                     onOpen={setOpenItemId}
                     showCounters
+                    exchangeEntries={exchangeOpen ? (entryGroups.get(item.id) ?? noEntries) : undefined}
+                    onExchangeToggle={exchangeOpen ? onExchangeToggle : undefined}
                 />
             ) : null,
-        [template, save, onCounterChange, onObtainedChange]
+        [template, save, onCounterChange, onObtainedChange, exchangeOpen, entryGroups, onExchangeToggle]
     );
 
     if (!saveId) {
@@ -206,24 +274,48 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary }: Props) => {
                 save={save}
                 renderCard={renderCard}
                 stateKey={`browser:save:${save.saveId}`}
+                onItemsChange={onItemsChange}
                 toolbarExtra={
-                    <Space.Compact>
-                        <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
-                            {t("common.export")}
-                        </Button>
-                        <Dropdown
-                            menu={{
-                                items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
-                                onClick: () => void exportSave(true),
-                            }}
-                        >
-                            <Button
-                                aria-label={t("inventory.moreExportOptions")}
-                                icon={<FontAwesomeIcon icon={faChevronDown} />}
-                            />
-                        </Dropdown>
-                    </Space.Compact>
+                    <>
+                        <Tooltip title={t("exchange.toggleTooltip")}>
+                            <Badge count={entries.length} size="small" overflowCount={999}>
+                                <Button
+                                    type={exchangeOpen ? "primary" : "default"}
+                                    aria-pressed={exchangeOpen}
+                                    icon={<FontAwesomeIcon icon={faRightLeft} />}
+                                    onClick={() => setExchangeOpen(o => !o)}
+                                >
+                                    {t("exchange.toggle")}
+                                </Button>
+                            </Badge>
+                        </Tooltip>
+                        <Space.Compact>
+                            <Button icon={<FontAwesomeIcon icon={faDownload} />} onClick={() => void exportSave(false)}>
+                                {t("common.export")}
+                            </Button>
+                            <Dropdown
+                                menu={{
+                                    items: [{ key: "bundle", label: t("common.exportWithTemplate") }],
+                                    onClick: () => void exportSave(true),
+                                }}
+                            >
+                                <Button
+                                    aria-label={t("inventory.moreExportOptions")}
+                                    icon={<FontAwesomeIcon icon={faChevronDown} />}
+                                />
+                            </Dropdown>
+                        </Space.Compact>
+                    </>
                 }
+            />
+            <ExchangePanel
+                open={exchangeOpen}
+                onClose={() => setExchangeOpen(false)}
+                template={template}
+                save={save}
+                entries={entries}
+                onChange={updateExchange}
+                getVisibleItems={() => visibleItems.current}
             />
             <SaveItemDrawer
                 template={template}

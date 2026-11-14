@@ -27,6 +27,8 @@ type Props = {
     toolbarExtra?: React.ReactNode;
     /** A localStorage key under which the category and sort selection are remembered. */
     stateKey?: string;
+    /** Called with the items the grid shows (after category, search and filters) whenever they change. */
+    onItemsChange?: (items: TemplateItem[]) => void;
 } & BaseProps;
 
 type BrowserState = {
@@ -69,7 +71,7 @@ const countActiveFilters = (filters: BrowseFilters) =>
  * The shared item view of both editors: category selection, quick search,
  * sorting, filters and a virtualized, scrollable card grid.
  */
-let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateKey }: Props) => {
+let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateKey, onItemsChange }: Props) => {
     const [state, setState] = React.useState<BrowserState>(() => loadState(stateKey));
     const [query, setQuery] = React.useState("");
     const debouncedQuery = useDebounced(query, 150);
@@ -127,6 +129,10 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
             }),
         [template, save, categoryId, searchRanks, effectiveSort, state.direction, state.filters]
     );
+
+    React.useEffect(() => {
+        onItemsChange?.(items);
+    }, [items, onItemsChange]);
 
     const categoryOptions = React.useMemo(() => {
         const counts = new Map<string, number>();

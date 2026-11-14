@@ -93,6 +93,7 @@ src/
     Browse.ts              Filtering + sorting for the item grid, sort options
     Search.ts              Fuse.js index and query
     EffectiveTags.ts       Tag difference model (template tags − removed + custom)
+    Exchange.ts            Exchange list entries, suggested amounts, image tiles and image layout
     Ids.ts                 slugify, uniqueId, newUuid, bumpVersion, compareVersions
     TestFixtures.ts        Shared fixtures for tests
   Storage/
@@ -100,11 +101,13 @@ src/
     UseAutosave.ts         Debounced save hook with flush on page hide/unmount
   Files/
     FileFormat.ts          Extensions, parseFileText (format detection + Zod), serialize
-    FileIo.ts              downloadFile (File System Access API or download link), readFileText
+    FileIo.ts              downloadBlob / downloadFile (File System Access API or download link),
+                           copyImageToClipboard, readFileText
     OnlineCatalog.ts       Catalog URL, fetchCatalog, fetchCatalogTemplate
   Images/
     ImageInput.ts          File from drag-and-drop / clipboard
     ImageResize.ts         Validation, resize to 128 px WebP, size limits, hashing
+    RenderExchangeImage.ts Draws the exchange list PNG on a canvas
   Components/              Reusable UI pieces
     ItemBrowser.tsx        Shared toolbar (category, search, sort, filters) + grid
     VirtualGrid.tsx        Virtualized responsive card grid
@@ -122,6 +125,7 @@ src/
     CountersEditor.tsx     Counters tab
     UpgradeDialog.tsx      Save upgrade preview
     OnlineTemplatesDialog.tsx  Online template list: install and update
+    ExchangePanel.tsx      Exchange list drawer: entries, quick fill, image options, copy / save PNG
   Localization/
     I18n.ts                i18next setup, supported languages, stored language, setLanguage
     I18next.d.ts           Type augmentation: translation keys are checked by tsc
@@ -473,7 +477,8 @@ Changing the database layout requires bumping the version in `openDB` and adding
 
 `FileIo.ts`:
 
-- `downloadFile(text, fileName, kind)` uses `showSaveFilePicker` when available (Chromium) and falls back to an `<a download>` link. Returns `false` when the user cancels.
+- `downloadBlob(blob, fileName, { description, mime, extension })` uses `showSaveFilePicker` when available (Chromium) and falls back to an `<a download>` link. Returns `false` when the user cancels. `downloadFile(text, fileName, kind)` is the JSON wrapper used for templates and saves.
+- `copyImageToClipboard(png)` writes a PNG with `navigator.clipboard.write([new ClipboardItem({ "image/png": png })])`; `canCopyImage()` tells whether the browser supports it. Pass the **promise** of the blob from the click handler: Safari rejects clipboard writes that start after the user gesture has ended.
 
 Import (`Library.tsx`): several files at once; asks before replacing an existing template version or save; imports an embedded `bundle` template when its version is missing; warns when a save's template is missing.
 
@@ -519,7 +524,8 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | `App.tsx` | Toolbar with `Segmented` view switch, theme switch, About. Persists view and open documents. |
 | `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
 | `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
-| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export. |
+| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle. |
+| `ExchangePanel.tsx` | Exchange list drawer (no mask): entries with amounts, quick fill, image options, preview, Copy image and Save PNG (section 9.1). |
 | `SaveItemDrawer.tsx` | Amounts, effective tags editor, notes (committed on blur). |
 | `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Details (metadata, version, validation issues). |
 | `TemplateItemDrawer.tsx` | Edits a draft copy of an item; *Save* applies it with `upsertItem`. |
@@ -533,9 +539,29 @@ Conventions:
 - Components are declared as `let X = (props) => …; X = styled(X)\`…\`; export { X };` and take `BaseProps` (`className`).
 - Notifications and confirmations use `App.useApp()` (`message`, `modal`) from antd.
 - Cards stop click propagation in counter areas so a counter click doesn't open the drawer.
-- Every user-visible text, including `aria-label`s, placeholders and tooltips, comes from `t()` (see 9.1).
+- Every user-visible text, including `aria-label`s, placeholders and tooltips, comes from `t()` (see 9.2).
 
-### 9.1 Localization
+### 9.1 Exchange list
+
+A quick list of items the user can give and items they need, shared as a PNG image (e.g. pasted into Discord). Requested as: pick items from a save to give or to request, generate an image of small 100 × 100 squares with the name and amount, no need to store the list, a fast way to make one, PNG rather than WebP for wider support.
+
+```mermaid
+flowchart LR
+    Card["ItemCard Give / Need toggles"] --> List["App state:<br/>Record&lt;saveId, ExchangeEntry[]&gt;"]
+    Fill["ExchangePanel quick fill<br/>(visible items)"] --> List
+    List --> Tiles["buildExchangeTiles"] --> Layout["layoutExchangeImage"] --> Canvas["renderExchangeImage<br/>(canvas → PNG blob)"]
+    Canvas --> Copy["copyImageToClipboard"]
+    Canvas --> Save["downloadBlob (.png)"]
+```
+
+- **Data** (`Domain/Exchange.ts`): `ExchangeEntry = { itemId, variantKey, mode: "give" | "need", amount }`, one entry per mode, item and variant (`getEntryKey`). Amounts are whole numbers ≥ 1. Edits (`toggleEntry`, `setEntryAmount`, `removeEntry`, `addSuggestedEntries`) are pure and immutable.
+- **Never stored.** `App.tsx` keeps the lists in `useState` by save id, so they survive view switches and are lost on reload. Nothing goes to IndexedDB, the save file or localStorage. Only the image options (columns, theme, scale, give amount source) are kept in localStorage under `exchange:options`, as a UI preference.
+- **Suggested amounts** (`suggestAmount`): *need* = target − owned per variant; *give* = owned − target (owned alone when there is no target counter), or the value of a counter the user picks in the panel (e.g. *Tradeable*). A unique variant can only be needed: 1 while not obtained, never given (`canExchange`). Toggling a card adds the suggestion, or 1 when it is 0. Quick fill (`addSuggestedEntries`) adds entries with a suggestion above 0 for the items `ItemBrowser` currently shows (`onItemsChange`), and keeps existing entries unchanged.
+- **Template changes**: `InventoryEditor` runs `pruneEntries` on read and before every update, dropping entries whose item or variant is gone or whose variant became unique while offered.
+- **Rendering**: `buildExchangeTiles` resolves names, variant labels and image data URLs; `layoutExchangeImage` (pure, tested) places the title, a heading per non-empty section (give first) and the 100 × 100 tiles (8 px gap, 16 px padding, automatic columns = the larger section within 3–8). `Images/RenderExchangeImage.ts` decodes the images, waits for fonts and draws with Canvas 2D at the chosen scale (1× or 2×): rounded tile, image fitted into 50 × 50 px, an amount badge (green = give, blue = need), the name in up to two lines (three without a variant label) and the variant label. Texts are passed in translated, so the image follows the UI language. No new dependencies; the output is always PNG.
+- **Performance**: `ItemCard` stays memoized. `groupEntriesByItem` reuses the previous array of items whose entries did not change, and the toggle callback reads the save through a ref, so a toggle or counter edit re-renders only the affected cards.
+
+### 9.2 Localization
 
 The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next`. Supported languages: English (`en`) and Finnish (`fi`).
 
@@ -583,9 +609,11 @@ npm run coverage
 | `Domain/SaveLifecycle.test.ts` | `createSave`, `upgradeSave`, effective tags, ids and versions |
 | `Domain/TemplateEdits.test.ts` | Edit operations and reference cleanup |
 | `Domain/Browse.test.ts` | Search, sorting, filters, 10k-item performance smoke test |
+| `Domain/Exchange.test.ts` | Exchange suggestions (variants, unique, counter source), list edits, pruning, tiles, image layout |
+| `Images/RenderExchangeImage.test.ts` | Text wrapping, drawing with a fake 2D context, clipboard write |
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
-| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog |
+| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked) |
 | `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
 | `Domain/Catalog.test.ts` | Catalog status, search and URLs; catalog and template download with a mocked `fetch` |
@@ -630,7 +658,8 @@ Code changes must keep these true. Most are enforced by `validateTemplate` or te
 10. Stored images are ≤ 128 × 128 px and ≤ 64 KB, keyed by content hash.
 11. The repository holds software only. No generated templates, saves or game data (the user-manual screenshots are the documented exception).
 12. A change to a file format bumps `schemaVersion` and adds a migration on import.
-13. Every UI text goes through i18next and exists in every language. The program starts in English unless the user chose another language in the settings. Domain, Files and Images code stays free of i18next and reports user-facing problems as coded messages.
+13. Exchange lists are never stored (not in IndexedDB, files or localStorage); they live in `App` state only.
+14. Every UI text goes through i18next and exists in every language. The program starts in English unless the user chose another language in the settings. Domain, Files and Images code stays free of i18next and reports user-facing problems as coded messages.
 
 ## 14. How-to recipes
 
@@ -679,7 +708,7 @@ npm run screenshots
 
 1. Installs the Palia templates from the online catalog.
 2. Creates the "My Palia Fish" save and writes sample amounts and a note. It writes them through `/src/Storage/Database.ts`, which the dev server serves to the page.
-3. Captures every screenshot the manual uses, `01-…` to `29-…`. Dialogs, item cards and the save drawer are cropped to the element.
+3. Captures every screenshot the manual uses, `01-…` to `31-…` (`31-exchange-image.png` is the generated exchange PNG itself, read from the panel's preview). Dialogs, item cards and the save drawer are cropped to the element.
 
 It needs a network connection. When the browser is not found, set `CHROME_PATH` or pass `--chrome <path>`. Other options are `--out <dir>`, `--port <debugging port>` and `--image <file>` (the sample image for the image dialog; default `public/app-icon.png`).
 
@@ -720,6 +749,7 @@ Later changes:
 - PR #3: user manual. PR #4: fix for the visible file input in the item drawer. PR #5: this manual.
 - Template upgrade safety: items deleted from a template are always kept in the save as orphans (`orphan.removedIn` records the version), shown in a warning banner and removed only by the user with a confirmation. The upgrade dialog warns about removed counters and variants with affected item counts and confirms before discarding their values.
 - Online templates: the template repository publishes a validated catalog to GitHub Pages from CI, and *Library → Online templates* installs and updates templates from it, so players never need GitHub.
+- Exchange list: Give / Need toggles on item cards and quick fill create an in-memory list per save, which is drawn as a PNG of 100 × 100 tiles to copy into chat apps or save (section 9.1).
 - Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
 
 ## 16. Known limitations

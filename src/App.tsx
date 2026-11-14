@@ -8,6 +8,7 @@ import classNames from "classnames";
 import { useTranslation } from "react-i18next";
 import styled from "styled-components";
 import { useAntdTheme, useAntdToken } from "./Context/AntdThemeContext.tsx";
+import type { ExchangeEntry } from "./Domain/Exchange.ts";
 import { AboutPopup } from "./Popups/AboutPopup.tsx";
 import { SettingsPopup } from "./Popups/SettingsPopup.tsx";
 import { PwaBadge } from "./PwaBadge.tsx";
@@ -33,6 +34,8 @@ let App = ({ className }: Props) => {
     const { setTheme, updateBackground } = useAntdTheme();
     const [aboutPopupVisible, setAboutPopupVisible] = React.useState(false);
     const [settingsPopupVisible, setSettingsPopupVisible] = React.useState(false);
+    // Exchange lists by save id. Deliberately only in memory: they are quick, throwaway lists.
+    const [exchangeLists, setExchangeLists] = React.useState<Record<string, ExchangeEntry[]>>({});
     const { t } = useTranslation();
 
     // Persistent state
@@ -64,6 +67,12 @@ let App = ({ className }: Props) => {
     }, []);
 
     const openLibrary = React.useCallback(() => setView("library"), []);
+
+    const updateExchangeList = React.useCallback(
+        (id: string, update: (entries: ExchangeEntry[]) => ExchangeEntry[]) =>
+            setExchangeLists(lists => ({ ...lists, [id]: update(lists[id] ?? []) })),
+        []
+    );
 
     React.useEffect(() => {
         setTheme?.(darkMode ? "dark" : "light");
@@ -121,7 +130,14 @@ let App = ({ className }: Props) => {
                 </Tooltip>
             </div>
             <div className="App-content">
-                {view === "inventory" && <InventoryEditor saveId={saveId} onOpenLibrary={openLibrary} />}
+                {view === "inventory" && (
+                    <InventoryEditor
+                        saveId={saveId}
+                        onOpenLibrary={openLibrary}
+                        exchangeEntries={saveId ? exchangeLists[saveId] : undefined}
+                        onExchangeChange={updateExchangeList}
+                    />
+                )}
                 {view === "templates" && (
                     <TemplateEditor
                         templateKey={templateKey}
