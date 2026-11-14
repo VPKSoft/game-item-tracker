@@ -40,6 +40,6 @@ App icon: [List items](https://www.flaticon.com/free-icon/list-items_8161879) by
 npm run build-samples -- --out ../game-item-tracker-data --version 1.0.0
 ```
 
-This builds `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json` and `palia-potato-pods.gitemplate.json` from [palia.wiki.gg](https://palia.wiki.gg) (CC BY-SA 4.0; game assets © Singularity 6). Fish are grouped by location and have Normal and ★ Starred variants. Plushies are grouped by how they are obtained, Potato Pods by set. The output defaults to `../game-item-tracker-data`, outside this repository. Templates and saves are data, not part of the software, so they are not committed. Import the files in the *Library* view.
+This builds `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json`, `palia-potato-pods.gitemplate.json` and `palia-bugs.gitemplate.json` from [palia.wiki.gg](https://palia.wiki.gg) (CC BY-SA 4.0; game assets © Singularity 6). Fish are grouped by location and have Normal and ★ Starred variants. Plushies are grouped by how they are obtained, Potato Pods by set. Bugs are grouped by behavior and have the same variants as fish. The output defaults to `../game-item-tracker-data`, outside this repository. Templates and saves are data, not part of the software, so they are not committed. Import the files in the *Library* view.
 
 Pass `--no-images` to skip the image downloads. The template ids are fixed, so a regenerated template with a higher `--version` can be imported as an upgrade for existing saves.
