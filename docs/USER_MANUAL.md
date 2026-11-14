@@ -175,6 +175,29 @@ The **Export** button in the toolbar downloads the save. The arrow next to it of
 
 A template upgrade never deletes items from your save. If the new template version no longer has an item, the item stays in the save and is marked as removed. The Inventory view then shows a warning, **N items in this save no longer exist in the template**, with a **Review…** button. The dialog lists those items with the version that removed them, their amounts and notes. Click **Remove** next to an item, or **Remove all**, and confirm to delete them from the save. Until then their data is kept and exported with the save.
 
+### 5.5 Exchange list: sharing what you give and need
+
+The exchange list is a quick way to tell other players which items you can give and which you are looking for. You pick the items and get a compact image of small squares, each with the item image, its name and the amount. You can paste the image into Discord or another chat app, or save it as a PNG file.
+
+![Exchange mode with the exchange list panel](images/manual/30-exchange.png)
+
+1. Click **Exchange** in the Inventory toolbar. The exchange list panel opens, and every item card shows **Give** and **Need** buttons for each variant.
+2. Add items in one of two ways:
+   - Click **Give** or **Need** on a card. The button turns solid and shows the amount (e.g. *Need ×2*). Click it again to remove the item.
+   - Use **Quick fill** in the panel. **Add missing as Need** adds every item where *target − owned* is above zero. **Add as Give** adds the items you have extra of: *owned − target* by default, or the value of a counter you pick, such as *Tradeable*. Quick fill uses only the items the grid shows, so choose a category, search or filter first to limit it.
+3. Change amounts with the steppers in the panel, or remove lines with **×**. **Clear** empties the list.
+4. Set the image title (the save name by default), the number of columns, a light or dark theme, and the scale (*2×* is sharper on high-resolution screens).
+5. Click **Copy image** and paste it into the chat, or **Save PNG…** to save a file.
+
+![The generated exchange image](images/manual/31-exchange-image.png)
+
+Notes:
+
+- Amounts are suggested from your counters when you add an item, and they are always at least 1.
+- A unique item or variant can only be added as *Need*, and Quick fill adds it only while it is not obtained.
+- The list is **not saved**. It stays while the app is open, including when you switch views, and is cleared when the page is reloaded. Each save has its own list.
+- **Copy image** is hidden in browsers that cannot copy images to the clipboard. Use **Save PNG…** there.
+
 ## 6. Finding items: categories, search, sorting and filters
 
 The same toolbar is used in the Inventory and Templates views. The item count on the right shows *visible / total*.
@@ -381,6 +404,7 @@ Upgrades only go forward.
 | Paste an item image | Ctrl+V in the template item drawer |
 | See what you can trade | Filter *Counter above zero* → *Tradeable > 0* |
 | See what you still need | Filter *Only missing*, or sort by *Missing* (descending) |
+| Post your trade list in Discord | **Exchange** → **Add missing as Need** / **Add as Give** → **Copy image**, then paste |
 | Find a fish by its bait or location | Type the bait or location in the search field (tags are searched) |
 
 ## 12. Troubleshooting

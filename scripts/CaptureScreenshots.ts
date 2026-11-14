@@ -368,6 +368,37 @@ const capture = async (page: Page, appUrl: string, outDir: string, imageFile: st
     await d.click(`document.querySelector('[aria-label="Dark mode"]')`);
     await sleep(800);
 
+    // Exchange list: a few Give and Need toggles, the panel and the generated PNG itself.
+    await d.click(
+        `[...document.querySelectorAll(".InventoryEditor button")].find(b => b.textContent.trim() === "Exchange")`
+    );
+    await d.waitFor(`document.querySelector('[aria-label="Give Albino Eel (Normal)"]')`, "the exchange toggles");
+    for (const label of [
+        "Give Albino Eel (Normal)",
+        "Give Ancient Fish (Normal)",
+        "Need Alligator Gar (Normal)",
+        "Need Ancient Koi (Normal)",
+        "Need Ancient Koi (★ Starred)",
+    ]) {
+        await d.click(`document.querySelector('[aria-label=${JSON.stringify(label)}]')`);
+    }
+    await d.waitFor(`document.querySelector(".ExchangePanel-preview img")?.naturalWidth > 0`, "the exchange preview");
+    await sleep(800);
+    await d.shot("30-exchange.png");
+    const png = await page.evaluate<string>(`(async () => {
+        const blob = await (await fetch(document.querySelector(".ExchangePanel-preview img").src)).blob();
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let binary = "";
+        for (const b of bytes) binary += String.fromCharCode(b);
+        return btoa(binary);
+    })()`);
+    await writeFile(join(outDir, "31-exchange-image.png"), Buffer.from(png, "base64"));
+    console.log("saved 31-exchange-image.png");
+    await d.click(
+        `[...document.querySelectorAll(".InventoryEditor button")].find(b => b.textContent.trim() === "Exchange")`
+    );
+    await sleep(600);
+
     await d.view("Library");
     await d.waitFor(`document.body.innerText.includes("My Palia Fish")`, "the library with the save");
     await d.messagesGone();
