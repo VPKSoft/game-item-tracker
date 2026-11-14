@@ -5,14 +5,17 @@ import * as React from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { getSaveItem, setCounterValue } from "../Domain/Counters.ts";
 import { createSave } from "../Domain/CreateSave.ts";
+import type { ExchangeEntry } from "../Domain/Exchange.ts";
 import { fishTemplate } from "../Domain/TestFixtures.ts";
 import { serialize } from "../Files/FileFormat.ts";
 import { defaultCatalogUrl } from "../Files/OnlineCatalog.ts";
+import { renderExchangeImage } from "../Images/RenderExchangeImage.ts";
 import { catalogFormat } from "../Schemas/CatalogSchema.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
 import { getTemplate } from "../Storage/Database.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
+import { ExchangePanel } from "../Views/ExchangePanel.tsx";
 import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
 import { UpgradeDialog } from "../Views/UpgradeDialog.tsx";
@@ -30,6 +33,11 @@ vi.mock("../Images/ImageResize.ts", async importOriginal => ({
         type: "image/webp",
     })),
     hashImage: vi.fn(async () => "hash123"),
+}));
+
+vi.mock("../Images/RenderExchangeImage.ts", async importOriginal => ({
+    ...(await importOriginal<typeof import("../Images/RenderExchangeImage.ts")>()),
+    renderExchangeImage: vi.fn(async () => new Blob(["png"], { type: "image/png" })),
 }));
 
 describe("CounterStepper", () => {
@@ -389,5 +397,98 @@ describe("OnlineTemplatesDialog", () => {
         );
         expect(await screen.findByText("The online template list could not be loaded (HTTP 500).")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    });
+});
+
+describe("exchange list", () => {
+    const uniqueKoi = (): Template => {
+        const base = fishTemplate();
+        return { ...base, items: base.items.map(i => (i.id === "koi" ? { ...i, unique: ["starred"] } : i)) };
+    };
+
+    beforeAll(() => {
+        URL.createObjectURL = vi.fn(() => "blob:preview");
+        URL.revokeObjectURL = vi.fn();
+    });
+
+    it("shows Give and Need toggles per variant, without Give for a unique variant", async () => {
+        const t = uniqueKoi();
+        const onToggle = vi.fn();
+        const entries: ExchangeEntry[] = [{ itemId: "koi", variantKey: "normal", mode: "give", amount: 3 }];
+        render(
+            <ItemCard
+                template={t}
+                item={t.items[1]}
+                onOpen={() => undefined}
+                showCounters
+                exchangeEntries={entries}
+                onExchangeToggle={onToggle}
+            />
+        );
+        const give = screen.getByLabelText("Give Ancient Koi (Normal)");
+        expect(give).toHaveTextContent("Give ×3");
+        expect(give).toHaveAttribute("aria-pressed", "true");
+        expect(screen.queryByLabelText("Give Ancient Koi (Starred)")).not.toBeInTheDocument();
+        await userEvent.click(screen.getByLabelText("Need Ancient Koi (Starred)"));
+        expect(onToggle).toHaveBeenCalledWith("koi", "starred", "need");
+    });
+
+    const PanelHarness = ({ template, save }: { template: Template; save: Save }) => {
+        const [entries, setEntries] = React.useState<ExchangeEntry[]>([]);
+        return (
+            <AntdApp>
+                <ExchangePanel
+                    open
+                    onClose={() => undefined}
+                    template={template}
+                    save={save}
+                    entries={entries}
+                    onChange={update => setEntries(update)}
+                    getVisibleItems={() => template.items}
+                />
+            </AntdApp>
+        );
+    };
+
+    it("fills missing items, edits the list and copies the image", async () => {
+        const t = fishTemplate();
+        const write = vi.fn(async () => undefined);
+        class FakeClipboardItem {
+            constructor(readonly items: Record<string, unknown>) {}
+        }
+        vi.stubGlobal("ClipboardItem", FakeClipboardItem);
+        Object.defineProperty(navigator, "clipboard", { value: { write }, configurable: true });
+        try {
+            render(<PanelHarness template={t} save={createSave(t, "My fish")} />);
+            expect(await screen.findByText(/Click Give or Need/)).toBeInTheDocument();
+
+            await userEvent.click(screen.getByRole("button", { name: "Add missing as Need" }));
+            expect(await screen.findByText("2 entries added.")).toBeInTheDocument();
+            expect(screen.getByText("Bass (Normal)")).toBeInTheDocument();
+            expect(screen.getByText("Bass (Starred)")).toBeInTheDocument();
+            expect(screen.getByText("Looking for (2)")).toBeInTheDocument();
+
+            await userEvent.click(screen.getByLabelText("Remove Bass (Starred)"));
+            expect(screen.queryByText("Bass (Starred)")).not.toBeInTheDocument();
+
+            await waitFor(() => expect(screen.getByAltText("Preview")).toHaveAttribute("src", "blob:preview"));
+            const input = vi.mocked(renderExchangeImage).mock.lastCall?.[0];
+            expect(input?.title).toBe("My fish");
+            expect(input?.tiles.need.map(x => [x.name, x.variantLabel, x.amount])).toEqual([["Bass", "Normal", 1]]);
+
+            await userEvent.click(screen.getByRole("button", { name: "Copy image" }));
+            await waitFor(() => expect(write).toHaveBeenCalledTimes(1));
+            expect(await screen.findByText(/The image was copied/)).toBeInTheDocument();
+        } finally {
+            vi.unstubAllGlobals();
+            Reflect.deleteProperty(navigator, "clipboard");
+        }
+    });
+
+    it("says when there is nothing to add", async () => {
+        const t = fishTemplate();
+        render(<PanelHarness template={t} save={createSave(t, "s")} />);
+        await userEvent.click(screen.getByRole("button", { name: "Add as Give" }));
+        expect(await screen.findByText("Nothing to add from the items shown.")).toBeInTheDocument();
     });
 });

@@ -6,6 +6,8 @@ const imageMessages = {
     resizeUnsupported: "Image resizing is not supported in this browser.",
     encodingFailed: "Encoding the image failed.",
     clipboardUnsupported: "Reading the clipboard is not supported here. Press Ctrl+V (Cmd+V) instead.",
+    canvasUnsupported: "Drawing images is not supported in this browser.",
+    clipboardWriteUnsupported: "Copying images is not supported in this browser. Save the PNG file instead.",
 } as const;
 
 /** The code of an image handling message. */
