@@ -278,6 +278,7 @@ ItemBrowser = styled(ItemBrowser)`
     flex-direction: column;
     gap: 10px;
     min-height: 0;
+    min-width: 0;
     flex: 1;
     .ItemBrowser-toolbar {
         display: flex;
