@@ -41,6 +41,12 @@ type PlushieRow = ImageRef & {
     section: string[];
 };
 
+type PotatoPodRow = ImageRef & {
+    name: string;
+    /** The pod set, e.g. "Bonsai Pods". */
+    set: string;
+};
+
 /** Removes <style> blocks (template styles are inlined into cells) and collapses whitespace. */
 const cleanText = (element: HTMLElement | undefined) => {
     if (!element) {
@@ -243,6 +249,32 @@ const parsePlushieTables = (html: string, base = "https://palia.wiki.gg"): Plush
     return rows;
 };
 
+/** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
+const parsePotatoPodTable = (html: string, base = "https://palia.wiki.gg"): PotatoPodRow[] => {
+    const root = parse(html);
+    const table = root.querySelectorAll("table").find(t => headerTexts(t).join("|") === "Image|Name|Set");
+    if (!table) {
+        throw new Error("The Available Pods table was not found");
+    }
+    const rows: PotatoPodRow[] = [];
+    for (const tr of table.querySelectorAll("tr").slice(1)) {
+        const cells = tr.querySelectorAll("td");
+        if (cells.length < 3) {
+            continue;
+        }
+        const name = cleanText(cells[1]);
+        if (!name) {
+            continue;
+        }
+        rows.push({
+            name,
+            set: cleanText(cells[2]) || "Other",
+            imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base),
+        });
+    }
+    return rows;
+};
+
 /** The counters of the fish sample: placed only for starred fish. No tradeable counter: fish can only be gifted. */
 const fishCounters = (): CounterDef[] => [
     { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
@@ -442,14 +474,74 @@ const buildPlushieTemplate = (rows: PlushieRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { FishRow, PlushieRow, TemplateMeta };
+/**
+ * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
+ * rarity for pods, so the template has no rarity attribute.
+ */
+const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const row of rows) {
+        let category = categories.find(c => c.name === row.set);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    row.set,
+                    categories.map(c => c.id)
+                ),
+                name: row.set,
+                order: 0,
+            };
+            categories.push(category);
+        }
+        if (items.some(i => i.name === row.name)) {
+            continue;
+        }
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: category.id,
+            name: row.name,
+            description: "",
+            attributes: {},
+            tags: [`Set: ${row.set}`],
+        });
+    }
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+    categories.forEach((c, i) => {
+        c.order = i;
+    });
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: plushieCounters(),
+            categories,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
+export type { FishRow, PlushieRow, PotatoPodRow, TemplateMeta };
 export {
     buildFishTemplate,
     buildPlushieTemplate,
+    buildPotatoPodTemplate,
     cleanText,
     fullImageUrl,
     parseBait,
     parseFishTable,
     parsePlushieTables,
+    parsePotatoPodTable,
     parseTimes,
 };
