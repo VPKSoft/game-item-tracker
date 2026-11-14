@@ -243,13 +243,12 @@ const parsePlushieTables = (html: string, base = "https://palia.wiki.gg"): Plush
     return rows;
 };
 
-/** The counters of the fish sample: placed only for starred fish. */
+/** The counters of the fish sample: placed only for starred fish. No tradeable counter: fish can only be gifted. */
 const fishCounters = (): CounterDef[] => [
     { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
     { key: "placed", label: "Placed", kind: "manual", variants: ["starred"], order: 1 },
     { key: "total", label: "Total", kind: "computed", sumOf: ["inventory", "placed"], role: "owned", order: 2 },
     { key: "target", label: "Target", kind: "manual", role: "target", order: 3 },
-    { key: "tradeable", label: "Tradeable", kind: "manual", order: 4 },
 ];
 
 /** The counters of the plushies sample. Plushies are placed or stored, so there is no inventory counter. */

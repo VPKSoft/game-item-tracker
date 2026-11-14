@@ -320,7 +320,7 @@ Save item:
 
 ```json
 {
-    "counts": { "normal": { "inventory": 1, "target": 2, "tradeable": 1 } },
+    "counts": { "normal": { "inventory": 1, "target": 2 } },
     "notes": "Caught during rain.",
     "removedTags": [],
     "customTags": [],
@@ -530,7 +530,7 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - Template ids are fixed constants, so a regenerated template with a higher `--version` imports as an upgrade for existing saves.
 - **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
 - `scripts/PaliaParsers.ts` holds the pure parsers and builders:
-  - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target), Tradeable; attribute `rarity` 1–5; tags `Location: …`, `Time: …`, `Bait: …`, `Bundle: …`/`Quest: …`/`Recipe: …`; starred Ancient Cloudminnow is unique.
+  - **Fish**: categories by location; variants `normal` and `starred`; counters Inventory, Placed (starred only), Total = Inventory + Placed (owned), Target (target) (no Tradeable counter: fish can only be gifted); attribute `rarity` 1–5; tags `Location: …`, `Time: …`, `Bait: …`, `Bundle: …`/`Quest: …`/`Recipe: …`; starred Ancient Cloudminnow is unique.
 - **Plushies**: categories from page sections ("Always Available" and "Event" as parents); no variants; counters Placed, Storage, Total = Placed + Storage (owned; no Inventory counter), Target (target), Tradeable; a plushie in several tables becomes one item, with the other sources as `Source: …` tags.
 - Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
 
