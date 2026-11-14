@@ -1,3 +1,4 @@
+import { Button, Space, theme } from "antd";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import "./PwaBadge.css";
@@ -6,6 +7,7 @@ import { useRegisterSW } from "virtual:pwa-register/react";
 
 const PwaBadge = () => {
     const { t } = useTranslation();
+    const { token } = theme.useToken();
 
     // check for updates every hour
     const period = 60 * 60 * 1000;
@@ -31,6 +33,13 @@ const PwaBadge = () => {
         },
     });
 
+    const reload = React.useCallback(() => {
+        // workbox-window reloads by itself only when a service worker controlled the page when it loaded.
+        // On a first visit none did, so reload when the new worker takes control.
+        navigator.serviceWorker?.addEventListener("controllerchange", () => window.location.reload(), { once: true });
+        void updateServiceWorker(true);
+    }, [updateServiceWorker]);
+
     const close = React.useCallback(() => {
         setNeedRefresh(false);
     }, [setNeedRefresh]);
@@ -38,18 +47,27 @@ const PwaBadge = () => {
     return (
         <div className="PWABadge" role="alert" aria-labelledby="toast-message">
             {needRefresh && (
-                <div className="PWABadge-toast">
+                <div
+                    className="PWABadge-toast"
+                    style={{
+                        background: token.colorBgElevated,
+                        color: token.colorText,
+                        borderColor: token.colorBorderSecondary,
+                        borderRadius: token.borderRadiusLG,
+                        boxShadow: token.boxShadowSecondary,
+                    }}
+                >
                     <div className="PWABadge-message">
                         <span id="toast-message">{t("pwa.newContent")}</span>
                     </div>
-                    <div className="PWABadge-buttons">
-                        <button className="PWABadge-toast-button" onClick={() => updateServiceWorker(true)}>
+                    <Space>
+                        <Button type="primary" size="small" onClick={reload}>
                             {t("pwa.reload")}
-                        </button>
-                        <button className="PWABadge-toast-button" onClick={() => close()}>
+                        </Button>
+                        <Button size="small" onClick={() => close()}>
                             {t("common.close")}
-                        </button>
-                    </div>
+                        </Button>
+                    </Space>
                 </div>
             )}
         </div>
