@@ -5,6 +5,7 @@ import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
     buildBugTemplate,
     buildFishTemplate,
+    buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     fullImageUrl,
@@ -14,6 +15,7 @@ import {
     parsePlushieTables,
     parsePotatoPodTable,
     parseTimes,
+    parseWikiItemPage,
 } from "./PaliaParsers.ts";
 
 // Hand-written fixtures that mirror the wiki's table structure with made-up items.
@@ -300,5 +302,104 @@ describe("bugs", () => {
 
     it("fails clearly when the table is missing", () => {
         expect(() => parseBugTable("<p>nothing</p>")).toThrow("List of Bugs");
+    });
+});
+
+/** A made-up item page with a portable infobox, like the wiki's item pages. */
+const itemPage = (fields: string, quote: string) => `
+<div class="mw-parser-output">
+<aside class="portable-infobox">
+<h2 class="pi-title">Item</h2>
+<figure class="pi-image"><a href="/wiki/File:Item.png"><img src="/images/Test_Item.png?abc" alt="Item.png"></a></figure>
+${fields}
+</aside>
+<h2><span class="mw-headline" id="Description">Description</span></h2>
+<p><style>.cquote{}</style></p><table class="cquote"><tr><td class="cquote-quote">${quote}</td></tr></table>
+</div>`;
+
+const field = (key: string, value: string) =>
+    `<div class="pi-item pi-data" data-source="${key}"><h3 class="pi-data-label">${key}</h3><div class="pi-data-value">${value}</div></div>`;
+
+const ticket = (amount: string) =>
+    `<span class="template-cost template-cost-maji-market-ticket" data-sort-value="${amount}"><span><a href="/wiki/Maji_Market_Ticket" title="Maji Market Ticket"><img src="/x.png"></a> <b>${amount}</b></span></span>`;
+
+const envelope = (amount: string) =>
+    `<span class="template-cost template-cost-lucky-envelope"><span><a href="/wiki/Lucky_Envelope" title="Lucky Envelope"><img src="/y.png"></a> <b>${amount}</b></span></span>`;
+
+const testPillowHtml = itemPage(
+    field("category", "<a>Decor</a>") +
+        field("rarity", "<font class='template-rarity'><b>Uncommon</b></font>") +
+        field("event", "<a>Maji Market</a><br><a>Luna New Year</a>") +
+        field(
+            "obtain",
+            `<a href="/wiki/Test_Stall"><span>Test Stall</span></a><br>&#160;&#160;• ${ticket("1,000")}<br>` +
+                `<a href="/wiki/Prize_Booth"><span>Prize Booth</span></a><br>&#160;&#160;• ${envelope("900")}<br>` +
+                `<a href="/wiki/Trading"><span>Trading</span></a><br>`
+        ) +
+        field("recipeobtain", "Cannot be crafted."),
+    "A made-up pillow."
+);
+
+const testDishHtml = itemPage(
+    field("category", "<a>Consumable</a>") +
+        field("group", "<a>Dishes</a>") +
+        field("rarity", "<b>Epic</b>") +
+        field("obtain", `<a href="/wiki/Cooking"><span>Cooking</span></a><br>`) +
+        field(
+            "recipeobtain",
+            `<a href="/wiki/Test_Stall"><span>Test Stall</span></a><br>&#160;&#160;• <span class="template-cost template-cost-gold"><span><a title="Gold"></a> <b>1</b></span></span><br>`
+        ),
+    "A made-up dish."
+);
+
+describe("Maji Market", () => {
+    it("reads an item page's infobox, sources with their currencies, and description", () => {
+        const item = parseWikiItemPage("Test Pillow", testPillowHtml, "https://palia.wiki.gg");
+        expect(item).toMatchObject({
+            name: "Test Pillow",
+            description: "A made-up pillow.",
+            category: "Decor",
+            group: "",
+            rarity: 2,
+            events: ["Maji Market", "Luna New Year"],
+            imageUrl: "https://palia.wiki.gg/images/Test_Item.png",
+        });
+        expect(item.obtain).toEqual([
+            { source: "Test Stall", costs: ["1,000 Maji Market Ticket"] },
+            { source: "Prize Booth", costs: ["900 Lucky Envelope"] },
+            { source: "Trading", costs: [] },
+        ]);
+    });
+
+    it("builds shop categories with Inventory, Placed, Total and Target", () => {
+        const items = [parseWikiItemPage("Test Pillow", testPillowHtml), parseWikiItemPage("Test Dish", testDishHtml)];
+        const { template, imageUrls } = buildMajiMarketTemplate(items, meta, [
+            "Prize Booth",
+            "Test Stall",
+            "Empty Stall",
+        ]);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        // An item goes under its first shop; shops without items are left out.
+        expect(template.categories.map(c => c.name)).toEqual(["Test Stall"]);
+        expect(template.variantDefs).toEqual([]);
+        expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
+        expect(template.counterDefs.find(c => c.key === "total")?.sumOf).toEqual(["inventory", "placed"]);
+
+        const [pillow, dish] = template.items;
+        expect(template.categories.find(c => c.id === pillow.categoryId)?.name).toBe("Test Stall");
+        expect(pillow.tags).toEqual(["Shop: Test Stall", "Shop: Prize Booth", "Type: Decor", "Event: Luna New Year"]);
+        expect(pillow.description).toBe(
+            "A made-up pillow.\nTest Stall • 1,000 Maji Market Ticket\nPrize Booth • 900 Lucky Envelope"
+        );
+        // Bought as a recipe: no placeholder price.
+        expect(dish.tags).toEqual(["Shop: Test Stall", "Type: Recipe"]);
+        expect(dish.description).toBe("A made-up dish.\nRecipe sold at Test Stall");
+        expect(dish.attributes.rarity).toBe(4);
+        expect(imageUrls.size).toBe(2);
+    });
+
+    it("fails clearly for a page without an infobox", () => {
+        expect(() => parseWikiItemPage("Nothing", "<p>nothing</p>")).toThrow("no infobox");
     });
 });

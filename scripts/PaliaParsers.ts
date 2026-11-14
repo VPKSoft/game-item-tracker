@@ -53,6 +53,29 @@ type BugRow = ImageRef & {
     neededFor: string[];
 };
 
+/** One way to get an item, from the "Obtained From" field of a wiki infobox. */
+type ItemSource = {
+    /** The shop, place or activity, e.g. "Chapaa Tchotchkes". */
+    source: string;
+    /** The cost lines under it, e.g. "900 Maji Market Ticket"; empty when there is no cost. */
+    costs: string[];
+};
+
+/** The data of one item page (a page with a portable infobox). */
+type WikiItem = ImageRef & {
+    name: string;
+    description: string;
+    /** The infobox category, e.g. "Decor", "Consumable". */
+    category: string;
+    /** The infobox group, e.g. "Firework", "Dishes"; empty when there is none. */
+    group: string;
+    rarity?: number;
+    /** The events the item belongs to, e.g. ["Maji Market", "Luna New Year"]. */
+    events: string[];
+    obtain: ItemSource[];
+    recipeObtain: ItemSource[];
+};
+
 type PotatoPodRow = ImageRef & {
     name: string;
     /** The pod set, e.g. "Bonsai Pods". */
@@ -329,6 +352,64 @@ const parseBugTable = (html: string, base = "https://palia.wiki.gg"): BugRow[] =
         });
     }
     return rows;
+};
+
+/**
+ * Reads an infobox "Obtained From" value: each source is a link on its own line, followed by
+ * "• cost" lines. A cost icon links to its currency, so "• [ticket icon] 900" becomes "900 Maji Market Ticket".
+ */
+const parseItemSources = (value: HTMLElement | null) => {
+    if (!value) {
+        return [];
+    }
+    const copy = parse(value.innerHTML);
+    for (const cost of copy.querySelectorAll(".template-cost")) {
+        const amount = cost.querySelector("b")?.textContent.trim() ?? "";
+        const currency = cost.querySelector("a")?.getAttribute("title") ?? "";
+        cost.replaceWith(`${amount} ${currency}`.trim());
+    }
+    const sources: ItemSource[] = [];
+    for (const line of copy.innerHTML.split(/<br\s*\/?>/i)) {
+        const text = parse(line)
+            .textContent.replace(/&#160;|&nbsp;| /g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+        if (!text) {
+            continue;
+        }
+        const cost = text.match(/^•\s*(.*)$/);
+        if (cost) {
+            sources[sources.length - 1]?.costs.push(cost[1]);
+        } else {
+            sources.push({ source: text, costs: [] });
+        }
+    }
+    return sources;
+};
+
+/** Parses an item page: the portable infobox and the description quote. */
+const parseWikiItemPage = (name: string, html: string, base = "https://palia.wiki.gg"): WikiItem => {
+    const root = parse(html);
+    for (const style of root.querySelectorAll("style")) {
+        style.remove();
+    }
+    const infobox = root.querySelector("aside.portable-infobox");
+    if (!infobox) {
+        throw new Error(`The page of ${name} has no infobox`);
+    }
+    const field = (key: string) => infobox.querySelector(`.pi-data[data-source="${key}"] .pi-data-value`);
+    const text = (key: string) => cleanText(field(key) ?? undefined).replace(/\n/g, " ");
+    return {
+        name,
+        description: cleanText(root.querySelector(".cquote .cquote-quote") ?? undefined).replace(/\n/g, " "),
+        category: text("category"),
+        group: text("group"),
+        rarity: rarityValue(text("rarity")),
+        events: (field("event")?.querySelectorAll("a") ?? []).map(a => a.textContent.trim()).filter(e => e.length > 0),
+        obtain: parseItemSources(field("obtain")),
+        recipeObtain: parseItemSources(field("recipeobtain")),
+        imageUrl: fullImageUrl(infobox.querySelector("figure img")?.getAttribute("src"), base),
+    };
 };
 
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
@@ -622,6 +703,86 @@ const buildBugTemplate = (rows: BugRow[], meta: TemplateMeta) => {
     };
 };
 
+/** The counters of the Maji Market sample: no variants, so Placed is a plain counter. */
+const majiMarketCounters = (): CounterDef[] => [
+    { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
+    { key: "placed", label: "Placed", kind: "manual", order: 1 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["inventory", "placed"], role: "owned", order: 2 },
+    { key: "target", label: "Target", kind: "manual", role: "target", order: 3 },
+];
+
+/**
+ * Builds the Maji Market template: one category per shop, the item's other shops as tags, and the
+ * prices in the description. An item bought as a recipe (e.g. Poke Bowl) gets `Type: Recipe`; its price is left out, because the
+ * wiki lists recipe prices as a placeholder "1 Gold".
+ *
+ * @param shops The Maji Market shops, in category order.
+ */
+const buildMajiMarketTemplate = (items: WikiItem[], meta: TemplateMeta, shops: string[]) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = shops.map((shop, order) => ({
+        id: uniqueId(shop, []),
+        name: shop,
+        order,
+    }));
+    const templateItems: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    const isShop = (source: ItemSource) => shops.includes(source.source);
+    for (const item of items) {
+        const shopSources = item.obtain.filter(isShop);
+        const recipeSources = shopSources.length === 0 ? item.recipeObtain.filter(isShop) : [];
+        const itemShops = [...new Set([...shopSources, ...recipeSources].map(s => s.source))];
+        const shop = itemShops[0] ?? "Other";
+        let category = categories.find(c => c.name === shop);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    shop,
+                    categories.map(c => c.id)
+                ),
+                name: shop,
+                order: categories.length,
+            };
+            categories.push(category);
+        }
+        const id = uniqueId(
+            item.name,
+            templateItems.map(i => i.id)
+        );
+        if (item.imageUrl && !/\/Unknown\.png$/i.test(item.imageUrl)) {
+            imageUrls.set(id, item.imageUrl);
+        }
+        const prices = [
+            ...shopSources.map(s => [s.source, ...s.costs].join(" • ")),
+            ...recipeSources.map(s => `Recipe sold at ${s.source}`),
+        ];
+        templateItems.push({
+            id,
+            categoryId: category.id,
+            name: item.name,
+            description: [item.description, ...[...new Set(prices)]].filter(l => l.length > 0).join("\n"),
+            attributes: item.rarity ? { rarity: item.rarity } : {},
+            tags: [
+                ...new Set([
+                    ...itemShops.map(s => `Shop: ${s}`),
+                    `Type: ${recipeSources.length > 0 ? "Recipe" : item.group || item.category || "Other"}`,
+                    ...item.events.filter(e => e !== "Maji Market").map(e => `Event: ${e}`),
+                ]),
+            ],
+        });
+    }
+    return {
+        template: {
+            ...template,
+            counterDefs: majiMarketCounters(),
+            categories: categories.filter(c => templateItems.some(i => i.categoryId === c.id)),
+            items: templateItems,
+            tags: collectTags(templateItems),
+        },
+        imageUrls,
+    };
+};
+
 /**
  * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
  * rarity for pods, so the template has no rarity attribute.
@@ -680,10 +841,11 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { BugRow, FishRow, PlushieRow, PotatoPodRow, TemplateMeta };
+export type { BugRow, FishRow, ItemSource, PlushieRow, PotatoPodRow, TemplateMeta, WikiItem };
 export {
     buildBugTemplate,
     buildFishTemplate,
+    buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     cleanText,
@@ -691,7 +853,9 @@ export {
     parseBait,
     parseBugTable,
     parseFishTable,
+    parseItemSources,
     parsePlushieTables,
     parsePotatoPodTable,
     parseTimes,
+    parseWikiItemPage,
 };
