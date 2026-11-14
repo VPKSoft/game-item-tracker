@@ -124,6 +124,7 @@ describe("fish", () => {
         expect(template.variantDefs.map(v => v.key)).toEqual(["normal", "starred"]);
         expect(getVariantCounters(template, "normal").map(c => c.key)).not.toContain("placed");
         expect(getVariantCounters(template, "starred").map(c => c.key)).toContain("placed");
+        expect(template.counterDefs.some(c => c.key === "tradeable")).toBe(false);
         expect(template.items[0].tags).toEqual(
             expect.arrayContaining(["Location: Caves", "Time: Morning", "Bait: Worm", "Bundle: Flamerod Bundle"])
         );
