@@ -139,6 +139,7 @@ src/
   Utilities/UseLocalStorage.tsx  JSON localStorage helper
   Utilities/Version.ts     App version and name from package.json, SemVer check
   TestSetup.ts             jest-dom, fake-indexeddb, matchMedia/ResizeObserver stubs
+  TestPwaRegisterStub.ts   Test stand-in for virtual:pwa-register/react
 scripts/
   BuildPaliaTemplates.ts   Node CLI: builds the Palia sample templates from the wiki
   PaliaParsers.ts          HTML table parsers and template builders (pure, tested)
@@ -601,7 +602,7 @@ npm run test:watch
 npm run coverage
 ```
 
-- Config: `vitest.config.ts` (jsdom, `src/TestSetup.ts`, includes `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.ts`, CSS disabled).
+- Config: `vitest.config.ts` (jsdom, `src/TestSetup.ts`, includes `src/**/*.test.{ts,tsx}` and `scripts/**/*.test.ts`, CSS disabled). It aliases `virtual:pwa-register/react`, which exists only in app builds, to `src/TestPwaRegisterStub.ts`; tests replace it with `vi.mock`.
 - `TestSetup.ts` loads `@testing-library/jest-dom`, `fake-indexeddb/auto`, the i18next setup (tests run in English) and stubs `matchMedia` and `ResizeObserver`.
 - Shared fixtures: `src/Domain/TestFixtures.ts`.
 
@@ -639,7 +640,7 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 - CI (`.github/workflows/node.js.yml`): on pushes and PRs to `develop`, Node 26: `npm install`, `npm run build`, `npm test`, `npm run lint`.
 - Release (`.github/workflows/release.yml`): tags and releases a version bump; see section 12.1.
 - Deploy (`.github/workflows/deploy-pages.yml`): on pushes to `develop`, `npm ci`, `npm test`, then `npm run build` with `BASE_PATH=/game-item-tracker/` and publish `dist` to GitHub Pages. Vite's `base` comes from `BASE_PATH` (default `/`), so local builds still serve from the root. Refer to files in `public` through `import.meta.env.BASE_URL`, never with a leading `/`.
-- PWA: `vite-plugin-pwa` with `registerType: "prompt"`; `PwaBadge.tsx` shows the update prompt. The manifest scope and start URL follow `base`.
+- PWA: `vite-plugin-pwa` with `registerType: "prompt"`; `PwaBadge.tsx` shows the update prompt. The toast takes its colors from the antd theme tokens and sits above dialogs (`z-index: 1100`), so *Reload* stays clickable while a dialog is open. *Reload* also reloads on `controllerchange` itself, because workbox-window reloads only when a service worker controlled the page when it loaded (not on a first visit). To test an update locally: `npm run build`, `npm run preview`, open the page, rebuild with any change in `public/`, then reload the page or call `registration.update()`. The manifest scope and start URL follow `base`.
 - App icon: `public/app-icon.png` (512 px, "List items" by Mehwish, Flaticon; attribution required and shown in the About popup and README). Change it by replacing that file and running `npm run generate-pwa-assets`.
 - Git workflow (from `AGENTS.md`): never commit to `develop`; branch `feature/<name>` or `fix/<name>` from an up-to-date `develop`; open a PR into `develop`; run lint, `npx tsc -b` and tests first.
 - Code style (Biome): 4-space indent, 120 columns, double quotes, `asNeeded` arrow parentheses, block statements required, `import type` for types, `export { … }` at the end of the file, **PascalCase file names**.
