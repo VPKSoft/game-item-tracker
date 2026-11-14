@@ -5,10 +5,12 @@ import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
     buildFishTemplate,
     buildPlushieTemplate,
+    buildPotatoPodTemplate,
     fullImageUrl,
     parseBait,
     parseFishTable,
     parsePlushieTables,
+    parsePotatoPodTable,
     parseTimes,
 } from "./PaliaParsers.ts";
 
@@ -179,5 +181,55 @@ describe("plushies", () => {
         expect(imageUrls.has("lantern-plush")).toBe(false);
         expect(template.counterDefs.find(c => c.key === "total")?.sumOf).toEqual(["placed", "storage"]);
         expect(template.counterDefs.some(c => c.key === "inventory")).toBe(false);
+    });
+});
+
+const podHtml = `
+<div class="mw-parser-output">
+<table class="paliatable sortable">
+<tr><th>Image</th><th>Name</th><th>Set</th></tr>
+<tr>
+<td><img alt="Test the Bonsai Pod.png" src="/images/thumb/Test_the_Bonsai_Pod.png/64px-Test_the_Bonsai_Pod.png?aa"></td>
+<td><a href="/wiki/Test_the_Bonsai_Pod"><span>Test the Bonsai Pod</span></a></td>
+<td>Bonsai Pods</td>
+</tr>
+<tr>
+<td><img alt="Sample the Merpod.png" src="/images/thumb/Sample_the_Merpod.png/64px-Sample_the_Merpod.png?bb"></td>
+<td><a><span>Sample the Merpod</span></a></td>
+<td>Merpods</td>
+</tr>
+<tr>
+<td><img src="/images/thumb/Unknown.png/64px-Unknown.png?cc"></td>
+<td>Example the Bonsai Pod</td>
+<td>Bonsai Pods</td>
+</tr>
+</table>
+<table class="navbox"><tr><th>Decor</th></tr><tr><td>Not a pod</td></tr></table>
+</div>`;
+
+describe("potato pods", () => {
+    it("parses the pod table with sets and full-size image URLs", () => {
+        const rows = parsePotatoPodTable(podHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => [r.name, r.set])).toEqual([
+            ["Test the Bonsai Pod", "Bonsai Pods"],
+            ["Sample the Merpod", "Merpods"],
+            ["Example the Bonsai Pod", "Bonsai Pods"],
+        ]);
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Test_the_Bonsai_Pod.png");
+    });
+
+    it("builds set categories with the plushie counters", () => {
+        const { template, imageUrls } = buildPotatoPodTemplate(parsePotatoPodTable(podHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual(["Bonsai Pods", "Merpods"]);
+        expect(template.items.map(i => i.tags)).toEqual([["Set: Bonsai Pods"], ["Set: Merpods"], ["Set: Bonsai Pods"]]);
+        expect(template.attributeDefs).toEqual([]);
+        expect(template.counterDefs.map(c => c.key)).toEqual(["placed", "storage", "total", "target", "tradeable"]);
+        expect(imageUrls.has("example-the-bonsai-pod")).toBe(false);
+    });
+
+    it("fails clearly when the table is missing", () => {
+        expect(() => parsePotatoPodTable("<p>nothing</p>")).toThrow("Available Pods");
     });
 });

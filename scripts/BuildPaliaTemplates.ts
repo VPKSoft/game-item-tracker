@@ -12,7 +12,14 @@ import sharp from "sharp";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { fileNameFor, serialize } from "../src/Files/FileFormat.ts";
 import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts";
-import { buildFishTemplate, buildPlushieTemplate, parseFishTable, parsePlushieTables } from "./PaliaParsers.ts";
+import {
+    buildFishTemplate,
+    buildPlushieTemplate,
+    buildPotatoPodTemplate,
+    parseFishTable,
+    parsePlushieTables,
+    parsePotatoPodTable,
+} from "./PaliaParsers.ts";
 
 const wikiBase = "https://palia.wiki.gg";
 const userAgent = "game-item-tracker-sample-builder/1.0 (+https://github.com/VPKSoft/game-item-tracker)";
@@ -20,6 +27,7 @@ const userAgent = "game-item-tracker-sample-builder/1.0 (+https://github.com/VPK
 // Fixed ids so that regenerating a newer version upgrades existing saves.
 const fishTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e01";
 const plushieTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e02";
+const potatoPodTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e03";
 
 const { values } = parseArgs({
     options: {
@@ -136,6 +144,19 @@ const main = async () => {
         await addImages(plushies.template, plushies.imageUrls);
     }
     await writeTemplate(plushies.template);
+
+    console.log("Fetching Potato Pods…");
+    const pods = buildPotatoPodTemplate(parsePotatoPodTable(await fetchPageHtml("Potato_Pods"), wikiBase), {
+        templateId: potatoPodTemplateId,
+        version: values.version,
+        name: "Palia – Potato Pods",
+        description: "The Potato Pods of Palia, by set.",
+        sourceUrl: `${wikiBase}/wiki/Potato_Pods`,
+    });
+    if (!values["no-images"]) {
+        await addImages(pods.template, pods.imageUrls);
+    }
+    await writeTemplate(pods.template);
 };
 
 main().catch(error => {
