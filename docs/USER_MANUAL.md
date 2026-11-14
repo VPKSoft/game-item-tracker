@@ -181,7 +181,7 @@ The exchange list is a quick way to tell other players which items you can give 
 
 ![Exchange mode with the exchange list panel](images/manual/30-exchange.png)
 
-1. Click **Exchange** in the Inventory toolbar. The exchange list panel opens, and every item card shows **Give** and **Need** buttons for each variant.
+1. Click **Exchange** in the Inventory toolbar. The exchange list panel opens next to the grid (the grid narrows to make room), and every item card shows **Give** and **Need** buttons for each variant.
 2. Add items in one of two ways:
    - Click **Give** or **Need** on a card. The button turns solid and shows the amount (e.g. *Need ×2*). Click it again to remove the item.
    - Use **Quick fill** in the panel. **Add missing as Need** adds every item where *target − owned* is above zero. **Add as Give** adds the items you have extra of: *owned − target* by default, or the value of a counter you pick, such as *Tradeable*. Quick fill uses only the items the grid shows, so choose a category, search or filter first to limit it.

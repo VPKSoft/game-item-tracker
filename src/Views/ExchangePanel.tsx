@@ -1,7 +1,7 @@
 import { faImage } from "@fortawesome/free-regular-svg-icons";
 import { faCopy, faDownload, faXmark } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, App, Button, Drawer, Empty, Input, Popconfirm, Segmented, Select, Space, Spin } from "antd";
+import { Alert, App, Button, Empty, Input, Popconfirm, Segmented, Select, Space, Spin, theme } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -72,6 +72,7 @@ const largeListSize = 150;
 /**
  * The exchange list of a save: entries to give and to get, quick fill from the visible items, and the
  * image (preview, copy, save as PNG). The list itself is never stored.
+ * Rendered as a side column next to the item grid (not an overlay), so the grid reflows to the remaining width.
  */
 let ExchangePanel = ({ className, open, onClose, template, save, entries, onChange, getVisibleItems }: Props) => {
     const { t } = useTranslation();
@@ -80,6 +81,7 @@ let ExchangePanel = ({ className, open, onClose, template, save, entries, onChan
     const [title, setTitle] = React.useState(save.name);
     const [preview, setPreview] = React.useState<string | null>(null);
     const [rendering, setRendering] = React.useState(false);
+    const { token } = theme.useToken();
 
     React.useEffect(() => {
         setTitle(save.name);
@@ -231,15 +233,29 @@ let ExchangePanel = ({ className, open, onClose, template, save, entries, onChan
         );
     };
 
+    if (!open) {
+        return null;
+    }
+
     return (
-        <Drawer
+        <aside
             className={classNames(className, "ExchangePanel")}
-            open={open}
-            onClose={onClose}
-            title={t("exchange.title")}
-            size={440}
-            mask={false}
-            extra={
+            aria-label={t("exchange.title")}
+            style={{
+                background: token.colorBgContainer,
+                borderColor: token.colorBorderSecondary,
+                borderRadius: token.borderRadiusLG,
+            }}
+        >
+            <div className="ExchangePanel-header" style={{ borderColor: token.colorBorderSecondary }}>
+                <Button
+                    type="text"
+                    size="small"
+                    aria-label={t("common.close")}
+                    icon={<FontAwesomeIcon icon={faXmark} />}
+                    onClick={onClose}
+                />
+                <div className="ExchangePanel-title">{t("exchange.title")}</div>
                 <Popconfirm
                     title={t("exchange.clearTitle")}
                     okText={t("exchange.clear")}
@@ -250,8 +266,7 @@ let ExchangePanel = ({ className, open, onClose, template, save, entries, onChan
                         {t("exchange.clear")}
                     </Button>
                 </Popconfirm>
-            }
-        >
+            </div>
             <div className="ExchangePanel-content">
                 <div className="ExchangePanel-hint">{t("exchange.notStored")}</div>
 
@@ -355,15 +370,43 @@ let ExchangePanel = ({ className, open, onClose, template, save, entries, onChan
                     </section>
                 )}
             </div>
-        </Drawer>
+        </aside>
     );
 };
 
 ExchangePanel = styled(ExchangePanel)`
+    width: 420px;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-width: 1px;
+    border-style: solid;
+    @media (max-width: 760px) {
+        width: auto;
+        max-height: 50%;
+    }
+    .ExchangePanel-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-bottom-width: 1px;
+        border-bottom-style: solid;
+    }
+    .ExchangePanel-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 1.1em;
+    }
     .ExchangePanel-content {
         display: flex;
         flex-direction: column;
         gap: 16px;
+        padding: 12px 16px 16px;
+        overflow-y: auto;
+        min-height: 0;
+        flex: 1;
     }
     .ExchangePanel-section {
         display: flex;
