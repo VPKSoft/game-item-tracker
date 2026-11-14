@@ -9,8 +9,9 @@ import { fileMessages, parseFileText } from "./FileFormat.ts";
  */
 const defaultCatalogUrl = "https://vpksoft.github.io/game-item-tracker-data/index.json";
 
-/** The page that explains how to share a template. */
-const templateRepositoryUrl = "https://github.com/VPKSoft/game-item-tracker-data";
+/** The "Submit a template" issue form of the template repository, where people share templates without git. */
+const templateSubmissionUrl =
+    "https://github.com/VPKSoft/game-item-tracker-data/issues/new?template=submit-template.yml";
 
 /** The catalog URL in use. */
 const catalogUrl = import.meta.env.VITE_CATALOG_URL || defaultCatalogUrl;
@@ -81,4 +82,4 @@ const fetchCatalogTemplate = async (entry: CatalogEntry, url = catalogUrl) => {
 };
 
 export type { CatalogMessageCode };
-export { catalogMessages, catalogUrl, defaultCatalogUrl, fetchCatalog, fetchCatalogTemplate, templateRepositoryUrl };
+export { catalogMessages, catalogUrl, defaultCatalogUrl, fetchCatalog, fetchCatalogTemplate, templateSubmissionUrl };

@@ -363,6 +363,10 @@ describe("OnlineTemplatesDialog", () => {
         );
 
         expect(await screen.findByText("Fish")).toBeInTheDocument();
+        expect(screen.getByRole("link", { name: "Share your own template" })).toHaveAttribute(
+            "href",
+            "https://github.com/VPKSoft/game-item-tracker-data/issues/new?template=submit-template.yml"
+        );
         expect(screen.getByRole("button", { name: "Installed" })).toBeDisabled();
         await userEvent.type(screen.getByLabelText("Search games and templates"), "plush");
         expect(screen.queryByText("Fish")).toBeNull();

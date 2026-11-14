@@ -2,7 +2,7 @@ import { Alert, App, Button, Input, Modal, Space, Table, Tag, Typography } from 
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { type CatalogStatus, filterCatalog, getCatalogStatus } from "../Domain/Catalog.ts";
-import { fetchCatalog, fetchCatalogTemplate, templateRepositoryUrl } from "../Files/OnlineCatalog.ts";
+import { fetchCatalog, fetchCatalogTemplate, templateSubmissionUrl } from "../Files/OnlineCatalog.ts";
 import { translateError } from "../Localization/Messages.ts";
 import type { CatalogEntry } from "../Schemas/CatalogSchema.ts";
 import { putTemplate } from "../Storage/Database.ts";
@@ -110,7 +110,7 @@ const OnlineTemplatesDialog = ({ open, stored, onClose, onInstalled }: Props) =>
             <Space orientation="vertical" style={{ width: "100%" }}>
                 <Typography.Text type="secondary">
                     {t("online.hint")}{" "}
-                    <Typography.Link href={templateRepositoryUrl} target="_blank" rel="noreferrer">
+                    <Typography.Link href={templateSubmissionUrl} target="_blank" rel="noreferrer">
                         {t("online.shareLink")}
                     </Typography.Link>
                 </Typography.Text>
