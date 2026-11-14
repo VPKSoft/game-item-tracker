@@ -127,7 +127,7 @@ connection; everything else in the app works offline.
 - **Installed** means you already have that version. **older than yours** means your library has a newer
   version than the online one, for example because you edited it yourself.
 
-To share a template of your own, follow **Share your own template** in the dialog.
+To share a template of your own, export it (**Export** on its row in the Library) and follow **Share your own template** in the dialog. It opens a submission form on GitHub where you attach the exported file; you need a free GitHub account, but no git. Once a maintainer has added the template, it appears in this list for everyone.
 
 ## 5. Inventory: tracking your items
 
