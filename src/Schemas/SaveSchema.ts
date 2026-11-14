@@ -15,8 +15,11 @@ const saveItemSchema = z.object({
     customTags: z.array(z.string()),
     /** The variant keys of unique variants the user has obtained ("_" for items without variants). */
     obtained: z.array(z.string()).optional(),
-    /** Set when the item no longer exists in the template; keeps enough to show the user data. */
-    orphan: z.object({ name: z.string() }).optional(),
+    /**
+     * Set when the item was deleted from the template. The entry stays in the save until the user removes it;
+     * `name` keeps enough to show it and `removedIn` is the template version that no longer had the item.
+     */
+    orphan: z.object({ name: z.string(), removedIn: z.string().optional() }).optional(),
 });
 
 const saveSchema = z.object({

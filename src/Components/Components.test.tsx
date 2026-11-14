@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { App as AntdApp } from "antd";
 import * as React from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getSaveItem, setCounterValue } from "../Domain/Counters.ts";
@@ -9,6 +10,7 @@ import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
+import { UpgradeDialog } from "../Views/UpgradeDialog.tsx";
 import { CounterStepper } from "./CounterStepper.tsx";
 import { ItemBrowser } from "./ItemBrowser.tsx";
 import { ItemCard } from "./ItemCard.tsx";
@@ -260,5 +262,50 @@ describe("CountersEditor", () => {
         render(<Harness initial={t} onTemplate={x => (latest = x)} />);
         await userEvent.type(screen.getByLabelText("New counter label"), "In chests{Enter}");
         expect(latest.counterDefs).toEqual([{ key: "in-chests", label: "In chests", kind: "manual", order: 0 }]);
+    });
+});
+
+describe("UpgradeDialog", () => {
+    const v1 = fishTemplate();
+    const v2: Template = {
+        ...v1,
+        version: "1.1.0",
+        counterDefs: v1.counterDefs.filter(c => c.key !== "tradeable"),
+        items: v1.items.filter(i => i.id !== "koi"),
+    };
+
+    it("warns about removed counters and asks before discarding their values", async () => {
+        const save = createSave(v1, "s");
+        save.items.bass = setCounterValue(v1, save.items.bass, "normal", "tradeable", 5);
+        const onUpgrade = vi.fn();
+        render(
+            <AntdApp>
+                <UpgradeDialog
+                    open
+                    save={save}
+                    oldTemplate={v1}
+                    newTemplate={v2}
+                    onCancel={vi.fn()}
+                    onUpgrade={onUpgrade}
+                />
+            </AntdApp>
+        );
+        expect(screen.getByText("This version removes counters or variants")).toBeInTheDocument();
+        expect(screen.getByText('Counter "Tradeable": 1 item has values')).toBeInTheDocument();
+        expect(screen.getByText("The values are hidden but kept in the save.")).toBeInTheDocument();
+        expect(screen.getByText(/Deleted from the template/)).toHaveTextContent("Ancient Koi");
+
+        await userEvent.click(screen.getByText("Discard the hidden values of removed counters and variants"));
+        expect(screen.getByText("The values will be deleted from the save.")).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: "Upgrade" }));
+        expect(onUpgrade).not.toHaveBeenCalled();
+        await screen.findAllByText("Delete the values of removed counters and variants?");
+        const upgradeButtons = screen.getAllByRole("button", { name: "Upgrade" });
+        expect(upgradeButtons).toHaveLength(2);
+        await userEvent.click(upgradeButtons[1]);
+        await waitFor(() => expect(onUpgrade).toHaveBeenCalledTimes(1));
+        const [upgraded] = onUpgrade.mock.calls[0] as [Save];
+        expect(upgraded.items.bass.counts.normal.tradeable).toBeUndefined();
+        expect(upgraded.items.koi.orphan).toEqual({ name: "Ancient Koi", removedIn: "1.1.0" });
     });
 });

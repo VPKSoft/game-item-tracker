@@ -7,12 +7,18 @@ type UpgradeSummary = {
     fromVersion: string;
     toVersion: string;
     addedItems: string[];
-    /** Items with user data that are missing or deprecated in the new template. */
-    obsoleteItems: string[];
+    /** Items deleted from the template in this version. They stay in the save, marked as removed. */
+    removedItems: string[];
+    /** Items with user data that are deprecated in the new template. */
+    deprecatedItems: string[];
     addedCounters: string[];
     removedCounters: string[];
     addedVariants: string[];
     removedVariants: string[];
+    /** For each removed counter: the number of items that have a stored value above zero for it. */
+    removedCounterData: Record<string, number>;
+    /** For each removed variant: the number of items that have amounts above zero or obtained marks for it. */
+    removedVariantData: Record<string, number>;
 };
 
 type UpgradeOptions = {
@@ -20,6 +26,7 @@ type UpgradeOptions = {
     discardHidden?: boolean;
 };
 
+/** Whether the save item holds anything the user entered (notes, tags, obtained marks or amounts above zero). */
 const hasUserData = (saveItem: SaveItem) =>
     saveItem.notes.length > 0 ||
     saveItem.customTags.length > 0 ||
@@ -27,9 +34,14 @@ const hasUserData = (saveItem: SaveItem) =>
     (saveItem.obtained?.length ?? 0) > 0 ||
     Object.values(saveItem.counts).some(c => Object.values(c).some(v => v > 0));
 
+/** Counts the save items for which `test` is true. */
+const countItems = (save: Save, test: (saveItem: SaveItem) => boolean) => Object.values(save.items).filter(test).length;
+
 /**
  * Upgrades a save to a newer version of its template. User data is never lost unless
  * `discardHidden` is set, in which case only values of removed counters and variants are dropped.
+ * Items deleted from the template are never dropped: they are kept and marked with `orphan`
+ * until the user removes them with {@link removeSaveItems}.
  */
 const upgradeSave = (
     save: Save,
@@ -46,15 +58,35 @@ const upgradeSave = (
     const oldVariants = new Set(oldTemplate?.variantDefs.map(v => v.key) ?? []);
     const newVariants = new Set(newTemplate.variantDefs.map(v => v.key));
 
+    const removedCounters = [...oldCounters].filter(k => !newCounters.has(k));
+    const removedVariants = [...oldVariants].filter(k => !newVariants.has(k));
     const summary: UpgradeSummary = {
         fromVersion: save.template.version,
         toVersion: newTemplate.version,
         addedItems: [],
-        obsoleteItems: [],
+        removedItems: [],
+        deprecatedItems: [],
         addedCounters: oldTemplate ? [...newCounters].filter(k => !oldCounters.has(k)) : [],
-        removedCounters: [...oldCounters].filter(k => !newCounters.has(k)),
+        removedCounters,
         addedVariants: oldTemplate ? [...newVariants].filter(k => !oldVariants.has(k)) : [],
-        removedVariants: [...oldVariants].filter(k => !newVariants.has(k)),
+        removedVariants,
+        removedCounterData: Object.fromEntries(
+            removedCounters.map(key => [
+                key,
+                countItems(save, s => !s.orphan && Object.values(s.counts).some(values => (values[key] ?? 0) > 0)),
+            ])
+        ),
+        removedVariantData: Object.fromEntries(
+            removedVariants.map(key => [
+                key,
+                countItems(
+                    save,
+                    s =>
+                        !s.orphan &&
+                        (Object.values(s.counts[key] ?? {}).some(v => v > 0) || (s.obtained ?? []).includes(key))
+                ),
+            ])
+        ),
     };
 
     const items: Save["items"] = {};
@@ -64,19 +96,25 @@ const upgradeSave = (
     for (const [id, saveItem] of Object.entries(save.items)) {
         const item = newItems.get(id);
         let next: SaveItem = { ...saveItem };
-        if (!item || item.deprecated) {
-            if (hasUserData(saveItem)) {
-                summary.obsoleteItems.push(id);
+        if (!item) {
+            // Deleted from the template: keep the entry so the user can see it and remove it on purpose.
+            if (!saveItem.orphan) {
+                summary.removedItems.push(id);
                 const oldName = oldTemplate?.items.find(i => i.id === id)?.name;
-                next = { ...next, orphan: item ? undefined : { name: saveItem.orphan?.name ?? oldName ?? id } };
-            } else {
+                next = { ...next, orphan: { name: oldName ?? id, removedIn: newTemplate.version } };
+            }
+        } else if (item.deprecated) {
+            if (!hasUserData(saveItem)) {
                 continue;
             }
+            summary.deprecatedItems.push(id);
+            next = { ...next, orphan: undefined };
         } else if (next.orphan) {
             next = { ...next, orphan: undefined };
         }
 
-        if (options.discardHidden) {
+        // Removed items keep everything until the user removes them.
+        if (options.discardHidden && !next.orphan) {
             const counts: SaveItem["counts"] = {};
             for (const [variant, values] of Object.entries(next.counts)) {
                 if (variant !== "_" && !newVariants.has(variant)) {
@@ -138,5 +176,21 @@ const upgradeSave = (
     };
 };
 
+/** Removes the given items from a save, e.g. items the user dropped after they were deleted from the template. */
+const removeSaveItems = (save: Save, itemIds: string[]): Save => {
+    const remove = new Set(itemIds);
+    return {
+        ...save,
+        updatedAt: new Date().toISOString(),
+        items: Object.fromEntries(Object.entries(save.items).filter(([id]) => !remove.has(id))),
+    };
+};
+
+/** The ids of save items that were deleted from the template (marked with `orphan`). */
+const getRemovedItemIds = (save: Save) =>
+    Object.entries(save.items)
+        .filter(([, s]) => s.orphan)
+        .map(([id]) => id);
+
 export type { UpgradeOptions, UpgradeSummary };
-export { upgradeSave };
+export { getRemovedItemIds, hasUserData, removeSaveItems, upgradeSave };
