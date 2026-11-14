@@ -140,11 +140,12 @@ scripts/
   BuildCatalog.ts          Node CLI: validates the template repository, writes the online catalog site
   CatalogBuilder.ts        Pure catalog builder, layout checks and HTML listing (tested)
   CatalogBuilder.test.ts
+  CaptureScreenshots.ts    Node CLI: retakes the user manual screenshots with headless Chrome
 docs/
   PLAN.md                  Design document (implemented)
   USER_MANUAL.md           End-user manual
   TECHNICAL_MANUAL.md      This file
-  images/manual/           Screenshots for the user manual
+  images/manual/           Screenshots for the user manual (npm run screenshots)
 ```
 
 Sample data is **not** in this repository. It lives in the separate template repository `game-item-tracker-data` (one folder per first letter, then per game: `P/Palia/`). `npm run build-samples` writes to `../game-item-tracker-data/P/Palia` by default.
@@ -602,6 +603,7 @@ Put new logic in `Domain` as pure functions and test it there; add a component t
 | `npm run lint` / `npm run lint-fix` | Biome lint, format and check |
 | `npm run generate-pwa-assets` | Icons from `public/app-icon.png` |
 | `npm run build-catalog -- --data <dir> [--out <dir>]` | Validate the template repository and optionally write the online catalog site (section 7.1) |
+| `npm run screenshots` | Retake every user manual screenshot into `docs/images/manual` (see the recipe in section 14) |
 
 - CI (`.github/workflows/node.js.yml`): on pushes and PRs to `develop`, Node 26: `npm install`, `npm run build`, `npm test`, `npm run lint`.
 - Deploy (`.github/workflows/deploy-pages.yml`): on pushes to `develop`, `npm ci`, `npm test`, then `npm run build` with `BASE_PATH=/game-item-tracker/` and publish `dist` to GitHub Pages. Vite's `base` comes from `BASE_PATH` (default `/`), so local builds still serve from the root. Refer to files in `public` through `import.meta.env.BASE_URL`, never with a leading `/`.
@@ -666,6 +668,24 @@ Bump `templateSchemaVersion` or `saveSchemaVersion`, accept the old version in `
 1. Add the key to `Locales/En.ts` under the screen's group (or `common`), then the same key to `Locales/Fi.ts` (`tsc` reports it if you forget).
 2. Use it with `const { t } = useTranslation();` and `t("group.key", { value })`. For counts, add `key_one` / `key_other` and pass `count`.
 3. A message from Domain/Files/Images code: add the English template to that module's message table, return it with `createMessage` or throw `LocalizedError`, add the Finnish text under `messages`, and show it with `translateMessage` / `translateError`.
+
+### Update the user manual screenshots
+
+```bash
+npm run screenshots
+```
+
+`scripts/CaptureScreenshots.ts` starts the Vite dev server through its API and launches headless Chrome or Edge with a throwaway profile. It drives the app through the Chrome DevTools protocol at 1400 × 860:
+
+1. Installs the Palia templates from the online catalog.
+2. Creates the "My Palia Fish" save and writes sample amounts and a note. It writes them through `/src/Storage/Database.ts`, which the dev server serves to the page.
+3. Captures every screenshot the manual uses, `01-…` to `29-…`. Dialogs, item cards and the save drawer are cropped to the element.
+
+It needs a network connection. When the browser is not found, set `CHROME_PATH` or pass `--chrome <path>`. Other options are `--out <dir>`, `--port <debugging port>` and `--image <file>` (the sample image for the image dialog; default `public/app-icon.png`).
+
+- **Adding a screenshot**: add the steps and a `shot("NN-name.png")` call to `capture()`, then reference the file in `USER_MANUAL.md`.
+- **Selectors**: the script finds elements by visible English text, `aria-label`s and antd class names, and it resets the UI language to English. A renamed label or a changed antd structure makes a step time out with the name of what it was waiting for.
+- **Reviewing**: look at the changed images before committing. `13-library-with-save.png` always changes because it shows the save's time.
 
 ### Add a language
 
