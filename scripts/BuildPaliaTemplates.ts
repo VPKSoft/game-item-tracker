@@ -16,16 +16,20 @@ import { majiMarketItemNames, majiMarketShops } from "./MajiMarketItems.ts";
 import {
     buildBugTemplate,
     buildFishTemplate,
+    buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    findGuildLink,
     parseBugTable,
     parseFishTable,
+    parseGuildStoreItems,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
+    parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
 
@@ -40,6 +44,7 @@ const bugTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e04";
 const majiMarketTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e05";
 const stickerTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e06";
 const prizeWheelTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e07";
+const guildExclusivesTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e08";
 
 const { values } = parseArgs({
     options: {
@@ -49,17 +54,45 @@ const { values } = parseArgs({
     },
 });
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/** The least time between two page requests; the wiki answers 429 to long runs that go faster. */
+const requestInterval = 500;
+let lastRequest = 0;
+
+/**
+ * Fetches a page's rendered HTML, at most one request per {@link requestInterval}. On 429 or 503 it waits
+ * as long as the Retry-After header says (or longer each time) and tries again.
+ */
 const fetchPageHtml = async (page: string) => {
     const url = `${wikiBase}/api.php?action=parse&page=${encodeURIComponent(page)}&prop=text&format=json&formatversion=2&redirects=1`;
-    const response = await fetch(url, { headers: { "User-Agent": userAgent } });
-    if (!response.ok) {
-        throw new Error(`Fetching ${page} failed: ${response.status}`);
+    let problem = "";
+    for (let attempt = 0; attempt < 8; attempt++) {
+        await delay(Math.max(0, lastRequest + requestInterval - Date.now()));
+        lastRequest = Date.now();
+        const response = await fetch(url, { headers: { "User-Agent": userAgent } });
+        if (!response.ok) {
+            problem = `HTTP ${response.status}`;
+            if (response.status === 429 || response.status >= 500) {
+                const retryAfter = Number(response.headers.get("retry-after"));
+                const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : (attempt + 1) * 15000;
+                console.log(`  ${problem} for ${page}, waiting ${Math.round(wait / 1000)} s…`);
+                await delay(wait);
+            }
+            continue;
+        }
+        const json = (await response.json().catch(() => undefined)) as
+            | { parse?: { text?: string }; error?: { code?: string } }
+            | undefined;
+        if (json?.parse?.text) {
+            return json.parse.text;
+        }
+        if (json?.error?.code === "missingtitle") {
+            throw new Error(`The wiki has no page ${page}`);
+        }
+        problem = json?.error?.code ?? "no content";
     }
-    const json = (await response.json()) as { parse?: { text?: string } };
-    if (!json.parse?.text) {
-        throw new Error(`The wiki returned no content for ${page}`);
-    }
-    return json.parse.text;
+    throw new Error(`Fetching ${page} failed: ${problem}`);
 };
 
 /** Lists the titles of the articles in a wiki category, following the API's continuation. */
@@ -260,6 +293,30 @@ const main = async () => {
         await addImages(wheel.template, wheel.imageUrls);
     }
     await writeTemplate(wheel.template);
+
+    console.log("Fetching the guild stores…");
+    const stores = [];
+    for (const skill of parseWeeklyChallengeSkills(await fetchPageHtml("Weekly Challenges"))) {
+        const guild = findGuildLink(skill, await fetchPageHtml(skill));
+        if (!guild) {
+            console.log(`  ${skill}: no guild`);
+            continue;
+        }
+        const names = parseGuildStoreItems(await fetchPageHtml(guild));
+        console.log(`  ${guild}: ${names.length} store items`);
+        stores.push({ guild, items: await fetchItemPages(names) });
+    }
+    const guildExclusives = buildGuildExclusivesTemplate(stores, {
+        templateId: guildExclusivesTemplateId,
+        version: values.version,
+        name: "Palia – Guild Store Exclusives",
+        description: "Items that only the skill guilds sell, by guild.",
+        sourceUrl: `${wikiBase}/wiki/Weekly_Challenges`,
+    });
+    if (!values["no-images"]) {
+        await addImages(guildExclusives.template, guildExclusives.imageUrls);
+    }
+    await writeTemplate(guildExclusives.template);
 };
 
 main().catch(error => {
