@@ -325,6 +325,7 @@ const main = async () => {
 
     // The machine gives a Lucky Box for a Lucky Coin; the box holds the actual prize.
     const rewards = parseLuckyBoxRewards(await fetchPageHtml("Lucky Box"));
+    const superLuckyPrize = parseLuckyBoxRewards(await fetchPageHtml("Super Lucky Prize")).map(r => r.name);
     console.log(`Fetching ${rewards.length} Zeki's Wondrous Machine item pages…`);
     const rewardItems = await fetchItemPages(rewards.map(r => r.name));
     const wondrous = buildWondrousMachineTemplate(
@@ -335,7 +336,8 @@ const main = async () => {
             name: "Palia – Zeki's Wondrous Machine",
             description: "The prizes of Zeki's Wondrous Machine, by type.",
             sourceUrl: `${wikiBase}/wiki/Lucky_Box`,
-        }
+        },
+        superLuckyPrize
     );
     if (!values["no-images"]) {
         await addImages(wondrous.template, wondrous.imageUrls);

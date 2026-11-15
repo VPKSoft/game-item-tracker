@@ -569,17 +569,18 @@ const isPaidWithMedals = (entry: GuildStoreEntry) =>
 const isOnlyFromGuild = (item: WikiItem, guild: string) =>
     item.obtain.length > 0 && item.obtain.every(s => s.source === guild);
 
-/** A reward listed on the Lucky Box page. */
+/** A reward listed on the Lucky Box or Super Lucky Prize page. */
 type LuckyBoxReward = {
     /** The item's page title. */
     name: string;
-    /** The reward section, e.g. "Decor", "Seed". */
+    /** The reward section, e.g. "Decor", "Seed"; "Other" when the list has no headings. */
     section: string;
 };
 
 /**
- * Reads the "Possible Rewards" of the Lucky Box page: the item lists under each level-3 heading of that
- * section. The Lucky Box is what Zeki's Wondrous Machine gives for a Lucky Coin.
+ * Reads the "Possible Rewards" of a prize box page (Lucky Box, Super Lucky Prize): the item lists under
+ * each level-3 heading of that section, or directly under it. The Lucky Box is what Zeki's Wondrous
+ * Machine gives for a Lucky Coin.
  */
 const parseLuckyBoxRewards = (html: string): LuckyBoxReward[] => {
     const root = parse(html);
@@ -1165,15 +1166,34 @@ const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) 
 /** The infobox source name of Zeki's Wondrous Machine. */
 const wondrousMachineSource = "Zeki's Wondrous Machine";
 
-/** The tag of items that only Zeki's Wondrous Machine gives. */
-const wondrousMachineUniqueTag = "Unique to Wondrous Machine";
+/** The infobox source name of the Super Lucky Prize. */
+const superLuckyPrizeSource = "Super Lucky Prize";
+
+/** The tags of the Zeki's Wondrous Machine sample. */
+const wondrousMachineTags = {
+    /** Every Lucky Box reward. */
+    machine: "Wondrous Machine",
+    /** Items the Super Lucky Prize can contain. */
+    superLuckyPrize: "Super Lucky Prize",
+    /** Items that only Zeki's Wondrous Machine gives. */
+    unique: "Unique to Wondrous Machine",
+};
 
 /**
  * Builds the Zeki's Wondrous Machine template from the Lucky Box rewards: one category per reward section
- * in page order, a `Type: …` tag where the item has an infobox group, and the
- * {@link wondrousMachineUniqueTag} tag when the machine is the item's only source.
+ * in page order, a `Type: …` tag where the item has an infobox group, and the {@link wondrousMachineTags}.
+ *
+ * An item is in the Super Lucky Prize when that page lists it or the item's "Obtained From" names it; the
+ * wiki keeps the two lists separately and neither is complete. The Super Lucky Prize is a Lunar Paths
+ * reward, so its items are not unique to the machine.
+ *
+ * @param superLuckyPrize The item titles on the Super Lucky Prize page.
  */
-const buildWondrousMachineTemplate = (rewards: { reward: LuckyBoxReward; item: WikiItem }[], meta: TemplateMeta) => {
+const buildWondrousMachineTemplate = (
+    rewards: { reward: LuckyBoxReward; item: WikiItem }[],
+    meta: TemplateMeta,
+    superLuckyPrize: string[] = []
+) => {
     const template = baseTemplate(meta);
     const categories: Category[] = [];
     const items: TemplateItem[] = [];
@@ -1204,12 +1224,18 @@ const buildWondrousMachineTemplate = (rewards: { reward: LuckyBoxReward; item: W
             name: item.name,
             description: item.description,
             attributes: item.rarity ? { rarity: item.rarity } : {},
-            tags: [
-                ...(item.group ? [`Type: ${item.group}`] : []),
-                ...(item.obtain.length > 0 && item.obtain.every(s => s.source === wondrousMachineSource)
-                    ? [wondrousMachineUniqueTag]
-                    : []),
-            ],
+            tags: (() => {
+                const inSuperLuckyPrize =
+                    superLuckyPrize.includes(reward.name) || item.obtain.some(s => s.source === superLuckyPrizeSource);
+                const onlyMachine =
+                    item.obtain.length > 0 && item.obtain.every(s => s.source === wondrousMachineSource);
+                return [
+                    ...(item.group ? [`Type: ${item.group}`] : []),
+                    wondrousMachineTags.machine,
+                    ...(inSuperLuckyPrize ? [wondrousMachineTags.superLuckyPrize] : []),
+                    ...(onlyMachine && !inSuperLuckyPrize ? [wondrousMachineTags.unique] : []),
+                ];
+            })(),
         });
     }
     return {

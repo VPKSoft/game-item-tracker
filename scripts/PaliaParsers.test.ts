@@ -630,6 +630,13 @@ describe("Zeki's Wondrous Machine", () => {
             { name: "Test Lamp", section: "Decor" },
             { name: "Test Arrow", section: "Equipment" },
         ]);
+        // The Super Lucky Prize page lists its rewards without headings.
+        const superLucky = `<div class="mw-parser-output"><h2><span class="mw-headline">Possible Rewards</span></h2>
+<ul>${rewardItem("Test Vase")}${rewardItem("Test Plush")}</ul><h2>Trivia</h2></div>`;
+        expect(parseLuckyBoxRewards(superLucky)).toEqual([
+            { name: "Test Vase", section: "Other" },
+            { name: "Test Plush", section: "Other" },
+        ]);
     });
 
     it("builds one category per reward section with Inventory, Placed, Total and Target", () => {
@@ -638,6 +645,8 @@ describe("Zeki's Wondrous Machine", () => {
             "Test Plush": machine,
             "Test Lamp": `${machine}<a><span>General Store</span></a><br>`,
             "Test Arrow": "",
+            "Test Vase": machine,
+            "Test Bowl": `${machine}<a><span>Super Lucky Prize</span></a><br>`,
         };
         const page = (name: string) =>
             itemPage(
@@ -647,22 +656,29 @@ describe("Zeki's Wondrous Machine", () => {
                     (sources[name] ? field("obtain", sources[name]) : ""),
                 "A made-up prize."
             );
-        const rewards = parseLuckyBoxRewards(luckyBoxHtml).map(reward => ({
+        const rewards = [
+            ...parseLuckyBoxRewards(luckyBoxHtml),
+            { name: "Test Vase", section: "Decor" },
+            { name: "Test Bowl", section: "Decor" },
+        ].map(reward => ({
             reward,
             item: parseWikiItemPage(reward.name, page(reward.name)),
         }));
-        const { template, imageUrls } = buildWondrousMachineTemplate(rewards, meta);
+        // Test Vase is on the Super Lucky Prize page; Test Bowl names it in its own "Obtained From".
+        const { template, imageUrls } = buildWondrousMachineTemplate(rewards, meta, ["Test Vase"]);
         expect(templateSchema.safeParse(template).success).toBe(true);
         expect(validateTemplate(template)).toEqual([]);
         expect(template.categories.map(c => c.name)).toEqual(["Decor", "Equipment"]);
         // Only Test Plush comes from the machine alone; Test Arrow lists no source at all.
         expect(template.items.map(i => [i.name, i.tags])).toEqual([
-            ["Test Plush", ["Unique to Wondrous Machine"]],
-            ["Test Lamp", []],
-            ["Test Arrow", ["Type: Arrow"]],
+            ["Test Plush", ["Wondrous Machine", "Unique to Wondrous Machine"]],
+            ["Test Lamp", ["Wondrous Machine"]],
+            ["Test Arrow", ["Type: Arrow", "Wondrous Machine"]],
+            ["Test Vase", ["Wondrous Machine", "Super Lucky Prize"]],
+            ["Test Bowl", ["Wondrous Machine", "Super Lucky Prize"]],
         ]);
         expect(template.items[0]).toMatchObject({ description: "A made-up prize.", attributes: { rarity: 3 } });
         expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
-        expect(imageUrls.size).toBe(3);
+        expect(imageUrls.size).toBe(5);
     });
 });
