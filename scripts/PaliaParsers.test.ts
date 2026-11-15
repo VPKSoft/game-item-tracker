@@ -8,6 +8,7 @@ import {
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildPrizeWheelTemplate,
     buildStickerTemplate,
     fullImageUrl,
     parseBait,
@@ -455,6 +456,47 @@ describe("stickers", () => {
             "",
             "Cost: 100 Palia Coins",
         ]);
+        expect(imageUrls.size).toBe(3);
+    });
+});
+
+const prizeHtml = (bag: string, extra = "") =>
+    itemPage(
+        field("category", "<a>Decor</a>") +
+            field("rarity", "<b>Rare</b>") +
+            field(
+                "obtain",
+                `${extra}<a href="/wiki/Zeki%27s_Prize_Wheel"><span>Zeki's Prize Wheel</span></a><br>&#160;&#160;• ${bag}<br><a><span>Trading</span></a><br>`
+            ),
+        "A made-up prize."
+    );
+
+describe("Zeki's Prize Wheel", () => {
+    it("builds one category per prize bag with Inventory, Placed, Total and Target", () => {
+        const items = [
+            parseWikiItemPage("Test Plush", prizeHtml("Plushie Prize Bag")),
+            parseWikiItemPage(
+                "Test Garlic",
+                prizeHtml("Ingredients Prize Bag", "<a><span>General Store</span></a><br>&#160;&#160;• 46 Gold<br>")
+            ),
+            parseWikiItemPage("Test Poster", prizeHtml("Decor Prize Bag")),
+        ];
+        const { template, imageUrls } = buildPrizeWheelTemplate(items, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual([
+            "Decor Prize Bag",
+            "Ingredients Prize Bag",
+            "Plushie Prize Bag",
+        ]);
+        const garlic = template.items.find(i => i.name === "Test Garlic");
+        expect(template.categories.find(c => c.id === garlic?.categoryId)?.name).toBe("Ingredients Prize Bag");
+        expect(garlic).toMatchObject({
+            description: "A made-up prize.",
+            attributes: { rarity: 3 },
+            tags: ["Type: Decor"],
+        });
+        expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
         expect(imageUrls.size).toBe(3);
     });
 });

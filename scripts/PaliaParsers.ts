@@ -771,8 +771,8 @@ const buildBugTemplate = (rows: BugRow[], meta: TemplateMeta) => {
     };
 };
 
-/** The counters of the Maji Market sample: no variants, so Placed is a plain counter. */
-const majiMarketCounters = (): CounterDef[] => [
+/** The counters of the Maji Market and Prize Wheel samples: no variants, so Placed is a plain counter. */
+const inventoryPlacedCounters = (): CounterDef[] => [
     { key: "inventory", label: "Inventory", kind: "manual", order: 0 },
     { key: "placed", label: "Placed", kind: "manual", order: 1 },
     { key: "total", label: "Total", kind: "computed", sumOf: ["inventory", "placed"], role: "owned", order: 2 },
@@ -842,7 +842,7 @@ const buildMajiMarketTemplate = (items: WikiItem[], meta: TemplateMeta, shops: s
     return {
         template: {
             ...template,
-            counterDefs: majiMarketCounters(),
+            counterDefs: inventoryPlacedCounters(),
             categories: categories.filter(c => templateItems.some(i => i.categoryId === c.id)),
             items: templateItems,
             tags: collectTags(templateItems),
@@ -898,6 +898,65 @@ const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
     }
     return {
         template: { ...template, counterDefs: stickerCounters(), categories, items, tags: collectTags(items) },
+        imageUrls,
+    };
+};
+
+/** The infobox source name of Zeki's Prize Wheel. */
+const prizeWheelSource = "Zeki's Prize Wheel";
+
+/**
+ * Builds the Zeki's Prize Wheel template: one category per prize bag ("Decor Prize Bag", …), read from
+ * the line under "Zeki's Prize Wheel" in the item's "Obtained From" field.
+ */
+const buildPrizeWheelTemplate = (items: WikiItem[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const templateItems: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const item of items) {
+        const wheel = item.obtain.find(s => s.source === prizeWheelSource);
+        const bag = wheel?.costs.find(c => /prize bag/i.test(c)) ?? "Other";
+        let category = categories.find(c => c.name === bag);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    bag,
+                    categories.map(c => c.id)
+                ),
+                name: bag,
+                order: 0,
+            };
+            categories.push(category);
+        }
+        const id = uniqueId(
+            item.name,
+            templateItems.map(i => i.id)
+        );
+        if (item.imageUrl && !/\/Unknown\.png$/i.test(item.imageUrl)) {
+            imageUrls.set(id, item.imageUrl);
+        }
+        templateItems.push({
+            id,
+            categoryId: category.id,
+            name: item.name,
+            description: item.description,
+            attributes: item.rarity ? { rarity: item.rarity } : {},
+            tags: [`Type: ${item.group || item.category || "Other"}`],
+        });
+    }
+    categories.sort((a, b) => a.name.localeCompare(b.name));
+    categories.forEach((c, i) => {
+        c.order = i;
+    });
+    return {
+        template: {
+            ...template,
+            counterDefs: inventoryPlacedCounters(),
+            categories,
+            items: templateItems,
+            tags: collectTags(templateItems),
+        },
         imageUrls,
     };
 };
@@ -967,6 +1026,7 @@ export {
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildPrizeWheelTemplate,
     buildStickerTemplate,
     cleanText,
     fullImageUrl,
