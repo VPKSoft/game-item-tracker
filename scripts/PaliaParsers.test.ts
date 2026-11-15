@@ -5,19 +5,23 @@ import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
     buildBugTemplate,
     buildFishTemplate,
+    buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    findGuildLink,
     fullImageUrl,
     parseBait,
     parseBugTable,
     parseFishTable,
+    parseGuildStoreItems,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
     parseTimes,
+    parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
 
@@ -498,5 +502,65 @@ describe("Zeki's Prize Wheel", () => {
         });
         expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
         expect(imageUrls.size).toBe(3);
+    });
+});
+
+const medal = (amount: string) =>
+    `<span class="template-cost template-cost-bug-catching"><span><a title="Test Medal"><img src="/m.png"></a> <b>${amount}</b></span></span>`;
+
+const guildItemHtml = (sources: string) =>
+    itemPage(
+        field("category", "<a>Decor</a>") + field("rarity", "<b>Rare</b>") + field("obtain", sources),
+        "A made-up item."
+    );
+
+describe("guild store exclusives", () => {
+    it("reads the skills, the guild link and the non-recipe store items", () => {
+        const weekly = `<div class="mw-parser-output"><h2>Weekly Challenges By Skill</h2>
+<h3><a href="/wiki/Test_Catching" title="Test Catching">Test Catching</a></h3><table></table>
+<h3><a href="/wiki/Home_Tours" title="Home Tours">Home Tours</a></h3></div>`;
+        expect(parseWeeklyChallengeSkills(weekly)).toEqual(["Test Catching", "Home Tours"]);
+
+        const skill = `<p><a title="Guild Store Decor">x</a> <a title="Test Catching Guild">Test Catching Guild</a></p>`;
+        expect(findGuildLink("Test Catching", skill)).toBe("Test Catching Guild");
+        expect(findGuildLink("Home Tours", "<p><a title='Housing Plot'>x</a></p>")).toBeUndefined();
+
+        const store = `<table class="paliatable"><tr><th>Item</th><th>Cost</th><th>Skill Level</th></tr>
+<tr><td><table data-item="Test Net" class="template-item"><tr><td><a title="Test Net">Test Net</a></td><td><b>Recipe</b></td></tr></table></td><td>50 Gold</td><td>2</td></tr>
+<tr><td><table data-item="Test Net" class="template-item"><tr><td><a title="Test Net">Test Net</a></td></tr></table></td><td>${medal("4")}</td><td>10</td></tr>
+<tr><td><a href="/wiki/Test_Plaque" title="Test Plaque">Test Plaque</a></td><td>${medal("140")}</td><td>10</td></tr>
+<tr><td><table data-item="Test Pet (Ranching)" class="template-item"><tr><td><a title="Test Pet (Ranching)">Test Pet</a></td></tr></table></td><td>2,500 Gold</td><td>2</td></tr>
+</table>`;
+        expect(parseGuildStoreItems(store)).toEqual(["Test Net", "Test Plaque", "Test Pet (Ranching)"]);
+        expect(parseGuildStoreItems("<p>no store</p>")).toEqual([]);
+    });
+
+    it("keeps only the items the guild is the only source of", () => {
+        const guild = `<a><span>Test Guild</span></a><br>&#160;&#160;• ${medal("140")}<br>`;
+        const stores = [
+            {
+                guild: "Test Guild",
+                items: [
+                    parseWikiItemPage("Test Plaque", guildItemHtml(guild)),
+                    parseWikiItemPage("Test Pet (Ranching)", guildItemHtml(guild)),
+                    parseWikiItemPage("Test Net", guildItemHtml(`${guild}<a><span>General Store</span></a><br>`)),
+                    parseWikiItemPage("Test Fertilizer", guildItemHtml("")),
+                ],
+            },
+            { guild: "Empty Guild", items: [parseWikiItemPage("Test Rug", guildItemHtml(`${guild}`))] },
+        ];
+        const { template, imageUrls } = buildGuildExclusivesTemplate(stores, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        // Empty Guild's only item comes from another guild, so the category is left out.
+        expect(template.categories.map(c => c.name)).toEqual(["Test Guild"]);
+        expect(template.items.map(i => i.name)).toEqual(["Test Plaque", "Test Pet"]);
+        expect(template.items[0]).toMatchObject({
+            description: "A made-up item.\nTest Guild • 140 Test Medal",
+            attributes: { rarity: 3 },
+            tags: ["Type: Decor"],
+        });
+        expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
+        expect(imageUrls.size).toBe(2);
     });
 });

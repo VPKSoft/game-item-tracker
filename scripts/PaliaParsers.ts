@@ -480,6 +480,66 @@ const parseStickerTables = (html: string, base = "https://palia.wiki.gg"): Stick
     return rows;
 };
 
+/** Reads the skills from the Weekly Challenges page: the links in its level-3 headings. */
+const parseWeeklyChallengeSkills = (html: string) => {
+    const root = parse(html);
+    return [
+        ...new Set(
+            root
+                .querySelectorAll("h3")
+                .map(h => h.querySelector("a")?.getAttribute("title")?.trim())
+                .filter((t): t is string => !!t)
+        ),
+    ];
+};
+
+/**
+ * Finds a skill page's guild: the link titled "<skill> Guild", or else the first link whose title ends
+ * in " Guild". Undefined when the skill has no guild (e.g. Home Tours).
+ */
+const findGuildLink = (skill: string, html: string) => {
+    const titles = parse(html)
+        .querySelectorAll("a")
+        .map(a => a.getAttribute("title")?.trim() ?? "");
+    return titles.find(t => t === `${skill} Guild`) ?? titles.find(t => / Guild$/.test(t));
+};
+
+/**
+ * Reads the item titles of a guild store table (Item/Cost/… headers), leaving out the rows that sell
+ * a recipe.
+ */
+const parseGuildStoreItems = (html: string) => {
+    const root = parse(html);
+    const store = root.querySelectorAll("table").find(t => {
+        const headers = headerTexts(t);
+        return headers[0] === "Item" && headers.includes("Cost");
+    });
+    if (!store) {
+        return [];
+    }
+    const names: string[] = [];
+    for (const tr of store.querySelectorAll(":scope > tbody > tr, :scope > tr").slice(1)) {
+        const cell = tr.querySelectorAll(":scope > td")[0];
+        if (!cell || /\bRecipe\b/.test(cell.textContent)) {
+            continue;
+        }
+        const name =
+            cell.querySelector("table.template-item")?.getAttribute("data-item")?.trim() ??
+            cell
+                .querySelectorAll("a")
+                .map(a => a.getAttribute("title")?.trim())
+                .find(t => !!t);
+        if (name && !names.includes(name)) {
+            names.push(name);
+        }
+    }
+    return names;
+};
+
+/** True when the item's "Obtained From" lists the guild and nothing else. */
+const isOnlyFromGuild = (item: WikiItem, guild: string) =>
+    item.obtain.length > 0 && item.obtain.every(s => s.source === guild);
+
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
 const parsePotatoPodTable = (html: string, base = "https://palia.wiki.gg"): PotatoPodRow[] => {
     const root = parse(html);
@@ -961,6 +1021,65 @@ const buildPrizeWheelTemplate = (items: WikiItem[], meta: TemplateMeta) => {
     };
 };
 
+/** One guild with the items of its store. */
+type GuildStore = {
+    guild: string;
+    items: WikiItem[];
+};
+
+/**
+ * Builds the guild exclusives template: the store items that the guild is the only source of, one
+ * category per guild in the given order. Wiki page titles such as "Wolpunny (Ranching)" lose the
+ * disambiguation. The description ends with the price.
+ */
+const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const store of stores) {
+        const exclusives = store.items.filter(i => isOnlyFromGuild(i, store.guild));
+        if (exclusives.length === 0) {
+            continue;
+        }
+        const category: Category = {
+            id: uniqueId(
+                store.guild,
+                categories.map(c => c.id)
+            ),
+            name: store.guild,
+            order: categories.length,
+        };
+        categories.push(category);
+        for (const item of exclusives) {
+            const name = item.name.replace(/\s*\([^)]*\)$/, "");
+            if (items.some(i => i.name === name)) {
+                continue;
+            }
+            const id = uniqueId(
+                name,
+                items.map(i => i.id)
+            );
+            if (item.imageUrl && !/\/Unknown\.png$/i.test(item.imageUrl)) {
+                imageUrls.set(id, item.imageUrl);
+            }
+            const prices = item.obtain.map(s => [s.source, ...s.costs].join(" • "));
+            items.push({
+                id,
+                categoryId: category.id,
+                name,
+                description: [item.description, ...new Set(prices)].filter(l => l.length > 0).join("\n"),
+                attributes: item.rarity ? { rarity: item.rarity } : {},
+                tags: [`Type: ${item.group || item.category || "Other"}`],
+            });
+        }
+    }
+    return {
+        template: { ...template, counterDefs: inventoryPlacedCounters(), categories, items, tags: collectTags(items) },
+        imageUrls,
+    };
+};
+
 /**
  * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
  * rarity for pods, so the template has no rarity attribute.
@@ -1019,24 +1138,29 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { BugRow, FishRow, ItemSource, PlushieRow, PotatoPodRow, StickerRow, TemplateMeta, WikiItem };
+export type { BugRow, FishRow, GuildStore, ItemSource, PlushieRow, PotatoPodRow, StickerRow, TemplateMeta, WikiItem };
 export {
     buildBugTemplate,
     buildFishTemplate,
+    buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
     cleanText,
+    findGuildLink,
     fullImageUrl,
+    isOnlyFromGuild,
     parseBait,
     parseBugTable,
     parseFishTable,
+    parseGuildStoreItems,
     parseItemSources,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
     parseTimes,
+    parseWeeklyChallengeSkills,
     parseWikiItemPage,
 };
