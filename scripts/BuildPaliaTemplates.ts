@@ -14,6 +14,7 @@ import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts"
 import { majiMarketItemNames, majiMarketShops } from "./MajiMarketItems.ts";
 import {
     buildBugTemplate,
+    buildBundleTemplate,
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
@@ -25,6 +26,7 @@ import {
     findGuildLink,
     isPaidWithMedals,
     parseBugTable,
+    parseBundleTables,
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
@@ -49,6 +51,7 @@ const stickerTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e06";
 const prizeWheelTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e07";
 const guildExclusivesTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e08";
 const wondrousMachineTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e09";
+const bundleTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0a";
 
 const { values } = parseArgs({
     options: {
@@ -328,6 +331,20 @@ const main = async () => {
         await addImages(wondrous.template, wondrous.imageUrls);
     }
     await writeTemplate(wondrous.template);
+
+    console.log("Fetching Bundles…");
+    const bundles = buildBundleTemplate(parseBundleTables(await fetchPageHtml("Bundles"), wikiBase), {
+        templateId: bundleTemplateId,
+        version: values.version,
+        name: "Palia – Bundles",
+        description:
+            "The items the vault bundles of Palia ask for, by vault and bundle. The target is the amount the bundle needs.",
+        sourceUrl: `${wikiBase}/wiki/Bundles`,
+    });
+    if (!values["no-images"]) {
+        await addImages(bundles.template, bundles.imageUrls);
+    }
+    await writeTemplate(bundles.template);
 };
 
 main().catch(error => {

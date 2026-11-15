@@ -1,5 +1,6 @@
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
+import { isEditableCounter } from "./Counters.ts";
 import { createSaveItem } from "./CreateSave.ts";
 
 /** What changes when a save is upgraded to a newer template version. */
@@ -91,7 +92,7 @@ const upgradeSave = (
 
     const items: Save["items"] = {};
     const newItems = new Map(newTemplate.items.map(i => [i.id, i]));
-    const manualKeys = new Set(newTemplate.counterDefs.filter(c => c.kind === "manual").map(c => c.key));
+    const manualKeys = new Set(newTemplate.counterDefs.filter(isEditableCounter).map(c => c.key));
 
     for (const [id, saveItem] of Object.entries(save.items)) {
         const item = newItems.get(id);

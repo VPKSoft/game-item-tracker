@@ -4,6 +4,7 @@ import { validateTemplate } from "../src/Domain/Validation.ts";
 import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
     buildBugTemplate,
+    buildBundleTemplate,
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
@@ -17,6 +18,7 @@ import {
     isPaidWithMedals,
     parseBait,
     parseBugTable,
+    parseBundleTables,
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
@@ -195,6 +197,82 @@ describe("plushies", () => {
         expect(imageUrls.has("lantern-plush")).toBe(false);
         expect(template.counterDefs.find(c => c.key === "total")?.sumOf).toEqual(["placed", "storage"]);
         expect(template.counterDefs.some(c => c.key === "inventory")).toBe(false);
+    });
+});
+
+/** One row of a bundle table: the item box with the "xN" amount, and the "How to Obtain" cell. */
+const bundleRow = (name: string, amount: string, source: string, text: string) => `
+<tr data-checklist-id="${name}">
+<td><center><style>.mw-parser-output .template-itembox{max-width:100%}</style><div class="template-itembox">
+<div><div class="frame"><i class="template-itembox-rel"><a href="/wiki/${name.replace(/ /g, "_")}" title="${name}"><img alt="${name}" src="/images/thumb/${name.replace(/ /g, "_")}.png/80px-${name.replace(/ /g, "_")}.png?aa"></a></i>
+</div><p class="number">${amount}</p></div>
+<div class="caption"><b><a href="/wiki/${name.replace(/ /g, "_")}"><span>${name}</span></a></b></div>
+</div></center></td>
+<td><big><big><a href="/wiki/Skill">${source}</a></big></big><hr /><p>${text}</p></td>
+</tr>`;
+
+const bundleHtml = `
+<div class="mw-parser-output">
+<h2><span class="mw-headline" id="Tips">Tips and Tricks</span></h2>
+<h2><span class="mw-headline" id="Vault_of_the_Waves">Vault of the Waves <img alt="Waves.png" src="/images/Waves.png"></span><span class="mw-editsection">[<a>edit</a>]</span></h2>
+<h3><span class="mw-headline" id="Test_Bundle">Test Bundle</span><span class="mw-editsection">[<a>edit</a>]</span></h3>
+<div class="tablescroll"><table class="paliatable" data-checklist-id="Test Bundle">
+<tr><th>Items</th><th>How to Obtain</th></tr>
+${bundleRow("Sample Snail", "x1", "Bug Catching", "Found on the beach.")}
+${bundleRow("Example Bar", "x20", "Mining &amp; Refining", "Smelt the ore.")}
+<tr data-checklist-id="Reward"><th>Reward</th><td><ul><li><span data-item="Gold" class="template-item"><b>100</b></span> Gold</li></ul></td></tr>
+</table></div>
+<h3><span class="mw-headline" id="Vault_Reward">Vault Reward</span></h3>
+<ul><li>Not an item</li></ul>
+<h2><span class="mw-headline" id="Vault_of_the_Roots">Vault of the Roots</span></h2>
+<h3><span class="mw-headline" id="Other_Bundle">Seeker's Bundle</span></h3>
+<table class="paliatable"><tr><th>Items</th><th>How to Obtain</th></tr>
+${bundleRow("Sample Snail", "x2", "Bug Catching + Foraging", "Again.")}
+</table>
+<h2><span class="mw-headline" id="Update_History">Update History</span></h2>
+<table class="paliatable"><tr><th>Items</th><th>How to Obtain</th></tr>${bundleRow("Not Counted", "x1", "Nothing", "")}</table>
+</div>`;
+
+describe("bundles", () => {
+    it("parses the bundle tables with vaults, amounts and sources", () => {
+        const rows = parseBundleTables(bundleHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => [r.vault, r.bundle, r.name, r.amount, r.sources])).toEqual([
+            ["Vault of the Waves", "Test Bundle", "Sample Snail", 1, ["Bug Catching"]],
+            ["Vault of the Waves", "Test Bundle", "Example Bar", 20, ["Mining", "Refining"]],
+            ["Vault of the Roots", "Seeker's Bundle", "Sample Snail", 2, ["Bug Catching", "Foraging"]],
+        ]);
+        expect(rows[0].description).toBe("Found on the beach.");
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Sample_Snail.png");
+    });
+
+    it("builds vault and bundle categories with a read-only target from the bundle amount", () => {
+        const { template, imageUrls } = buildBundleTemplate(parseBundleTables(bundleHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => [c.id, c.parentId, c.order])).toEqual([
+            ["vault-of-the-waves", undefined, 0],
+            ["test-bundle", "vault-of-the-waves", 0],
+            ["vault-of-the-roots", undefined, 1],
+            ["seekers-bundle", "vault-of-the-roots", 0],
+        ]);
+        expect(template.items.map(i => [i.id, i.categoryId, i.defaults])).toEqual([
+            ["sample-snail", "test-bundle", { target: 1 }],
+            ["example-bar", "test-bundle", { target: 20 }],
+            ["sample-snail-seekers-bundle", "seekers-bundle", { target: 2 }],
+        ]);
+        expect(template.items[1].tags).toEqual([
+            "Vault: Vault of the Waves",
+            "Bundle: Test Bundle",
+            "Source: Mining",
+            "Source: Refining",
+        ]);
+        expect(template.counterDefs).toEqual([
+            { key: "placed", label: "Placed", kind: "manual", order: 0 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["placed"], role: "owned", order: 1 },
+            { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 2 },
+        ]);
+        expect(template.attributeDefs).toEqual([]);
+        expect(imageUrls.get("sample-snail-seekers-bundle")).toBe("https://palia.wiki.gg/images/Sample_Snail.png");
     });
 });
 

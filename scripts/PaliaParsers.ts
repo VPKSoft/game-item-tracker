@@ -91,6 +91,21 @@ type PotatoPodRow = ImageRef & {
     set: string;
 };
 
+/** An item that a bundle of the Bundles page asks for. */
+type BundleRow = ImageRef & {
+    name: string;
+    /** The vault the bundle belongs to, e.g. "Vault of the Waves". */
+    vault: string;
+    /** The bundle, e.g. "Spooky Bundle". */
+    bundle: string;
+    /** How many of the item the bundle needs (the "xN" under the item image). */
+    amount: number;
+    /** Where the item comes from, e.g. ["Bug Catching"], ["Mining", "Refining"], ["General Store"]. */
+    sources: string[];
+    /** The "How to Obtain" text under the source. */
+    description: string;
+};
+
 /** Removes <style> blocks (template styles are inlined into cells) and collapses whitespace. */
 const cleanText = (element: HTMLElement | undefined) => {
     if (!element) {
@@ -620,6 +635,90 @@ const parseLuckyBoxRewards = (html: string): LuckyBoxReward[] => {
     };
     walk(root.querySelector(".mw-parser-output") ?? root);
     return rewards;
+};
+
+/** Reads the text of a heading without the "[edit]" link and decorations. */
+const headingText = (heading: HTMLElement) =>
+    (heading.querySelector(".mw-headline")?.textContent ?? heading.textContent).replace(/\[edit\]/g, "").trim();
+
+/**
+ * Parses the Bundles page: each vault (level-2 heading) has bundles (level-3 headings), and each bundle a
+ * table with an "Items" header whose rows hold the item box (image, `<p class="number">xN</p>`, name) and
+ * the "How to Obtain" cell (the source in large text, then a description). The reward row has no item box
+ * and is skipped, and so are the "Vault Reward" sections, which have no item table.
+ */
+const parseBundleTables = (html: string, base = "https://palia.wiki.gg"): BundleRow[] => {
+    const root = parse(html);
+    const rows: BundleRow[] = [];
+    let vault = "";
+    let bundle = "";
+    const readTable = (table: HTMLElement) => {
+        if (headerTexts(table)[0] !== "Items" || !vault || !bundle) {
+            return;
+        }
+        for (const tr of table.querySelectorAll("tr")) {
+            const box = tr.querySelector(".template-itembox");
+            const cells = tr.querySelectorAll("td");
+            if (!box || cells.length < 2) {
+                continue;
+            }
+            const name =
+                cleanText(box.querySelector(".caption") ?? undefined) || tr.getAttribute("data-checklist-id")?.trim();
+            const amount = Number(box.querySelector("p.number")?.textContent.trim().replace(/^x/i, ""));
+            if (!name || !Number.isInteger(amount) || amount < 1) {
+                continue;
+            }
+            const how = cells[1];
+            const sources = cleanText(how.querySelector("big") ?? undefined)
+                .split(/\s*[+&]\s*/)
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            const description = how
+                .querySelectorAll("p")
+                .map(p => cleanText(p))
+                .filter(t => t.length > 0)
+                .join("\n");
+            rows.push({
+                name,
+                vault,
+                bundle,
+                amount,
+                sources,
+                description,
+                imageUrl: fullImageUrl(box.querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    };
+    const walk = (node: HTMLElement) => {
+        for (const child of node.childNodes) {
+            const element = child as HTMLElement;
+            if (!element.tagName) {
+                continue;
+            }
+            const heading = /^H[23]$/.test(element.tagName)
+                ? element
+                : element.classList?.contains("mw-heading")
+                  ? element.querySelector("h2, h3")
+                  : null;
+            if (heading) {
+                const text = headingText(heading);
+                if (heading.tagName === "H2") {
+                    vault = /^Vault of /.test(text) ? text : "";
+                    bundle = "";
+                } else {
+                    bundle = /Bundle$/.test(text) ? text : "";
+                }
+                continue;
+            }
+            if (element.tagName === "TABLE") {
+                readTable(element);
+                continue;
+            }
+            walk(element);
+        }
+    };
+    walk(root.querySelector(".mw-parser-output") ?? root);
+    return rows;
 };
 
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
@@ -1302,8 +1401,82 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
+/**
+ * The counters of the bundles sample: the bundle's need is a read-only target, filled from each item's
+ * defaults, so the user only counts what is placed in the bundle.
+ */
+const bundleCounters = (): CounterDef[] => [
+    { key: "placed", label: "Placed", kind: "manual", order: 0 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["placed"], role: "owned", order: 1 },
+    { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 2 },
+];
+
+/**
+ * Builds the Bundles template: one parent category per vault and a child category per bundle, in page
+ * order. An item that two bundles ask for becomes two items, because each bundle has its own target.
+ * The target is the bundle's amount (`defaults.target` of a read-only counter). Tags `Vault: …`,
+ * `Bundle: …` and `Source: …` (the skill or shop in "How to Obtain").
+ */
+const buildBundleTemplate = (rows: BundleRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    const findCategory = (name: string, parentId?: string) => {
+        let category = categories.find(c => c.name === name && c.parentId === parentId);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    name,
+                    categories.map(c => c.id)
+                ),
+                name,
+                order: categories.filter(c => c.parentId === parentId).length,
+                ...(parentId ? { parentId } : {}),
+            };
+            categories.push(category);
+        }
+        return category;
+    };
+    for (const row of rows) {
+        const vault = findCategory(row.vault);
+        const bundle = findCategory(row.bundle, vault.id);
+        if (items.some(i => i.categoryId === bundle.id && i.name === row.name)) {
+            continue;
+        }
+        const id = uniqueId(
+            items.some(i => i.name === row.name) ? `${row.name} ${row.bundle}` : row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: bundle.id,
+            name: row.name,
+            description: row.description,
+            attributes: {},
+            tags: [`Vault: ${row.vault}`, `Bundle: ${row.bundle}`, ...row.sources.map(s => `Source: ${s}`)],
+            defaults: { target: row.amount },
+        });
+    }
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: bundleCounters(),
+            categories,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
 export type {
     BugRow,
+    BundleRow,
     FishRow,
     GuildStore,
     GuildStoreEntry,
@@ -1317,6 +1490,7 @@ export type {
 };
 export {
     buildBugTemplate,
+    buildBundleTemplate,
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
@@ -1332,6 +1506,7 @@ export {
     isPaidWithMedals,
     parseBait,
     parseBugTable,
+    parseBundleTables,
     parseFishTable,
     parseGuildStoreItems,
     parseItemSources,

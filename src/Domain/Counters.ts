@@ -58,10 +58,22 @@ const setObtained = (saveItem: SaveItem, variantKey: string, obtained: boolean):
     return next.length > 0 ? { ...rest, obtained: next } : rest;
 };
 
+/** Gets a value indicating whether the user can change a counter in a save: a manual counter that is not read-only. */
+const isEditableCounter = (def: CounterDef) => def.kind === "manual" && !def.readOnly;
+
+/** Gets the value of a manual counter: the stored one, or for a read-only counter the item's default. */
+const getManualValue = (
+    def: CounterDef,
+    saveItem: SaveItem | undefined,
+    variantKey: string,
+    item: TemplateItem | undefined
+) => (def.readOnly ? (item?.defaults?.[def.key] ?? 0) : (saveItem?.counts[variantKey]?.[def.key] ?? 0));
+
 /**
  * Gets the value of a counter for one variant of an item. Computed counters are evaluated.
  * For a unique variant (when the item is given) the owned counter is 1 when obtained, the
- * target counter is 1 and every other counter is 0.
+ * target counter is 1 and every other counter is 0. A read-only counter has the item's default
+ * value, so the item must be given for it.
  */
 const getCounterValue = (
     template: Template,
@@ -81,13 +93,13 @@ const getCounterValue = (
         return def.role === "target" ? 1 : 0;
     }
     if (def.kind === "manual") {
-        return saveItem?.counts[variantKey]?.[counterKey] ?? 0;
+        return getManualValue(def, saveItem, variantKey, item);
     }
     let sum = 0;
     for (const key of def.sumOf ?? []) {
         const part = template.counterDefs.find(c => c.key === key);
         if (part && part.kind === "manual" && counterAppliesTo(part, variantKey)) {
-            sum += saveItem?.counts[variantKey]?.[key] ?? 0;
+            sum += getManualValue(part, saveItem, variantKey, item);
         }
     }
     return sum;
@@ -136,7 +148,7 @@ const clampCounter = (def: CounterDef, value: number) => {
     return result;
 };
 
-/** Returns a copy of the save item with one manual counter set. Computed counters are ignored. */
+/** Returns a copy of the save item with one manual counter set. Computed and read-only counters are ignored. */
 const setCounterValue = (
     template: Template,
     saveItem: SaveItem,
@@ -145,7 +157,7 @@ const setCounterValue = (
     value: number
 ): SaveItem => {
     const def = template.counterDefs.find(c => c.key === counterKey);
-    if (!def || def.kind !== "manual" || !counterAppliesTo(def, variantKey)) {
+    if (!def || !isEditableCounter(def) || !counterAppliesTo(def, variantKey)) {
         return saveItem;
     }
     return {
@@ -208,6 +220,7 @@ export {
     getSaveItem,
     getVariantCounters,
     hasUniqueVariants,
+    isEditableCounter,
     isObtained,
     isVariantUnique,
     noVariantKey,

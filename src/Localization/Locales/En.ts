@@ -267,7 +267,7 @@ const en = {
         newTagName: "New tag name",
     },
     counters: {
-        help: 'Counters are the amounts users track per item. Manual counters are edited by the user. A computed counter is the sum of chosen manual counters. Mark one counter as <b>owned</b> and one as <b>target</b> to get progress bars and the "missing" sort and filter.',
+        help: 'Counters are the amounts users track per item. Manual counters are edited by the user; a read-only manual counter always has the item’s default amount, e.g. how many a bundle needs. A computed counter is the sum of chosen manual counters. Mark one counter as <b>owned</b> and one as <b>target</b> to get progress bars and the "missing" sort and filter.',
         noCounters: "This template has no counters",
         addCommon: "Add common counters",
         counterLabel: "Counter label",
@@ -285,6 +285,8 @@ const en = {
         target: "Target",
         allVariants: "All variants",
         noMax: "No max",
+        readOnly: "Read-only",
+        readOnlyHint: "In saves the value is the item's default amount, and the user cannot change it.",
         newCounterLabel: "New counter label",
         newCounterPlaceholder: "New counter, e.g. Inventory",
         addCounter: "Add counter",

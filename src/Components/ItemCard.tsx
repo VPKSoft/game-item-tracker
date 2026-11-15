@@ -12,6 +12,7 @@ import {
     getItemVariants,
     getVariantCounters,
     hasUniqueVariants,
+    isEditableCounter,
     isObtained,
     isVariantUnique,
     noVariantKey,
@@ -196,9 +197,9 @@ const CounterRows = ({
                                     size={size}
                                     label={counter.label}
                                     max={counter.max}
-                                    value={getCounterValue(template, saveItem, variant.key, counter.key)}
+                                    value={getCounterValue(template, saveItem, variant.key, counter.key, item)}
                                     onChange={
-                                        counter.kind === "manual" && onCounterChange
+                                        isEditableCounter(counter) && onCounterChange
                                             ? v => onCounterChange(item.id, variant.key, counter.key, v)
                                             : undefined
                                     }

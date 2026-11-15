@@ -15,6 +15,7 @@ const validationMessages = {
     computedSumsUnknown: 'Computed counter "{{counter}}" sums unknown counter "{{key}}"',
     computedSumsComputed: 'Computed counter "{{counter}}" can only sum manual counters ("{{key}}" is computed)',
     computedHasMax: 'Computed counter "{{counter}}" cannot have a maximum',
+    computedReadOnly: 'Computed counter "{{counter}}" cannot be read-only',
     manualHasSum: 'Manual counter "{{counter}}" cannot have a sum',
     counterUnknownVariant: 'Counter "{{counter}}" refers to unknown variant "{{key}}"',
     attributeMinAboveMax: 'Attribute "{{attribute}}" has a minimum greater than its maximum',
@@ -116,6 +117,9 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
             }
             if (counter.max !== undefined) {
                 issues.push(issue(path, "computedHasMax", { counter: counter.label }));
+            }
+            if (counter.readOnly) {
+                issues.push(issue(path, "computedReadOnly", { counter: counter.label }));
             }
         } else if (counter.sumOf && counter.sumOf.length > 0) {
             issues.push(issue(path, "manualHasSum", { counter: counter.label }));

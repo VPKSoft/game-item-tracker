@@ -201,6 +201,35 @@ describe("unique items", () => {
     });
 });
 
+describe("read-only counters", () => {
+    it("shows the item's default without a stepper", async () => {
+        const base = fishTemplate();
+        const t: Template = {
+            ...base,
+            counterDefs: base.counterDefs.map(c => (c.key === "target" ? { ...c, readOnly: true } : c)),
+            items: base.items.map(i => (i.id === "bass" ? { ...i, defaults: { target: 4 } } : i)),
+        };
+        render(
+            <SaveItemDrawer
+                template={t}
+                item={t.items[0]}
+                saveItem={createSave(t, "s").items.bass}
+                onClose={() => undefined}
+                onChange={() => undefined}
+                onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
+            />
+        );
+        const targets = await screen.findAllByLabelText("Target");
+        expect(targets.length).toBeGreaterThan(0);
+        for (const target of targets) {
+            expect(target).toHaveTextContent("4");
+        }
+        expect(screen.queryByLabelText("Increase Target")).toBeNull();
+        expect(screen.getAllByLabelText("Increase Inventory").length).toBeGreaterThan(0);
+    });
+});
+
 describe("ImagePreviewDialog via ImageDropZone", () => {
     it("resizes and stores the image only on Accept", async () => {
         const { ImageDropZone } = await import("./ImageDropZone.tsx");
@@ -275,6 +304,19 @@ describe("CountersEditor", () => {
         render(<Harness initial={t} onTemplate={x => (latest = x)} />);
         await userEvent.type(screen.getByLabelText("New counter label"), "In chests{Enter}");
         expect(latest.counterDefs).toEqual([{ key: "in-chests", label: "In chests", kind: "manual", order: 0 }]);
+    });
+
+    it("makes a manual counter read-only", async () => {
+        const t: Template = {
+            ...fishTemplate(),
+            counterDefs: [{ key: "need", label: "Need", kind: "manual", role: "target", order: 0 }],
+        };
+        let latest = t;
+        render(<Harness initial={t} onTemplate={x => (latest = x)} />);
+        await userEvent.click(screen.getByRole("checkbox", { name: "Read-only" }));
+        expect(latest.counterDefs[0].readOnly).toBe(true);
+        await userEvent.click(screen.getByRole("checkbox", { name: "Read-only" }));
+        expect(latest.counterDefs[0].readOnly).toBeUndefined();
     });
 });
 

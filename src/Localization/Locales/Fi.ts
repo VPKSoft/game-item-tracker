@@ -261,7 +261,7 @@ const fi: Translation = {
         newTagName: "Tunnisteen uusi nimi",
     },
     counters: {
-        help: "Laskurit ovat määriä, joita käyttäjät seuraavat esineittäin. Käyttäjä muokkaa manuaalisia laskureita. Laskettu laskuri on valittujen manuaalisten laskureiden summa. Merkitse yksi laskuri rooliin <b>omistettu</b> ja yksi rooliin <b>tavoite</b>, niin saat edistymispalkit sekä ”puuttuvat”-lajittelun ja -suodattimen.",
+        help: "Laskurit ovat määriä, joita käyttäjät seuraavat esineittäin. Käyttäjä muokkaa manuaalisia laskureita. Vain luku -tilassa olevan manuaalisen laskurin arvo on esineen oletusmäärä, esimerkiksi kerättävän kokoelman vaatima määrä. Laskettu laskuri on valittujen manuaalisten laskureiden summa. Merkitse yksi laskuri rooliin <b>omistettu</b> ja yksi rooliin <b>tavoite</b>, niin saat edistymispalkit sekä ”puuttuvat”-lajittelun ja -suodattimen.",
         noCounters: "Tässä mallipohjassa ei ole laskureita",
         addCommon: "Lisää yleiset laskurit",
         counterLabel: "Laskurin nimi",
@@ -279,6 +279,8 @@ const fi: Translation = {
         target: "Tavoite",
         allVariants: "Kaikki muunnelmat",
         noMax: "Ei ylärajaa",
+        readOnly: "Vain luku",
+        readOnlyHint: "Tallenteissa arvo on esineen oletusmäärä, eikä käyttäjä voi muuttaa sitä.",
         newCounterLabel: "Uuden laskurin nimi",
         newCounterPlaceholder: "Uusi laskuri, esim. Inventaario",
         addCounter: "Lisää laskuri",
@@ -391,6 +393,7 @@ const fi: Translation = {
         computedSumsComputed:
             "Laskettu laskuri ”{{counter}}” voi laskea yhteen vain manuaalisia laskureita (”{{key}}” on laskettu)",
         computedHasMax: "Lasketulla laskurilla ”{{counter}}” ei voi olla enimmäisarvoa",
+        computedReadOnly: "Laskettu laskuri ”{{counter}}” ei voi olla vain luku -tilassa",
         manualHasSum: "Manuaalisella laskurilla ”{{counter}}” ei voi olla summaa",
         counterUnknownVariant: "Laskuri ”{{counter}}” viittaa tuntemattomaan muunnelmaan ”{{key}}”",
         attributeMinAboveMax: "Ominaisuuden ”{{attribute}}” vähimmäisarvo on suurempi kuin sen enimmäisarvo",

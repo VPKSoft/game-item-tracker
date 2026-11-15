@@ -68,7 +68,7 @@ Template building blocks:
 | Category | `Category` | Tree through optional `parentId`. Selecting a parent in the browser includes its children. |
 | Item | `TemplateItem` | Stable `id` (slug). Never reuse an id for a different item. |
 | Attribute | `AttributeDef` | Read-only numbers in saves (e.g. rarity 1–5), optional named `levels` with colors. |
-| Counter | `CounterDef` | `manual` (user edits) or `computed` (sum of manual counters). Optional role `owned` / `target`, optional `variants` limit, optional `max`. |
+| Counter | `CounterDef` | `manual` (user edits) or `computed` (sum of manual counters). Optional role `owned` / `target`, optional `variants` limit, optional `max`. A `readOnly` manual counter takes its value from the item's `defaults` and is never stored in saves. |
 | Variant | `VariantDef` | Splits an item's amounts into rows, e.g. `normal` and `starred` fish. |
 | Unique | `TemplateItem.unique` | `true` (whole item) or a list of variant keys. A unique variant has an obtained flag instead of counters. |
 | Tag | `string` | Vocabulary in `template.tags`, per item in `item.tags`. |
@@ -265,6 +265,7 @@ type CounterDef = {
     role?: "owned" | "target";   // at most one counter per role
     variants?: string[];         // omitted = applies to all variants
     max?: number;                // manual only, integer >= 0
+    readOnly?: true;             // manual only: value = item.defaults[key] ?? 0, not editable or stored in saves
     order: number;
 };
 
@@ -278,7 +279,7 @@ type TemplateItem = {
     attributes: Record<string, number>;
     tags: string[];
     variants?: string[];         // omitted = all variantDefs
-    defaults?: Record<string, number>;   // manual counter key -> initial value in new saves
+    defaults?: Record<string, number>;   // manual counter key -> initial value in new saves (the fixed value of a read-only counter)
     unique?: true | string[];    // true = every variant unique; list = those variant keys
     deprecated?: boolean;        // removed from the game, kept for old saves
 };
@@ -355,11 +356,12 @@ Save item:
 | `counterAppliesTo(counter, variantKey)` | `true` when `counter.variants` is empty/omitted or contains the key. |
 | `getVariantCounters(template, variantKey)` | Counters shown for a variant, sorted by `order`. |
 | `findRoleCounter(template, role)` | The counter with role `owned` or `target`. |
-| `getCounterValue(template, saveItem, variant, counter, item?)` | Manual: stored value or 0. Computed: sum of its `sumOf` manual counters that apply to the variant. Unique variant (needs `item`): owned-role counter = 1 if obtained else 0, target-role counter = 1, all others 0. |
+| `getCounterValue(template, saveItem, variant, counter, item?)` | Manual: stored value or 0. Read-only manual (needs `item`): `item.defaults[key]` or 0, whatever the save holds. Computed: sum of its `sumOf` manual counters that apply to the variant. Unique variant (needs `item`): owned-role counter = 1 if obtained else 0, target-role counter = 1, all others 0. Pass the item wherever it is known. |
 | `getItemCounterTotal(...)` | `getCounterValue` summed over the item's variants. Used by counter sorts and the *counter above zero* filter. |
 | `getMissing(template, item, saveItem)` | Σ over variants of `max(0, target − owned)`; `undefined` if either role is missing. |
 | `clampCounter(def, value)` | Rounds; clamps to `[0, max]`. |
-| `setCounterValue(...)` | Sets a manual counter; ignores computed counters and counters that don't apply to the variant. |
+| `setCounterValue(...)` | Sets a manual counter; ignores computed and read-only counters and counters that don't apply to the variant. |
+| `isEditableCounter(def)` | A manual counter that is not read-only: the user can change it, and saves store it. |
 | `isVariantUnique(item, variantKey)` | `item.unique === true` or the list contains the key. |
 | `hasUniqueVariants(template, item)` | Any of the item's variants is unique. |
 | `isObtained` / `setObtained` | Read/write `saveItem.obtained`. `setObtained` removes the field when it becomes empty. |
@@ -393,7 +395,7 @@ Storing the difference instead of a copy means tags added in a newer template ve
 
 ### 5.4 Creating saves and templates (`CreateSave.ts`)
 
-- `createSave(template, name)` creates a `SaveItem` for every non-deprecated item, applying `item.defaults` to each applicable, non-unique variant.
+- `createSave(template, name)` creates a `SaveItem` for every non-deprecated item, applying `item.defaults` to each applicable, non-unique variant. Defaults of read-only counters are not copied: their value is read from the template, so a newer template version changes it in every save.
 - `createTemplate(name, game)` returns an empty template at version `1.0.0` with no counters, variants or categories.
 
 ### 5.5 Template upgrades (`UpgradeSave.ts`)
@@ -432,7 +434,7 @@ All functions are immutable. Use them from the UI instead of editing nested obje
 
 ### 5.7 Validation (`Validation.ts`)
 
-Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max`; manual counters have no `sumOf`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters.
+Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max` or `readOnly`; manual counters have no `sumOf`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters.
 
 The template editor shows issues in the *Details* tab and asks for confirmation before exporting an invalid template. The sample generator refuses to write templates with issues.
 
@@ -586,7 +588,7 @@ The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next
 npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 ```
 
-- `scripts/BuildPaliaTemplates.ts` (Node, `tsx`): fetches the rendered pages through the MediaWiki API (`/api.php?action=parse&page=Fish|Plushies|Potato_Pods|Bugs|Stickers&prop=text&format=json&redirects=1`, plus one page per Maji Market, Zeki's Prize Wheel, guild store and Lucky Box item; the Prize Wheel items are listed with `action=query&list=categorymembers`). Page requests are spaced at least 500 ms apart, and a 429 or 5xx answer is retried after the `Retry-After` wait, because the wiki rate-limits long runs (a full build reads about 400 pages), downloads full-size images, converts them to 128 px WebP with `sharp` (`scripts/SampleImages.ts`: the color of fully transparent pixels is cleared first, because the wiki's CDN re-optimizes its PNGs now and then and changes only those hidden colors; without this, images that need no resizing got new bytes and image ids on every build), validates with the Zod schema and `validateTemplate`, and writes `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json`, `palia-potato-pods.gitemplate.json`, `palia-bugs.gitemplate.json`, `palia-maji-market.gitemplate.json`, `palia-stickers.gitemplate.json`, `palia-zekis-prize-wheel.gitemplate.json`, `palia-guild-store-exclusives.gitemplate.json` and `palia-zekis-wondrous-machine.gitemplate.json`.
+- `scripts/BuildPaliaTemplates.ts` (Node, `tsx`): fetches the rendered pages through the MediaWiki API (`/api.php?action=parse&page=Fish|Plushies|Potato_Pods|Bugs|Stickers|Bundles&prop=text&format=json&redirects=1`, plus one page per Maji Market, Zeki's Prize Wheel, guild store and Lucky Box item; the Prize Wheel items are listed with `action=query&list=categorymembers`). Page requests are spaced at least 500 ms apart, and a 429 or 5xx answer is retried after the `Retry-After` wait, because the wiki rate-limits long runs (a full build reads about 400 pages), downloads full-size images, converts them to 128 px WebP with `sharp` (`scripts/SampleImages.ts`: the color of fully transparent pixels is cleared first, because the wiki's CDN re-optimizes its PNGs now and then and changes only those hidden colors; without this, images that need no resizing got new bytes and image ids on every build), validates with the Zod schema and `validateTemplate`, and writes `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json`, `palia-potato-pods.gitemplate.json`, `palia-bugs.gitemplate.json`, `palia-maji-market.gitemplate.json`, `palia-stickers.gitemplate.json`, `palia-zekis-prize-wheel.gitemplate.json`, `palia-guild-store-exclusives.gitemplate.json`, `palia-zekis-wondrous-machine.gitemplate.json` and `palia-bundles.gitemplate.json`.
 - Options: `--out <dir>` (default `../game-item-tracker-data/P/Palia`), `--version x.y.z` (default `1.0.0`), `--no-images`.
 - Template ids are fixed constants, so a regenerated template with a higher `--version` imports as an upgrade for existing saves.
 - **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
@@ -600,6 +602,7 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - **Zeki's Prize Wheel**: the items are the articles in *Category:Obtained from Zeki's Prize Wheel*, read when the template is built, so new prizes need no code change; the data comes from each item page (`parseWikiItemPage`). Categories are the prize bags (the line under "Zeki's Prize Wheel" in "Obtained From", e.g. `Decor Prize Bag`), sorted by name. No variants; the Maji Market counters (Inventory, Placed, Total = Inventory + Placed, Target); tag `Type: …`; the description is the wiki quote. "Abundant" and "Unspecified" rarities are left out.
 - **Guild store exclusives**: found by following the wiki: the skills are the links in the level-3 headings of *Weekly Challenges* (`parseWeeklyChallengeSkills`); each skill page links to its guild (`findGuildLink`; Home Tours has none); the guild page's store table (Item/Cost/… headers) gives the store items with their prices (`parseGuildStoreItems`), without the recipe rows (a bold "Recipe" next to the item; the cell text runs together as "Worm FarmRecipe", so a word match does not work); an item is kept when its store price is paid in guild medals only (`isPaidWithMedals`: every cost currency ends in " Medal", so Gold-priced animals, starter packs and fireworks drop out) and its infobox "Obtained From" lists that guild and nothing else (`isOnlyFromGuild`; crafted items have no "Obtained From" and drop out). Item pages are fetched only for medal-priced rows. One category per guild in Weekly Challenges order; the Maji Market counters; tag `Type: …`; the description ends with the store price, with the bundle size when a row sells several (`Bug Catching Guild • 980 Bug Catching Medal`, `Gardening Guild • 10 Gardening Medal for 50`).
 - **Zeki's Wondrous Machine**: the machine gives a Lucky Box for a Lucky Coin, and the box holds the prize, so the items are the "Possible Rewards" of the *Lucky Box* page (`parseLuckyBoxRewards`: the `data-item` list entries under each level-3 heading of that section), read on each build; the box itself is not in the template. The data comes from each item page (`parseWikiItemPage`). Categories are the reward sections in page order (Decor, Equipment, Gatherable, Material, Product, Seed); the Maji Market counters; tags `Type: …` where the item has an infobox group; `Wondrous Machine` on every item; `Super Lucky Prize` when the *Super Lucky Prize* page's "Possible Rewards" lists the item (read with the same parser; the list has no headings) or the item's "Obtained From" names it, because the wiki keeps the two lists separately and neither is complete; and `Unique to Wondrous Machine` when the item's "Obtained From" lists only Zeki's Wondrous Machine and the item is not in the Super Lucky Prize (a Lunar Paths reward). The tag names are in `wondrousMachineTags`.
+- **Bundles**: the vault bundles of the *Bundles* page (`parseBundleTables`): each level-2 "Vault of …" heading is a vault and each level-3 "… Bundle" heading under it a bundle, with a table whose first header is "Items". A row's item box (`.template-itembox`) gives the name (caption), the image and the amount the bundle needs (`<p class="number">x20</p>`); the "How to Obtain" cell gives the sources (the large text, split at `+` and `&`, e.g. `Mining & Refining`) and the description (its paragraphs). The reward row has no item box, and the "Vault Reward" sections have no item table, so both are skipped. Categories: a parent per vault and a child per bundle, in page order. An item that two bundles ask for becomes two items (the second id gets the bundle name), because each bundle has its own amount. No variants or attributes; counters Placed, Total = Placed (owned) and a **read-only** Target (target), whose value is the bundle amount in `item.defaults.target`. Tags `Vault: …`, `Bundle: …`, `Source: …`.
 - Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
 
 ## 11. Testing

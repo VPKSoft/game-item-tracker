@@ -9,13 +9,14 @@ import {
     getMissing,
     getVariantCounters,
     hasUniqueVariants,
+    isEditableCounter,
     isObtained,
     isVariantUnique,
     noVariantKey,
     setCounterValue,
     setObtained,
 } from "./Counters.ts";
-import { createTemplate } from "./CreateSave.ts";
+import { createSaveItem, createTemplate } from "./CreateSave.ts";
 import { fishTemplate } from "./TestFixtures.ts";
 
 const saveItemWith = (counts: SaveItem["counts"]): SaveItem => ({ ...emptySaveItem(), counts });
@@ -112,6 +113,52 @@ describe("setting counters", () => {
         expect(clampCounter(def, 2.6)).toBe(3);
         expect(clampCounter(def, 1000)).toBe(99);
         expect(clampCounter(def, Number.NaN)).toBe(0);
+    });
+});
+
+describe("read-only counters", () => {
+    /** A bundle-like template: the target is read-only and comes from the item's defaults. */
+    const bundleTemplate = () => {
+        const t = createTemplate("Bundles", "Game");
+        t.counterDefs = [
+            { key: "placed", label: "Placed", kind: "manual", order: 0 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["placed", "target"], role: "owned", order: 1 },
+            { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 2 },
+        ];
+        t.categories = [{ id: "spooky", name: "Spooky Bundle", order: 0 }];
+        t.items = [
+            {
+                id: "apple",
+                categoryId: "spooky",
+                name: "Apple",
+                description: "",
+                attributes: {},
+                tags: [],
+                defaults: { target: 20 },
+            },
+        ];
+        return t;
+    };
+
+    it("reads the value from the item's defaults, whatever the save holds", () => {
+        const t = bundleTemplate();
+        const item = t.items[0];
+        const s = saveItemWith({ [noVariantKey]: { placed: 5, target: 3 } });
+        expect(getCounterValue(t, s, noVariantKey, "target", item)).toBe(20);
+        expect(getCounterValue(t, s, noVariantKey, "total", item)).toBe(25);
+        expect(getMissing(t, item, saveItemWith({ [noVariantKey]: { placed: 5 } }))).toBe(0);
+        t.counterDefs[1].sumOf = ["placed"];
+        expect(getMissing(t, item, saveItemWith({ [noVariantKey]: { placed: 5 } }))).toBe(15);
+        expect(getCounterValue(t, s, noVariantKey, "target", { ...item, defaults: undefined })).toBe(0);
+    });
+
+    it("cannot be set and is not stored in new save items", () => {
+        const t = bundleTemplate();
+        const s = emptySaveItem();
+        expect(setCounterValue(t, s, noVariantKey, "target", 4)).toBe(s);
+        expect(isEditableCounter(t.counterDefs[2])).toBe(false);
+        expect(isEditableCounter(t.counterDefs[0])).toBe(true);
+        expect(createSaveItem(t, t.items[0]).counts).toEqual({});
     });
 });
 
