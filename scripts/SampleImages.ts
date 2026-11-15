@@ -45,4 +45,11 @@ const toWebp = async (input: Buffer) => {
     }
 };
 
-export { clearHiddenColors, toWebp };
+/**
+ * Returns the images sorted by id. The images are downloaded in parallel and added in the order the
+ * downloads finish, so without this a rebuild moves the entries around in the template file.
+ */
+const sortImages = (images: Record<string, string>) =>
+    Object.fromEntries(Object.entries(images).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
+export { clearHiddenColors, sortImages, toWebp };
