@@ -201,10 +201,10 @@ describe("plushies", () => {
 });
 
 /** One row of a bundle table: the item box with the "xN" amount, and the "How to Obtain" cell. */
-const bundleRow = (name: string, amount: string, source: string, text: string) => `
+const bundleRow = (name: string, amount: string, source: string, text: string, starred = false) => `
 <tr data-checklist-id="${name}">
 <td><center><style>.mw-parser-output .template-itembox{max-width:100%}</style><div class="template-itembox">
-<div><div class="frame"><i class="template-itembox-rel"><a href="/wiki/${name.replace(/ /g, "_")}" title="${name}"><img alt="${name}" src="/images/thumb/${name.replace(/ /g, "_")}.png/80px-${name.replace(/ /g, "_")}.png?aa"></a></i>
+<div><div class="frame"><i class="template-itembox-rel"><a href="/wiki/${name.replace(/ /g, "_")}" title="${name}"><img alt="${name}" src="/images/thumb/${name.replace(/ /g, "_")}.png/80px-${name.replace(/ /g, "_")}.png?aa"></a>${starred ? '<img alt="SQ.png" src="/images/thumb/SQ.png/28px-SQ.png?bb" class="quality">' : ""}</i>
 </div><p class="number">${amount}</p></div>
 <div class="caption"><b><a href="/wiki/${name.replace(/ /g, "_")}"><span>${name}</span></a></b></div>
 </div></center></td>
@@ -227,7 +227,7 @@ ${bundleRow("Example Bar", "x20", "Mining &amp; Refining", "Smelt the ore.")}
 <h2><span class="mw-headline" id="Vault_of_the_Roots">Vault of the Roots</span></h2>
 <h3><span class="mw-headline" id="Other_Bundle">Seeker's Bundle</span></h3>
 <table class="paliatable"><tr><th>Items</th><th>How to Obtain</th></tr>
-${bundleRow("Sample Snail", "x2", "Bug Catching + Foraging", "Again.")}
+${bundleRow("Sample Snail", "x2", "Bug Catching + Foraging", "Again.", true)}
 </table>
 <h2><span class="mw-headline" id="Update_History">Update History</span></h2>
 <table class="paliatable"><tr><th>Items</th><th>How to Obtain</th></tr>${bundleRow("Not Counted", "x1", "Nothing", "")}</table>
@@ -243,6 +243,9 @@ describe("bundles", () => {
         ]);
         expect(rows[0].description).toBe("Found on the beach.");
         expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Sample_Snail.png");
+        // The SQ.png star icon marks a star quality item; it is not taken as the item image.
+        expect(rows.map(r => r.starred)).toEqual([false, false, true]);
+        expect(rows[2].imageUrl).toBe("https://palia.wiki.gg/images/Sample_Snail.png");
     });
 
     it("builds vault and bundle categories with a read-only target from the bundle amount", () => {
@@ -265,6 +268,15 @@ describe("bundles", () => {
             "Bundle: Test Bundle",
             "Source: Mining",
             "Source: Refining",
+        ]);
+        // The starred item keeps the id of the plain name, so saves of 1.0.0 keep their counts.
+        expect(template.items.map(i => i.name)).toEqual(["Sample Snail", "Example Bar", "Sample Snail ★"]);
+        expect(template.items[2].tags).toEqual([
+            "Vault: Vault of the Roots",
+            "Bundle: Seeker's Bundle",
+            "Source: Bug Catching",
+            "Source: Foraging",
+            "Quality: Star",
         ]);
         expect(template.counterDefs).toEqual([
             { key: "placed", label: "Placed", kind: "manual", order: 0 },
