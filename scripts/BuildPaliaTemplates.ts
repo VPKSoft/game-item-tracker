@@ -19,6 +19,7 @@ import {
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildPrizeWheelTemplate,
     buildStickerTemplate,
     parseBugTable,
     parseFishTable,
@@ -38,6 +39,7 @@ const potatoPodTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e03";
 const bugTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e04";
 const majiMarketTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e05";
 const stickerTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e06";
+const prizeWheelTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e07";
 
 const { values } = parseArgs({
     options: {
@@ -58,6 +60,40 @@ const fetchPageHtml = async (page: string) => {
         throw new Error(`The wiki returned no content for ${page}`);
     }
     return json.parse.text;
+};
+
+/** Lists the titles of the articles in a wiki category, following the API's continuation. */
+const fetchCategoryMembers = async (category: string) => {
+    const titles: string[] = [];
+    let next: string | undefined;
+    do {
+        const url =
+            `${wikiBase}/api.php?action=query&list=categorymembers&cmtitle=${encodeURIComponent(`Category:${category}`)}` +
+            `&cmnamespace=0&cmlimit=500&format=json&formatversion=2${next ? `&cmcontinue=${encodeURIComponent(next)}` : ""}`;
+        const response = await fetch(url, { headers: { "User-Agent": userAgent } });
+        if (!response.ok) {
+            throw new Error(`Fetching Category:${category} failed: ${response.status}`);
+        }
+        const json = (await response.json()) as {
+            query?: { categorymembers?: { title: string }[] };
+            continue?: { cmcontinue?: string };
+        };
+        titles.push(...(json.query?.categorymembers ?? []).map(m => m.title));
+        next = json.continue?.cmcontinue;
+    } while (next);
+    if (titles.length === 0) {
+        throw new Error(`Category:${category} has no articles`);
+    }
+    return titles;
+};
+
+/** Fetches and parses item pages one at a time, to be gentle with the wiki. */
+const fetchItemPages = async (names: string[]) => {
+    const items = [];
+    for (const name of names) {
+        items.push(parseWikiItemPage(name, await fetchPageHtml(name), wikiBase));
+    }
+    return items;
 };
 
 /** Resizes like the app does: max 128 px, WebP, quality stepped down to stay ≤ 64 KB. */
@@ -182,13 +218,8 @@ const main = async () => {
     await writeTemplate(bugs.template);
 
     console.log(`Fetching ${majiMarketItemNames.length} Maji Market item pages…`);
-    const majiItems = [];
-    for (const name of majiMarketItemNames) {
-        // One page at a time, to be gentle with the wiki.
-        majiItems.push(parseWikiItemPage(name, await fetchPageHtml(name), wikiBase));
-    }
     const maji = buildMajiMarketTemplate(
-        majiItems,
+        await fetchItemPages(majiMarketItemNames),
         {
             templateId: majiMarketTemplateId,
             version: values.version,
@@ -215,6 +246,20 @@ const main = async () => {
         await addImages(stickers.template, stickers.imageUrls);
     }
     await writeTemplate(stickers.template);
+
+    const wheelNames = await fetchCategoryMembers("Obtained from Zeki's Prize Wheel");
+    console.log(`Fetching ${wheelNames.length} Zeki's Prize Wheel item pages…`);
+    const wheel = buildPrizeWheelTemplate(await fetchItemPages(wheelNames), {
+        templateId: prizeWheelTemplateId,
+        version: values.version,
+        name: "Palia – Zeki's Prize Wheel",
+        description: "The prizes of Zeki's Prize Wheel, by prize bag.",
+        sourceUrl: `${wikiBase}/wiki/Category:Obtained_from_Zeki%27s_Prize_Wheel`,
+    });
+    if (!values["no-images"]) {
+        await addImages(wheel.template, wheel.imageUrls);
+    }
+    await writeTemplate(wheel.template);
 };
 
 main().catch(error => {
