@@ -11,6 +11,7 @@ import {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildWondrousMachineTemplate,
     findGuildLink,
     fullImageUrl,
     isPaidWithMedals,
@@ -18,6 +19,7 @@ import {
     parseBugTable,
     parseFishTable,
     parseGuildStoreItems,
+    parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
@@ -602,5 +604,65 @@ describe("guild store exclusives", () => {
         });
         expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
         expect(imageUrls.size).toBe(2);
+    });
+});
+
+const rewardItem = (name: string) =>
+    `<li><span data-item="${name}" class="template-item"><i><a title="${name}"><img src="/x.png"></a></i></span> <a title="${name}">${name}</a></li>`;
+
+const luckyBoxHtml = `
+<div class="mw-parser-output">
+<h2><span class="mw-headline" id="Uses">Uses</span></h2>
+<ul>${rewardItem("Not A Reward")}</ul>
+<h2><span class="mw-headline" id="Possible_Rewards">Possible Rewards</span></h2>
+<h3><span class="mw-headline" id="Decor"><span class="mw-customcollapsible-1"></span> Decor</span></h3>
+<div class="mw-collapsible"><div class="template-cols-list-2"><ul>${rewardItem("Test Plush")}${rewardItem("Test Lamp")}</ul></div></div>
+<h3><span class="mw-headline" id="Equipment">Equipment</span><span class="mw-editsection">[edit]</span></h3>
+<div class="mw-collapsible"><ul>${rewardItem("Test Arrow")}</ul></div>
+<h2><span class="mw-headline" id="Notes">Notes</span></h2>
+<ul>${rewardItem("Also Not A Reward")}</ul>
+</div>`;
+
+describe("Zeki's Wondrous Machine", () => {
+    it("reads the Lucky Box rewards by section", () => {
+        expect(parseLuckyBoxRewards(luckyBoxHtml)).toEqual([
+            { name: "Test Plush", section: "Decor" },
+            { name: "Test Lamp", section: "Decor" },
+            { name: "Test Arrow", section: "Equipment" },
+        ]);
+    });
+
+    it("builds one category per reward section with Inventory, Placed, Total and Target", () => {
+        const machine = `<a><span>Zeki's Wondrous Machine</span></a><br>&#160;&#160;• Chance Prize<br>`;
+        const sources: Record<string, string> = {
+            "Test Plush": machine,
+            "Test Lamp": `${machine}<a><span>General Store</span></a><br>`,
+            "Test Arrow": "",
+        };
+        const page = (name: string) =>
+            itemPage(
+                field("category", "<a>Decor</a>") +
+                    (name === "Test Arrow" ? field("group", "<a>Arrow</a>") : "") +
+                    field("rarity", "<b>Rare</b>") +
+                    (sources[name] ? field("obtain", sources[name]) : ""),
+                "A made-up prize."
+            );
+        const rewards = parseLuckyBoxRewards(luckyBoxHtml).map(reward => ({
+            reward,
+            item: parseWikiItemPage(reward.name, page(reward.name)),
+        }));
+        const { template, imageUrls } = buildWondrousMachineTemplate(rewards, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual(["Decor", "Equipment"]);
+        // Only Test Plush comes from the machine alone; Test Arrow lists no source at all.
+        expect(template.items.map(i => [i.name, i.tags])).toEqual([
+            ["Test Plush", ["Unique to Wondrous Machine"]],
+            ["Test Lamp", []],
+            ["Test Arrow", ["Type: Arrow"]],
+        ]);
+        expect(template.items[0]).toMatchObject({ description: "A made-up prize.", attributes: { rarity: 3 } });
+        expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
+        expect(imageUrls.size).toBe(3);
     });
 });
