@@ -504,11 +504,21 @@ const findGuildLink = (skill: string, html: string) => {
     return titles.find(t => t === `${skill} Guild`) ?? titles.find(t => / Guild$/.test(t));
 };
 
+/** A row of a guild store table. */
+type GuildStoreEntry = {
+    /** The item's page title. */
+    name: string;
+    /** The price as text, e.g. "980 Bug Catching Medal" or "200 Gold - 3,000 Gold". */
+    cost: string;
+    /** The currencies of the price, e.g. ["Bug Catching Medal"]. */
+    currencies: string[];
+};
+
 /**
- * Reads the item titles of a guild store table (Item/Cost/… headers), leaving out the rows that sell
- * a recipe.
+ * Reads a guild store table (Item/Cost/… headers): each item with its price, leaving out the rows that
+ * sell a recipe (marked with a bold "Recipe" next to the item). The first row of an item wins.
  */
-const parseGuildStoreItems = (html: string) => {
+const parseGuildStoreItems = (html: string): GuildStoreEntry[] => {
     const root = parse(html);
     const store = root.querySelectorAll("table").find(t => {
         const headers = headerTexts(t);
@@ -517,10 +527,12 @@ const parseGuildStoreItems = (html: string) => {
     if (!store) {
         return [];
     }
-    const names: string[] = [];
+    const headers = headerTexts(store);
+    const entries: GuildStoreEntry[] = [];
     for (const tr of store.querySelectorAll(":scope > tbody > tr, :scope > tr").slice(1)) {
-        const cell = tr.querySelectorAll(":scope > td")[0];
-        if (!cell || /\bRecipe\b/.test(cell.textContent)) {
+        const cells = tr.querySelectorAll(":scope > td");
+        const cell = cells[0];
+        if (!cell || cell.querySelectorAll("b").some(b => b.textContent.trim() === "Recipe")) {
             continue;
         }
         const name =
@@ -529,12 +541,29 @@ const parseGuildStoreItems = (html: string) => {
                 .querySelectorAll("a")
                 .map(a => a.getAttribute("title")?.trim())
                 .find(t => !!t);
-        if (name && !names.includes(name)) {
-            names.push(name);
+        if (!name || entries.some(e => e.name === name)) {
+            continue;
         }
+        const costCell = parse(cells[headers.indexOf("Cost")]?.innerHTML ?? "");
+        const currencies: string[] = [];
+        for (const cost of costCell.querySelectorAll(".template-cost")) {
+            const amount = cost.querySelector("b")?.textContent.trim() ?? "";
+            const currency = cost.querySelector("a")?.getAttribute("title")?.trim() ?? "";
+            currencies.push(currency);
+            cost.replaceWith(`${amount} ${currency}`.trim());
+        }
+        // A row can sell a bundle: "50x SpeedyGro Fertilizer" or "Sneaky Smoke Bombx20".
+        const label = cleanText(cell).replace(/\n/g, " ");
+        const bundle = label.match(/^(\d+)x\s/)?.[1] ?? label.match(/x(\d+)$/)?.[1];
+        const price = cleanText(costCell).replace(/\n/g, " ");
+        entries.push({ name, cost: bundle ? `${price} for ${bundle}` : price, currencies });
     }
-    return names;
+    return entries;
 };
+
+/** True when a store price is paid in guild medals only (not Gold). */
+const isPaidWithMedals = (entry: GuildStoreEntry) =>
+    entry.currencies.length > 0 && entry.currencies.every(c => / Medal$/.test(c));
 
 /** True when the item's "Obtained From" lists the guild and nothing else. */
 const isOnlyFromGuild = (item: WikiItem, guild: string) =>
@@ -1021,16 +1050,16 @@ const buildPrizeWheelTemplate = (items: WikiItem[], meta: TemplateMeta) => {
     };
 };
 
-/** One guild with the items of its store. */
+/** One guild with its store rows and the item pages of those rows. */
 type GuildStore = {
     guild: string;
-    items: WikiItem[];
+    entries: { entry: GuildStoreEntry; item: WikiItem }[];
 };
 
 /**
- * Builds the guild exclusives template: the store items that the guild is the only source of, one
- * category per guild in the given order. Wiki page titles such as "Wolpunny (Ranching)" lose the
- * disambiguation. The description ends with the price.
+ * Builds the guild exclusives template: the store items that are paid with guild medals and that the
+ * guild is the only source of, one category per guild in the given order. Wiki page titles such as
+ * "Wolpunny (Ranching)" lose the disambiguation. The description ends with the store price.
  */
 const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
@@ -1038,7 +1067,9 @@ const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) 
     const items: TemplateItem[] = [];
     const imageUrls = new Map<string, string>();
     for (const store of stores) {
-        const exclusives = store.items.filter(i => isOnlyFromGuild(i, store.guild));
+        const exclusives = store.entries.filter(
+            ({ entry, item }) => isPaidWithMedals(entry) && isOnlyFromGuild(item, store.guild)
+        );
         if (exclusives.length === 0) {
             continue;
         }
@@ -1051,7 +1082,7 @@ const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) 
             order: categories.length,
         };
         categories.push(category);
-        for (const item of exclusives) {
+        for (const { entry, item } of exclusives) {
             const name = item.name.replace(/\s*\([^)]*\)$/, "");
             if (items.some(i => i.name === name)) {
                 continue;
@@ -1063,12 +1094,11 @@ const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) 
             if (item.imageUrl && !/\/Unknown\.png$/i.test(item.imageUrl)) {
                 imageUrls.set(id, item.imageUrl);
             }
-            const prices = item.obtain.map(s => [s.source, ...s.costs].join(" • "));
             items.push({
                 id,
                 categoryId: category.id,
                 name,
-                description: [item.description, ...new Set(prices)].filter(l => l.length > 0).join("\n"),
+                description: [item.description, `${store.guild} • ${entry.cost}`].filter(l => l.length > 0).join("\n"),
                 attributes: item.rarity ? { rarity: item.rarity } : {},
                 tags: [`Type: ${item.group || item.category || "Other"}`],
             });
@@ -1138,7 +1168,18 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { BugRow, FishRow, GuildStore, ItemSource, PlushieRow, PotatoPodRow, StickerRow, TemplateMeta, WikiItem };
+export type {
+    BugRow,
+    FishRow,
+    GuildStore,
+    GuildStoreEntry,
+    ItemSource,
+    PlushieRow,
+    PotatoPodRow,
+    StickerRow,
+    TemplateMeta,
+    WikiItem,
+};
 export {
     buildBugTemplate,
     buildFishTemplate,
@@ -1152,6 +1193,7 @@ export {
     findGuildLink,
     fullImageUrl,
     isOnlyFromGuild,
+    isPaidWithMedals,
     parseBait,
     parseBugTable,
     parseFishTable,
