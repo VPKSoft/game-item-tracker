@@ -23,6 +23,7 @@ import {
     buildPrizeWheelTemplate,
     buildStickerTemplate,
     findGuildLink,
+    isPaidWithMedals,
     parseBugTable,
     parseFishTable,
     parseGuildStoreItems,
@@ -302,15 +303,16 @@ const main = async () => {
             console.log(`  ${skill}: no guild`);
             continue;
         }
-        const names = parseGuildStoreItems(await fetchPageHtml(guild));
-        console.log(`  ${guild}: ${names.length} store items`);
-        stores.push({ guild, items: await fetchItemPages(names) });
+        const entries = parseGuildStoreItems(await fetchPageHtml(guild)).filter(isPaidWithMedals);
+        console.log(`  ${guild}: ${entries.length} store items paid with medals`);
+        const items = await fetchItemPages(entries.map(e => e.name));
+        stores.push({ guild, entries: entries.map((entry, i) => ({ entry, item: items[i] })) });
     }
     const guildExclusives = buildGuildExclusivesTemplate(stores, {
         templateId: guildExclusivesTemplateId,
         version: values.version,
         name: "Palia – Guild Store Exclusives",
-        description: "Items that only the skill guilds sell, by guild.",
+        description: "Items that only the skill guilds sell, for guild medals, by guild.",
         sourceUrl: `${wikiBase}/wiki/Weekly_Challenges`,
     });
     if (!values["no-images"]) {
