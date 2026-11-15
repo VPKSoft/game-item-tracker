@@ -36,7 +36,7 @@ import {
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
-import { toWebp } from "./SampleImages.ts";
+import { sortImages, toWebp } from "./SampleImages.ts";
 
 const wikiBase = "https://palia.wiki.gg";
 const userAgent = "game-item-tracker-sample-builder/1.0 (+https://github.com/VPKSoft/game-item-tracker)";
@@ -171,7 +171,8 @@ const addImages = async (template: Template, imageUrls: Map<string, string>) => 
     await Promise.all([worker(), worker(), worker()]);
 };
 
-const writeTemplate = async (template: Template) => {
+const writeTemplate = async (unsorted: Template) => {
+    const template = { ...unsorted, images: sortImages(unsorted.images) };
     const parsed = templateSchema.safeParse(template);
     if (!parsed.success) {
         throw new Error(`Generated template is invalid: ${parsed.error.message}`);

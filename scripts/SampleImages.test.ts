@@ -1,6 +1,6 @@
 import sharp from "sharp";
 import { describe, expect, it } from "vitest";
-import { clearHiddenColors, toWebp } from "./SampleImages.ts";
+import { clearHiddenColors, sortImages, toWebp } from "./SampleImages.ts";
 
 /**
  * A 128×128 RGBA picture: an opaque square with a soft edge on a transparent background. It is already
@@ -47,5 +47,13 @@ describe("sample images", () => {
         const webp = await toWebp(opaque);
         const { width, height, hasAlpha } = await sharp(webp).metadata();
         expect([width, height, hasAlpha]).toEqual([64, 32, false]);
+    });
+
+    it("sorts the images by id, whatever order they were added in", () => {
+        const a = { c3: "data:c", a1: "data:a", b2: "data:b" };
+        const b = { b2: "data:b", c3: "data:c", a1: "data:a" };
+        expect(Object.keys(sortImages(a))).toEqual(["a1", "b2", "c3"]);
+        expect(JSON.stringify(sortImages(a))).toBe(JSON.stringify(sortImages(b)));
+        expect(sortImages(a)).toEqual(a);
     });
 });
