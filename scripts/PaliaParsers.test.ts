@@ -8,12 +8,14 @@ import {
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildStickerTemplate,
     fullImageUrl,
     parseBait,
     parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseStickerTables,
     parseTimes,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -401,5 +403,58 @@ describe("Maji Market", () => {
 
     it("fails clearly for a page without an infobox", () => {
         expect(() => parseWikiItemPage("Nothing", "<p>nothing</p>")).toThrow("no infobox");
+    });
+});
+
+const stickerRow = (name: string, third: string) =>
+    `<tr><td><img alt="${name}.png" src="/images/thumb/${name.replace(/ /g, "_")}.png/65px-x.png?aa"></td><td><a><span>${name}</span></a></td><td>${third}</td></tr>`;
+
+const stickerHtml = `
+<div class="mw-parser-output">
+<div class="mw-heading mw-heading2"><h2>Stickers</h2></div>
+<div class="mw-heading mw-heading3"><h3>Default Stickers</h3></div>
+<table class="paliatable"><tr><th>Image</th><th>Name</th><th>Chat Message</th></tr>
+${stickerRow("Test Wave Sticker", "Hello there!")}
+</table>
+<div class="mw-heading mw-heading3"><h3>Series 1 Stickers</h3></div>
+<table class="paliatable"><tr><th>Image</th><th>Name</th><th>Rarity</th></tr>
+${stickerRow("Test Chapaa Sticker", "<style>.x{}</style><font class='template-rarity'><b>Uncommon</b></font>")}
+</table>
+<div class="mw-heading mw-heading3"><h3>Premium Stickers</h3></div>
+<table class="paliatable"><tr><th>Image</th><th>Name</th><th>Cost</th></tr>
+${stickerRow("Test Coin Sticker", "<span class='template-cost'><span><a title='Palia Coin'><img src='/c.png'></a> <b>100</b> <a>Palia Coins</a></span></span>")}
+</table>
+<table class="paliatable"><tr><th>Image</th><th>Name</th><th>Description</th><th>Rarity</th></tr><tr><td></td><td>Not a sticker</td><td></td><td></td></tr></table>
+</div>`;
+
+describe("stickers", () => {
+    it("parses every sticker table with its section and third column", () => {
+        const rows = parseStickerTables(stickerHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => [r.name, r.section, r.rarity, r.detail])).toEqual([
+            ["Test Wave Sticker", "Default Stickers", undefined, "Chat message: Hello there!"],
+            ["Test Chapaa Sticker", "Series 1 Stickers", 2, ""],
+            ["Test Coin Sticker", "Premium Stickers", undefined, "Cost: 100 Palia Coins"],
+        ]);
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Test_Wave_Sticker.png");
+    });
+
+    it("builds section categories with Amount, Total = Amount and Target", () => {
+        const { template, imageUrls } = buildStickerTemplate(parseStickerTables(stickerHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual([
+            "Default Stickers",
+            "Series 1 Stickers",
+            "Premium Stickers",
+        ]);
+        expect(template.variantDefs).toEqual([]);
+        expect(template.counterDefs.map(c => c.key)).toEqual(["amount", "total", "target"]);
+        expect(template.counterDefs.find(c => c.key === "total")).toMatchObject({ sumOf: ["amount"], role: "owned" });
+        expect(template.items.map(i => i.description)).toEqual([
+            "Chat message: Hello there!",
+            "",
+            "Cost: 100 Palia Coins",
+        ]);
+        expect(imageUrls.size).toBe(3);
     });
 });

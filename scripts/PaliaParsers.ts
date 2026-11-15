@@ -76,6 +76,15 @@ type WikiItem = ImageRef & {
     recipeObtain: ItemSource[];
 };
 
+type StickerRow = ImageRef & {
+    name: string;
+    rarity?: number;
+    /** The table's third column as "Label: value" (e.g. "Cost: 100 Palia Coins"), unless it is the rarity. */
+    detail: string;
+    /** The section heading the table is under, e.g. "Series 1 Stickers". */
+    section: string;
+};
+
 type PotatoPodRow = ImageRef & {
     name: string;
     /** The pod set, e.g. "Bonsai Pods". */
@@ -410,6 +419,65 @@ const parseWikiItemPage = (name: string, html: string, base = "https://palia.wik
         recipeObtain: parseItemSources(field("recipeobtain")),
         imageUrl: fullImageUrl(infobox.querySelector("figure img")?.getAttribute("src"), base),
     };
+};
+
+/** Labels for the stickers tables' third column; the column header is used for others. */
+const stickerDetailLabels: Record<string, string> = { "Chat Message": "Chat message" };
+
+/**
+ * Parses the sticker tables (Image/Name/… headers), one per section. The third column is the
+ * rarity in some tables and a chat message, cost or way to obtain in others.
+ */
+const parseStickerTables = (html: string, base = "https://palia.wiki.gg"): StickerRow[] => {
+    const root = parse(html);
+    const container = root.querySelector(".mw-parser-output") ?? root;
+    const rows: StickerRow[] = [];
+    let section = "";
+
+    const readTable = (table: HTMLElement) => {
+        const headers = headerTexts(table);
+        if (headers[0] !== "Image" || headers[1] !== "Name" || headers.length !== 3) {
+            return;
+        }
+        for (const tr of table.querySelectorAll("tr").slice(1)) {
+            const cells = tr.querySelectorAll("td");
+            if (cells.length < 3) {
+                continue;
+            }
+            const name = cleanText(cells[1]);
+            if (!name) {
+                continue;
+            }
+            const value = cleanText(cells[2]).replace(/\n/g, " ");
+            const isRarity = headers[2] === "Rarity";
+            rows.push({
+                name,
+                rarity: isRarity ? rarityValue(value) : undefined,
+                detail: isRarity || !value ? "" : `${stickerDetailLabels[headers[2]] ?? headers[2]}: ${value}`,
+                section: section || "Other Stickers",
+                imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    };
+
+    const walk = (node: HTMLElement) => {
+        for (const child of node.childNodes) {
+            const element = child as HTMLElement;
+            if (!element.tagName) {
+                continue;
+            }
+            if (element.classList?.contains("mw-heading") || /^H[234]$/.test(element.tagName)) {
+                const h = /^H[234]$/.test(element.tagName) ? element : element.querySelector("h2, h3, h4");
+                section = h?.textContent.replace(/\[edit\]/g, "").trim() ?? section;
+            } else if (element.tagName === "TABLE") {
+                readTable(element);
+            } else {
+                walk(element);
+            }
+        }
+    };
+    walk(container);
+    return rows;
 };
 
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
@@ -783,6 +851,57 @@ const buildMajiMarketTemplate = (items: WikiItem[], meta: TemplateMeta, shops: s
     };
 };
 
+/** The counters of the stickers sample: one amount, which is also the owned total. */
+const stickerCounters = (): CounterDef[] => [
+    { key: "amount", label: "Amount", kind: "manual", order: 0 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["amount"], role: "owned", order: 1 },
+    { key: "target", label: "Target", kind: "manual", role: "target", order: 2 },
+];
+
+/** Builds the stickers template: one category per page section, in page order. */
+const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const row of rows) {
+        if (items.some(i => i.name === row.name)) {
+            continue;
+        }
+        let category = categories.find(c => c.name === row.section);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    row.section,
+                    categories.map(c => c.id)
+                ),
+                name: row.section,
+                order: categories.length,
+            };
+            categories.push(category);
+        }
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: category.id,
+            name: row.name,
+            description: row.detail,
+            attributes: row.rarity ? { rarity: row.rarity } : {},
+            tags: [],
+        });
+    }
+    return {
+        template: { ...template, counterDefs: stickerCounters(), categories, items, tags: collectTags(items) },
+        imageUrls,
+    };
+};
+
 /**
  * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
  * rarity for pods, so the template has no rarity attribute.
@@ -841,13 +960,14 @@ const buildPotatoPodTemplate = (rows: PotatoPodRow[], meta: TemplateMeta) => {
     };
 };
 
-export type { BugRow, FishRow, ItemSource, PlushieRow, PotatoPodRow, TemplateMeta, WikiItem };
+export type { BugRow, FishRow, ItemSource, PlushieRow, PotatoPodRow, StickerRow, TemplateMeta, WikiItem };
 export {
     buildBugTemplate,
     buildFishTemplate,
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildStickerTemplate,
     cleanText,
     fullImageUrl,
     parseBait,
@@ -856,6 +976,7 @@ export {
     parseItemSources,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseStickerTables,
     parseTimes,
     parseWikiItemPage,
 };
