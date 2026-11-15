@@ -8,7 +8,6 @@ import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import sharp from "sharp";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { fileNameFor, serialize } from "../src/Files/FileFormat.ts";
 import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts";
@@ -35,6 +34,7 @@ import {
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
+import { toWebp } from "./SampleImages.ts";
 
 const wikiBase = "https://palia.wiki.gg";
 const userAgent = "game-item-tracker-sample-builder/1.0 (+https://github.com/VPKSoft/game-item-tracker)";
@@ -131,21 +131,6 @@ const fetchItemPages = async (names: string[]) => {
         items.push(parseWikiItemPage(name, await fetchPageHtml(name), wikiBase));
     }
     return items;
-};
-
-/** Resizes like the app does: max 128 px, WebP, quality stepped down to stay ≤ 64 KB. */
-const toWebp = async (input: Buffer) => {
-    let quality = 85;
-    for (;;) {
-        const output = await sharp(input)
-            .resize(128, 128, { fit: "inside", withoutEnlargement: true })
-            .webp({ quality })
-            .toBuffer();
-        if (output.length <= 64 * 1024 || quality <= 30) {
-            return output;
-        }
-        quality -= 15;
-    }
 };
 
 const addImages = async (template: Template, imageUrls: Map<string, string>) => {
