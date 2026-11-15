@@ -34,6 +34,15 @@ describe("validateTemplate", () => {
         expect(m.some(x => x.includes("does not sum any counters"))).toBe(true);
     });
 
+    it("rejects read-only computed counters", () => {
+        const t = fishTemplate();
+        const total = t.counterDefs.find(c => c.key === "total");
+        if (total) {
+            total.readOnly = true;
+        }
+        expect(messages(t)).toContain('Computed counter "Total" cannot be read-only');
+    });
+
     it("rejects duplicate roles", () => {
         const t = fishTemplate();
         t.counterDefs[0].role = "owned";

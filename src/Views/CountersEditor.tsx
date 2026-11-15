@@ -1,6 +1,6 @@
 import { faArrowDown, faArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Card, Empty, Input, InputNumber, Popconfirm, Select, Space } from "antd";
+import { Button, Card, Checkbox, Empty, Input, InputNumber, Popconfirm, Select, Space, Tooltip } from "antd";
 import * as React from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { commonCounters } from "../Domain/Counters.ts";
@@ -144,7 +144,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 update(
                                     counter.key,
                                     kind === "computed"
-                                        ? { kind, max: undefined, sumOf: counter.sumOf ?? [] }
+                                        ? { kind, max: undefined, readOnly: undefined, sumOf: counter.sumOf ?? [] }
                                         : { kind, sumOf: undefined }
                                 )
                             }
@@ -203,6 +203,16 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                     update(counter.key, { max: typeof max === "number" ? max : undefined })
                                 }
                             />
+                        )}
+                        {counter.kind === "manual" && (
+                            <Tooltip title={t("counters.readOnlyHint")}>
+                                <Checkbox
+                                    checked={!!counter.readOnly}
+                                    onChange={e => update(counter.key, { readOnly: e.target.checked || undefined })}
+                                >
+                                    {t("counters.readOnly")}
+                                </Checkbox>
+                            </Tooltip>
                         )}
                     </Space>
                     {counter.kind === "computed" && (

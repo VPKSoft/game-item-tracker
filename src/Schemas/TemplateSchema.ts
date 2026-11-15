@@ -34,6 +34,11 @@ const counterDefSchema = z.object({
     role: z.enum(["owned", "target"]).optional(),
     variants: z.array(keySchema).optional(),
     max: z.number().int().nonnegative().optional(),
+    /**
+     * Manual only: the value comes from the template item's `defaults` and cannot be changed in a save,
+     * e.g. how many of an item a bundle needs. It is never stored in saves.
+     */
+    readOnly: z.literal(true).optional(),
     order: z.number(),
 });
 

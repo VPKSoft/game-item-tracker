@@ -154,6 +154,7 @@ Changing amounts:
 - **Shift-click** + or − to change by 10.
 - Click the number to type a value directly.
 - Values never go below 0, or above a counter's maximum when the template sets one.
+- A **read-only** counter shows its number without + and −. The template sets it per item, e.g. how many of an item a bundle needs.
 
 ### 5.2 Item details drawer
 
@@ -302,7 +303,7 @@ The item drawer fields:
 | Tags | Choose from the template's tags or type new ones |
 | Variants | Which of the template's variants apply to this item |
 | Unique | Makes the item, or some of its variants, unique (see [Unique items](#7-unique-items)) |
-| Initial amounts in new saves | Default counter values, e.g. a target of 1 |
+| Initial amounts in new saves | Default counter values, e.g. a target of 1. For a read-only counter this is its value in every save. |
 | Deprecated | The item was removed from the game but is kept for old saves |
 
 Click **Save** to store the item, or **Delete** to remove it.
@@ -342,6 +343,7 @@ Each counter has:
 - **Role**: *Owned* or *Target* (at most one of each)
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
 - **Max**: an optional upper limit for manual counters
+- **Read-only** (manual counters): the value in saves is always the item's initial amount, and users cannot change it. Use it for fixed amounts such as a bundle's requirement, usually together with the *Target* role. Set the amount per item under *Initial amounts in new saves*; when a newer template version changes it, saves show the new value after the upgrade.
 - Move up/down and delete buttons. Deleting a counter hides its values in saves; they are not lost.
 
 ![The fish template's counters](images/manual/18-template-counters.png)
