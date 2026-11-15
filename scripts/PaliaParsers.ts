@@ -104,6 +104,8 @@ type BundleRow = ImageRef & {
     sources: string[];
     /** The "How to Obtain" text under the source. */
     description: string;
+    /** The bundle needs a star quality item (an `SQ.png` icon on the item box). */
+    starred: boolean;
 };
 
 /** Removes <style> blocks (template styles are inlined into cells) and collapses whitespace. */
@@ -645,7 +647,8 @@ const headingText = (heading: HTMLElement) =>
  * Parses the Bundles page: each vault (level-2 heading) has bundles (level-3 headings), and each bundle a
  * table with an "Items" header whose rows hold the item box (image, `<p class="number">xN</p>`, name) and
  * the "How to Obtain" cell (the source in large text, then a description). The reward row has no item box
- * and is skipped, and so are the "Vault Reward" sections, which have no item table.
+ * and is skipped, and so are the "Vault Reward" sections, which have no item table. An item box with an
+ * `<img alt="SQ.png">` star icon asks for a star quality item.
  */
 const parseBundleTables = (html: string, base = "https://palia.wiki.gg"): BundleRow[] => {
     const root = parse(html);
@@ -678,6 +681,8 @@ const parseBundleTables = (html: string, base = "https://palia.wiki.gg"): Bundle
                 .map(p => cleanText(p))
                 .filter(t => t.length > 0)
                 .join("\n");
+            const images = box.querySelectorAll("img");
+            const isStarIcon = (img: HTMLElement) => img.getAttribute("alt") === "SQ.png";
             rows.push({
                 name,
                 vault,
@@ -685,7 +690,8 @@ const parseBundleTables = (html: string, base = "https://palia.wiki.gg"): Bundle
                 amount,
                 sources,
                 description,
-                imageUrl: fullImageUrl(box.querySelector("img")?.getAttribute("src"), base),
+                starred: images.some(isStarIcon),
+                imageUrl: fullImageUrl(images.find(img => !isStarIcon(img))?.getAttribute("src"), base),
             });
         }
     };
@@ -1416,11 +1422,17 @@ const bundleCounters = (): CounterDef[] => [
  * order. An item that two bundles ask for becomes two items, because each bundle has its own target.
  * The target is the bundle's amount (`defaults.target` of a read-only counter). Tags `Vault: …`,
  * `Bundle: …` and `Source: …` (the skill or shop in "How to Obtain").
+ *
+ * A bundle that needs a star quality item gets " ★" after the name and the tag `Quality: Star`. The
+ * template has no variants for this, so saves of earlier versions keep their counts; the item id still
+ * comes from the plain name.
  */
 const buildBundleTemplate = (rows: BundleRow[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
     const categories: Category[] = [];
     const items: TemplateItem[] = [];
+    /** The plain item name of each item id, for finding duplicates. */
+    const plainNames = new Map<string, string>();
     const imageUrls = new Map<string, string>();
     const findCategory = (name: string, parentId?: string) => {
         let category = categories.find(c => c.name === name && c.parentId === parentId);
@@ -1441,23 +1453,30 @@ const buildBundleTemplate = (rows: BundleRow[], meta: TemplateMeta) => {
     for (const row of rows) {
         const vault = findCategory(row.vault);
         const bundle = findCategory(row.bundle, vault.id);
-        if (items.some(i => i.categoryId === bundle.id && i.name === row.name)) {
+        const isNamed = (item: TemplateItem) => plainNames.get(item.id) === row.name;
+        if (items.some(i => i.categoryId === bundle.id && isNamed(i))) {
             continue;
         }
         const id = uniqueId(
-            items.some(i => i.name === row.name) ? `${row.name} ${row.bundle}` : row.name,
+            items.some(isNamed) ? `${row.name} ${row.bundle}` : row.name,
             items.map(i => i.id)
         );
+        plainNames.set(id, row.name);
         if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
             imageUrls.set(id, row.imageUrl);
         }
         items.push({
             id,
             categoryId: bundle.id,
-            name: row.name,
+            name: row.starred ? `${row.name} ★` : row.name,
             description: row.description,
             attributes: {},
-            tags: [`Vault: ${row.vault}`, `Bundle: ${row.bundle}`, ...row.sources.map(s => `Source: ${s}`)],
+            tags: [
+                `Vault: ${row.vault}`,
+                `Bundle: ${row.bundle}`,
+                ...row.sources.map(s => `Source: ${s}`),
+                ...(row.starred ? ["Quality: Star"] : []),
+            ],
             defaults: { target: row.amount },
         });
     }
