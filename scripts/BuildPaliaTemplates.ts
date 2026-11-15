@@ -22,11 +22,13 @@ import {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildWondrousMachineTemplate,
     findGuildLink,
     isPaidWithMedals,
     parseBugTable,
     parseFishTable,
     parseGuildStoreItems,
+    parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
@@ -46,6 +48,7 @@ const majiMarketTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e05";
 const stickerTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e06";
 const prizeWheelTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e07";
 const guildExclusivesTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e08";
+const wondrousMachineTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e09";
 
 const { values } = parseArgs({
     options: {
@@ -319,6 +322,25 @@ const main = async () => {
         await addImages(guildExclusives.template, guildExclusives.imageUrls);
     }
     await writeTemplate(guildExclusives.template);
+
+    // The machine gives a Lucky Box for a Lucky Coin; the box holds the actual prize.
+    const rewards = parseLuckyBoxRewards(await fetchPageHtml("Lucky Box"));
+    console.log(`Fetching ${rewards.length} Zeki's Wondrous Machine item pages…`);
+    const rewardItems = await fetchItemPages(rewards.map(r => r.name));
+    const wondrous = buildWondrousMachineTemplate(
+        rewards.map((reward, i) => ({ reward, item: rewardItems[i] })),
+        {
+            templateId: wondrousMachineTemplateId,
+            version: values.version,
+            name: "Palia – Zeki's Wondrous Machine",
+            description: "The prizes of Zeki's Wondrous Machine, by type.",
+            sourceUrl: `${wikiBase}/wiki/Lucky_Box`,
+        }
+    );
+    if (!values["no-images"]) {
+        await addImages(wondrous.template, wondrous.imageUrls);
+    }
+    await writeTemplate(wondrous.template);
 };
 
 main().catch(error => {

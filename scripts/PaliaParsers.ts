@@ -569,6 +569,58 @@ const isPaidWithMedals = (entry: GuildStoreEntry) =>
 const isOnlyFromGuild = (item: WikiItem, guild: string) =>
     item.obtain.length > 0 && item.obtain.every(s => s.source === guild);
 
+/** A reward listed on the Lucky Box page. */
+type LuckyBoxReward = {
+    /** The item's page title. */
+    name: string;
+    /** The reward section, e.g. "Decor", "Seed". */
+    section: string;
+};
+
+/**
+ * Reads the "Possible Rewards" of the Lucky Box page: the item lists under each level-3 heading of that
+ * section. The Lucky Box is what Zeki's Wondrous Machine gives for a Lucky Coin.
+ */
+const parseLuckyBoxRewards = (html: string): LuckyBoxReward[] => {
+    const root = parse(html);
+    const rewards: LuckyBoxReward[] = [];
+    let inRewards = false;
+    let section = "";
+    const walk = (node: HTMLElement) => {
+        for (const child of node.childNodes) {
+            const element = child as HTMLElement;
+            if (!element.tagName) {
+                continue;
+            }
+            const heading = /^H[23]$/.test(element.tagName)
+                ? element
+                : element.classList?.contains("mw-heading")
+                  ? element.querySelector("h2, h3")
+                  : null;
+            if (heading) {
+                const text = heading.textContent.replace(/\[edit\]/g, "").trim();
+                if (heading.tagName === "H2") {
+                    inRewards = text === "Possible Rewards";
+                    section = "";
+                } else if (inRewards) {
+                    section = text;
+                }
+                continue;
+            }
+            if (inRewards && element.tagName === "LI") {
+                const name = element.querySelector("[data-item]")?.getAttribute("data-item")?.trim();
+                if (name && !rewards.some(r => r.name === name)) {
+                    rewards.push({ name, section: section || "Other" });
+                }
+                continue;
+            }
+            walk(element);
+        }
+    };
+    walk(root.querySelector(".mw-parser-output") ?? root);
+    return rewards;
+};
+
 /** Parses the "Available Pods" table (the table with an Image/Name/Set header). */
 const parsePotatoPodTable = (html: string, base = "https://palia.wiki.gg"): PotatoPodRow[] => {
     const root = parse(html);
@@ -1110,6 +1162,62 @@ const buildGuildExclusivesTemplate = (stores: GuildStore[], meta: TemplateMeta) 
     };
 };
 
+/** The infobox source name of Zeki's Wondrous Machine. */
+const wondrousMachineSource = "Zeki's Wondrous Machine";
+
+/** The tag of items that only Zeki's Wondrous Machine gives. */
+const wondrousMachineUniqueTag = "Unique to Wondrous Machine";
+
+/**
+ * Builds the Zeki's Wondrous Machine template from the Lucky Box rewards: one category per reward section
+ * in page order, a `Type: …` tag where the item has an infobox group, and the
+ * {@link wondrousMachineUniqueTag} tag when the machine is the item's only source.
+ */
+const buildWondrousMachineTemplate = (rewards: { reward: LuckyBoxReward; item: WikiItem }[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const { reward, item } of rewards) {
+        let category = categories.find(c => c.name === reward.section);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    reward.section,
+                    categories.map(c => c.id)
+                ),
+                name: reward.section,
+                order: categories.length,
+            };
+            categories.push(category);
+        }
+        const id = uniqueId(
+            item.name,
+            items.map(i => i.id)
+        );
+        if (item.imageUrl && !/\/Unknown\.png$/i.test(item.imageUrl)) {
+            imageUrls.set(id, item.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: category.id,
+            name: item.name,
+            description: item.description,
+            attributes: item.rarity ? { rarity: item.rarity } : {},
+            tags: [
+                ...(item.group ? [`Type: ${item.group}`] : []),
+                ...(item.obtain.length > 0 && item.obtain.every(s => s.source === wondrousMachineSource)
+                    ? [wondrousMachineUniqueTag]
+                    : []),
+            ],
+        });
+    }
+    return {
+        template: { ...template, counterDefs: inventoryPlacedCounters(), categories, items, tags: collectTags(items) },
+        imageUrls,
+    };
+};
+
 /**
  * Builds the Potato Pods template: categories by set, the plushie counters. The wiki lists no
  * rarity for pods, so the template has no rarity attribute.
@@ -1174,6 +1282,7 @@ export type {
     GuildStore,
     GuildStoreEntry,
     ItemSource,
+    LuckyBoxReward,
     PlushieRow,
     PotatoPodRow,
     StickerRow,
@@ -1189,6 +1298,7 @@ export {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildWondrousMachineTemplate,
     cleanText,
     findGuildLink,
     fullImageUrl,
@@ -1199,6 +1309,7 @@ export {
     parseFishTable,
     parseGuildStoreItems,
     parseItemSources,
+    parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
