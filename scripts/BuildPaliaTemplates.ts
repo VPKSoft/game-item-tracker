@@ -19,10 +19,12 @@ import {
     buildMajiMarketTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
+    buildStickerTemplate,
     parseBugTable,
     parseFishTable,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseStickerTables,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
 
@@ -35,6 +37,7 @@ const plushieTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e02";
 const potatoPodTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e03";
 const bugTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e04";
 const majiMarketTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e05";
+const stickerTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e06";
 
 const { values } = parseArgs({
     options: {
@@ -199,6 +202,19 @@ const main = async () => {
         await addImages(maji.template, maji.imageUrls);
     }
     await writeTemplate(maji.template);
+
+    console.log("Fetching Stickers…");
+    const stickers = buildStickerTemplate(parseStickerTables(await fetchPageHtml("Stickers"), wikiBase), {
+        templateId: stickerTemplateId,
+        version: values.version,
+        name: "Palia – Stickers",
+        description: "The stickers of Palia, by series.",
+        sourceUrl: `${wikiBase}/wiki/Stickers`,
+    });
+    if (!values["no-images"]) {
+        await addImages(stickers.template, stickers.imageUrls);
+    }
+    await writeTemplate(stickers.template);
 };
 
 main().catch(error => {
