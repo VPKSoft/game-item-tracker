@@ -16,6 +16,9 @@ type Props = {
     onInstalled: () => void;
 };
 
+/** The list's height: the viewport minus the dialog's margins, header, hint, search box, table header and footer. */
+const tableHeight = "calc(100vh - 360px)";
+
 const entryKey = (entry: CatalogEntry) => `${entry.templateId}@${entry.version}`;
 
 /** Formats a byte count as kB or MB in the given language. */
@@ -100,6 +103,7 @@ const OnlineTemplatesDialog = ({ open, stored, onClose, onInstalled }: Props) =>
             open={open}
             title={t("online.title")}
             width={900}
+            centered
             onCancel={onClose}
             footer={
                 <Button type="primary" onClick={onClose}>
@@ -138,6 +142,8 @@ const OnlineTemplatesDialog = ({ open, stored, onClose, onInstalled }: Props) =>
                     rowKey={entryKey}
                     loading={loading}
                     pagination={false}
+                    // Scroll the list inside the dialog, so a long catalog doesn't make the page scroll.
+                    scroll={{ y: tableHeight }}
                     dataSource={entries ? filterCatalog(entries, query) : []}
                     locale={{ emptyText: entries ? t("online.noMatches") : " " }}
                     columns={[
