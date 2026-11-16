@@ -182,6 +182,7 @@ const fi: Translation = {
     templateEditor: {
         notFound: "Mallipohjaa ei löytynyt. Se on ehkä poistettu.",
         noTemplateOpen: "Yhtään mallipohjaa ei ole auki",
+        chooseTemplate: "Valitse muokattava mallipohja",
         couldNotOpen: "Mallipohjaa ei voitu avata.",
         problemsTitle: "Mallipohjassa on ongelmia",
         problemsContent_one: "Löytyi {{count}} ongelma. Katso Tiedot-välilehti. Viedäänkö silti?",

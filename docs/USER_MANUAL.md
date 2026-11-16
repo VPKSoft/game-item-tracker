@@ -278,7 +278,7 @@ Unique items show a gold **Unique** badge on their cards in the Templates view.
 
 ## 8. Templates: defining a game's items
 
-Open a template with **Edit** in the Library, or create one with **New template**.
+Open a template with **Edit** in the Library, or create one with **New template**. When no template is open, the Templates view lists the stored templates, and **Edit** opens one of them.
 
 ![New template dialog](images/manual/23-new-template-dialog.png)
 

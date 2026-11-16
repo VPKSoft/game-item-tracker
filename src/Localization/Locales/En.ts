@@ -188,6 +188,7 @@ const en = {
     templateEditor: {
         notFound: "The template was not found. It may have been deleted.",
         noTemplateOpen: "No template is open",
+        chooseTemplate: "Choose a template to edit",
         couldNotOpen: "The template could not be opened.",
         problemsTitle: "The template has problems",
         problemsContent_one: "{{count}} problem was found. See the Details tab. Export anyway?",

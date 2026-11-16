@@ -13,11 +13,12 @@ import { renderExchangeImage } from "../Images/RenderExchangeImage.ts";
 import { catalogFormat } from "../Schemas/CatalogSchema.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
-import { getTemplate } from "../Storage/Database.ts";
+import { getTemplate, putTemplate } from "../Storage/Database.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
 import { ExchangePanel } from "../Views/ExchangePanel.tsx";
 import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
+import { TemplateEditor } from "../Views/TemplateEditor.tsx";
 import { UpgradeDialog } from "../Views/UpgradeDialog.tsx";
 import { CounterStepper } from "./CounterStepper.tsx";
 import { ItemBrowser } from "./ItemBrowser.tsx";
@@ -439,6 +440,24 @@ describe("OnlineTemplatesDialog", () => {
         );
         expect(await screen.findByText("The online template list could not be loaded (HTTP 500).")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    });
+});
+
+describe("TemplateEditor without an open template", () => {
+    it("lists the stored templates to open", async () => {
+        const template = { ...fishTemplate(), templateId: "picker-fish", name: "Picker Fish" };
+        await putTemplate(template);
+        const onOpenTemplate = vi.fn();
+        render(
+            <AntdApp>
+                <TemplateEditor templateKey={null} onOpenTemplate={onOpenTemplate} onOpenLibrary={vi.fn()} />
+            </AntdApp>
+        );
+
+        const row = (await screen.findByText("Picker Fish")).closest("tr") as HTMLElement;
+        expect(screen.getByText("Choose a template to edit")).toBeInTheDocument();
+        await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+        expect(onOpenTemplate).toHaveBeenCalledWith({ templateId: "picker-fish", version: template.version });
     });
 });
 
