@@ -118,7 +118,8 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
             if (!template) {
                 return;
             }
-            updateItem(itemId, s => setCounterValue(template, s, variantKey, counterKey, value));
+            const item = template.items.find(i => i.id === itemId);
+            updateItem(itemId, s => setCounterValue(template, s, variantKey, counterKey, value, item));
         },
         [template, updateItem]
     );

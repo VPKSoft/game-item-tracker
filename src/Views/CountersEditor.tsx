@@ -144,7 +144,13 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 update(
                                     counter.key,
                                     kind === "computed"
-                                        ? { kind, max: undefined, readOnly: undefined, sumOf: counter.sumOf ?? [] }
+                                        ? {
+                                              kind,
+                                              max: undefined,
+                                              maxFrom: undefined,
+                                              readOnly: undefined,
+                                              sumOf: counter.sumOf ?? [],
+                                          }
                                         : { kind, sumOf: undefined }
                                 )
                             }
@@ -198,17 +204,45 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 min={0}
                                 precision={0}
                                 placeholder={t("counters.noMax")}
+                                disabled={counter.maxFrom !== undefined}
                                 value={counter.max}
                                 onChange={max =>
                                     update(counter.key, { max: typeof max === "number" ? max : undefined })
                                 }
                             />
                         )}
+                        {counter.kind === "manual" && !counter.readOnly && (
+                            <Tooltip title={t("counters.maxFromHint")}>
+                                <Select
+                                    aria-label={t("counters.maxFrom")}
+                                    allowClear
+                                    placeholder={t("counters.maxFromPlaceholder")}
+                                    style={{ width: 170 }}
+                                    value={counter.maxFrom}
+                                    onChange={maxFrom =>
+                                        update(
+                                            counter.key,
+                                            maxFrom ? { maxFrom, max: undefined } : { maxFrom: undefined }
+                                        )
+                                    }
+                                    options={template.counterDefs
+                                        .filter(c => c.key !== counter.key && c.kind === "manual" && c.readOnly)
+                                        .map(c => ({ value: c.key, label: c.label }))}
+                                />
+                            </Tooltip>
+                        )}
                         {counter.kind === "manual" && (
                             <Tooltip title={t("counters.readOnlyHint")}>
                                 <Checkbox
                                     checked={!!counter.readOnly}
-                                    onChange={e => update(counter.key, { readOnly: e.target.checked || undefined })}
+                                    onChange={e =>
+                                        update(
+                                            counter.key,
+                                            e.target.checked
+                                                ? { readOnly: true, maxFrom: undefined }
+                                                : { readOnly: undefined }
+                                        )
+                                    }
                                 >
                                     {t("counters.readOnly")}
                                 </Checkbox>

@@ -43,6 +43,27 @@ describe("validateTemplate", () => {
         expect(messages(t)).toContain('Computed counter "Total" cannot be read-only');
     });
 
+    it("accepts maxFrom a read-only manual counter and rejects other sources or a fixed max", () => {
+        const t = fishTemplate();
+        const target = t.counterDefs.find(c => c.key === "target");
+        const inventory = t.counterDefs.find(c => c.key === "inventory");
+        if (!target || !inventory) {
+            throw new Error("fixture changed");
+        }
+        target.readOnly = true;
+        inventory.maxFrom = "target";
+        expect(validateTemplate(t)).toEqual([]);
+        inventory.max = 3;
+        expect(messages(t)).toContain('Counter "Inventory" cannot have both a maximum and a maximum from a counter');
+        inventory.max = undefined;
+        for (const key of ["total", "placed", "inventory", "nothing"]) {
+            inventory.maxFrom = key;
+            expect(messages(t)).toContain(
+                `Counter "Inventory" takes its maximum from "${key}", which is not another read-only manual counter`
+            );
+        }
+    });
+
     it("rejects duplicate roles", () => {
         const t = fishTemplate();
         t.counterDefs[0].role = "owned";

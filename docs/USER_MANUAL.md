@@ -344,6 +344,7 @@ Each counter has:
 - **Role**: *Owned* or *Target* (at most one of each)
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
 - **Max**: an optional upper limit for manual counters. With a maximum of 1 the counter is shown as a checkbox in saves.
+- **Maximum from** (manual counters): instead of a fixed *Max*, the limit is each item's value of a read-only counter, e.g. at most as many placed as the bundle's target needs.
 - **Read-only** (manual counters): the value in saves is always the item's initial amount, and users cannot change it. Use it for fixed amounts such as a bundle's requirement, usually together with the *Target* role. Set the amount per item under *Initial amounts in new saves*; when a newer template version changes it, saves show the new value after the upgrade.
 - Move up/down and delete buttons. Deleting a counter hides its values in saves; they are not lost.
 

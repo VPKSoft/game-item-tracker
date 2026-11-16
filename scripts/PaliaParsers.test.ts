@@ -281,7 +281,7 @@ describe("bundles", () => {
             "Quality: Star",
         ]);
         expect(template.counterDefs).toEqual([
-            { key: "placed", label: "Placed", kind: "manual", order: 0 },
+            { key: "placed", label: "Placed", kind: "manual", maxFrom: "target", order: 0 },
             { key: "total", label: "Total", kind: "computed", sumOf: ["placed"], role: "owned", order: 1 },
             { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 2 },
         ]);

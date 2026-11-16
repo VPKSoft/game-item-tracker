@@ -243,6 +243,30 @@ describe("read-only counters", () => {
         expect(screen.queryByLabelText("Increase Target")).toBeNull();
         expect(screen.getAllByLabelText("Increase Inventory").length).toBeGreaterThan(0);
     });
+
+    it("limits a maxFrom counter to the item's target, as a checkbox when it is 1", async () => {
+        const base = fishTemplate();
+        const t: Template = {
+            ...base,
+            counterDefs: base.counterDefs.map(c =>
+                c.key === "target" ? { ...c, readOnly: true } : c.key === "inventory" ? { ...c, maxFrom: "target" } : c
+            ),
+            items: base.items.map(i => (i.id === "bass" ? { ...i, defaults: { target: 1 } } : i)),
+        };
+        render(
+            <SaveItemDrawer
+                template={t}
+                item={t.items[0]}
+                saveItem={createSave(t, "s").items.bass}
+                onClose={() => undefined}
+                onChange={() => undefined}
+                onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
+            />
+        );
+        expect((await screen.findAllByRole("checkbox", { name: "Inventory" })).length).toBeGreaterThan(0);
+        expect(screen.queryByLabelText("Increase Inventory")).toBeNull();
+    });
 });
 
 describe("ImagePreviewDialog via ImageDropZone", () => {

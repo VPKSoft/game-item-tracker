@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import {
     findRoleCounter,
+    getCounterMax,
     getCounterValue,
     getItemCounterTotal,
     getItemVariants,
@@ -196,7 +197,7 @@ const CounterRows = ({
                                     key={counter.key}
                                     size={size}
                                     label={counter.label}
-                                    max={counter.max}
+                                    max={getCounterMax(template, counter, item)}
                                     value={getCounterValue(template, saveItem, variant.key, counter.key, item)}
                                     onChange={
                                         isEditableCounter(counter) && onCounterChange

@@ -39,6 +39,11 @@ const counterDefSchema = z.object({
      * e.g. how many of an item a bundle needs. It is never stored in saves.
      */
     readOnly: z.literal(true).optional(),
+    /**
+     * Manual only: the maximum is the item's value of this read-only counter instead of a fixed `max`,
+     * e.g. at most as many placed as the bundle needs.
+     */
+    maxFrom: keySchema.optional(),
     order: z.number(),
 });
 

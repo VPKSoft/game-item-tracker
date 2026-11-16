@@ -138,23 +138,39 @@ const getMissing = (template: Template, item: TemplateItem, saveItem: SaveItem |
     return missing;
 };
 
-/** Clamps a value into the allowed range of a manual counter. */
-const clampCounter = (def: CounterDef, value: number) => {
+/**
+ * Gets the maximum of a manual counter for an item: the item's value of the `maxFrom` counter, or the fixed
+ * `max`. Undefined when there is no limit, or when `maxFrom` is set but the item is not given.
+ */
+const getCounterMax = (template: Template, def: CounterDef, item?: TemplateItem): number | undefined => {
+    if (def.maxFrom === undefined) {
+        return def.max;
+    }
+    const source = template.counterDefs.find(c => c.key === def.maxFrom);
+    return source && item ? getManualValue(source, undefined, noVariantKey, item) : undefined;
+};
+
+/** Clamps a value into the allowed range of a manual counter (`max` is the counter's maximum, if any). */
+const clampCounter = (def: CounterDef, value: number, max = def.max) => {
     let result = Number.isFinite(value) ? Math.round(value) : 0;
     result = Math.max(0, result);
-    if (def.max !== undefined) {
-        result = Math.min(def.max, result);
+    if (max !== undefined) {
+        result = Math.min(max, result);
     }
     return result;
 };
 
-/** Returns a copy of the save item with one manual counter set. Computed and read-only counters are ignored. */
+/**
+ * Returns a copy of the save item with one manual counter set. Computed and read-only counters are ignored.
+ * The item is needed to apply a `maxFrom` maximum.
+ */
 const setCounterValue = (
     template: Template,
     saveItem: SaveItem,
     variantKey: string,
     counterKey: string,
-    value: number
+    value: number,
+    item?: TemplateItem
 ): SaveItem => {
     const def = template.counterDefs.find(c => c.key === counterKey);
     if (!def || !isEditableCounter(def) || !counterAppliesTo(def, variantKey)) {
@@ -164,7 +180,10 @@ const setCounterValue = (
         ...saveItem,
         counts: {
             ...saveItem.counts,
-            [variantKey]: { ...saveItem.counts[variantKey], [counterKey]: clampCounter(def, value) },
+            [variantKey]: {
+                ...saveItem.counts[variantKey],
+                [counterKey]: clampCounter(def, value, getCounterMax(template, def, item)),
+            },
         },
     };
 };
@@ -213,6 +232,7 @@ export {
     counterAppliesTo,
     emptySaveItem,
     findRoleCounter,
+    getCounterMax,
     getCounterValue,
     getItemCounterTotal,
     getItemVariants,
