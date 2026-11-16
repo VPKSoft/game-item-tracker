@@ -13,6 +13,7 @@ import { fileNameFor, serialize } from "../src/Files/FileFormat.ts";
 import { type Template, templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import { majiMarketItemNames, majiMarketShops } from "./MajiMarketItems.ts";
 import {
+    buildArtifactBundleTemplate,
     buildBugTemplate,
     buildBundleTemplate,
     buildFishTemplate,
@@ -25,6 +26,7 @@ import {
     buildWondrousMachineTemplate,
     findGuildLink,
     isPaidWithMedals,
+    parseArtifactBundles,
     parseBugTable,
     parseBundleTables,
     parseFishTable,
@@ -52,6 +54,8 @@ const prizeWheelTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e07";
 const guildExclusivesTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e08";
 const wondrousMachineTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e09";
 const bundleTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0a";
+const royalHighlandsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0b";
+const elderwoodsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0c";
 
 const { values } = parseArgs({
     options: {
@@ -346,6 +350,29 @@ const main = async () => {
         await addImages(bundles.template, bundles.imageUrls);
     }
     await writeTemplate(bundles.template);
+
+    console.log("Fetching Artifact Bundles…");
+    const artifacts = parseArtifactBundles(await fetchPageHtml("Artifact_Bundles"), wikiBase);
+    for (const [region, templateId] of [
+        ["Royal Highlands", royalHighlandsArtifactsTemplateId],
+        ["Elderwoods", elderwoodsArtifactsTemplateId],
+    ]) {
+        const rows = artifacts.filter(a => a.region === region);
+        if (rows.length === 0) {
+            throw new Error(`No ${region} artifacts were found on the Artifact Bundles page`);
+        }
+        const built = buildArtifactBundleTemplate(rows, {
+            templateId,
+            version: values.version,
+            name: `Palia – ${region} Artifacts Bundle`,
+            description: `The ${region} artifacts of Palia, by collection and artifact. Each piece is placed in its bundle once.`,
+            sourceUrl: `${wikiBase}/wiki/Artifact_Bundles`,
+        });
+        if (!values["no-images"]) {
+            await addImages(built.template, built.imageUrls);
+        }
+        await writeTemplate(built.template);
+    }
 };
 
 main().catch(error => {

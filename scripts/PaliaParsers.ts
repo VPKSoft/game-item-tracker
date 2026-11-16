@@ -92,6 +92,18 @@ type PotatoPodRow = ImageRef & {
 };
 
 /** An item that a bundle of the Bundles page asks for. */
+/** An artifact on the Artifact Bundles page. */
+type ArtifactRow = ImageRef & {
+    name: string;
+    /** The region (level-2 heading without " Artifacts"), e.g. "Royal Highlands", "Elderwoods". */
+    region: string;
+    /** The collection (level-3 heading), e.g. "Eloine's Bundle", "Ancient Artifact Collection". */
+    collection: string;
+    /** The artifact the pieces make up: the item name without its piece number, e.g. "Eloine's Crest". */
+    artifact: string;
+    description: string;
+};
+
 type BundleRow = ImageRef & {
     name: string;
     /** The vault the bundle belongs to, e.g. "Vault of the Waves". */
@@ -713,6 +725,77 @@ const parseBundleTables = (html: string, base = "https://palia.wiki.gg"): Bundle
                     bundle = "";
                 } else {
                     bundle = /Bundle$/.test(text) ? text : "";
+                }
+                continue;
+            }
+            if (element.tagName === "TABLE") {
+                readTable(element);
+                continue;
+            }
+            walk(element);
+        }
+    };
+    walk(root.querySelector(".mw-parser-output") ?? root);
+    return rows;
+};
+
+/**
+ * Parses the Artifact Bundles page: each region (level-2 heading "… Artifacts") has collections (level-3
+ * headings), and each collection a table per artifact with an "Items" header. A row's item box gives the
+ * name and image, and the second cell the description. The artifact is named after its pieces ("Halward's
+ * Glass 1" → "Halward's Glass"), not after the level-4 heading or the table id, because the wiki repeats
+ * some headings ("Halward's Device" twice) and mislabels a table ("Wartorn Sword Bundle" for the horn).
+ * The reward row has no item box and is skipped.
+ */
+const parseArtifactBundles = (html: string, base = "https://palia.wiki.gg"): ArtifactRow[] => {
+    const root = parse(html);
+    const rows: ArtifactRow[] = [];
+    let region = "";
+    let collection = "";
+    const readTable = (table: HTMLElement) => {
+        if (headerTexts(table)[0] !== "Items" || !region || !collection) {
+            return;
+        }
+        for (const tr of table.querySelectorAll("tr")) {
+            const box = tr.querySelector(".template-itembox");
+            const cells = tr.querySelectorAll("td");
+            if (!box || cells.length < 2) {
+                continue;
+            }
+            const name =
+                cleanText(box.querySelector(".caption") ?? undefined) || tr.getAttribute("data-checklist-id")?.trim();
+            if (!name || rows.some(r => r.name === name)) {
+                continue;
+            }
+            rows.push({
+                name,
+                region,
+                collection,
+                artifact: name.replace(/\s+\d+$/, ""),
+                description: cleanText(cells[1]),
+                imageUrl: fullImageUrl(box.querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    };
+    const walk = (node: HTMLElement) => {
+        for (const child of node.childNodes) {
+            const element = child as HTMLElement;
+            if (!element.tagName) {
+                continue;
+            }
+            const heading = /^H[234]$/.test(element.tagName)
+                ? element
+                : element.classList?.contains("mw-heading")
+                  ? element.querySelector("h2, h3, h4")
+                  : null;
+            if (heading) {
+                const text = headingText(heading);
+                if (heading.tagName === "H2") {
+                    const match = text.match(/^(.+) Artifacts$/);
+                    region = match ? match[1] : "";
+                    collection = "";
+                } else if (heading.tagName === "H3") {
+                    collection = text;
                 }
                 continue;
             }
@@ -1493,7 +1576,77 @@ const buildBundleTemplate = (rows: BundleRow[], meta: TemplateMeta) => {
     };
 };
 
+/**
+ * The counters of the artifact bundles samples: one piece placed in the bundle (at most 1), spare pieces in
+ * storage, Total = Storage, and a read-only target of 1 (each item's `defaults.target`).
+ */
+const artifactCounters = (): CounterDef[] => [
+    { key: "placed", label: "Placed", kind: "manual", max: 1, order: 0 },
+    { key: "storage", label: "Storage", kind: "manual", order: 1 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], role: "owned", order: 2 },
+    { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 3 },
+];
+
+/**
+ * Builds an artifact bundles template from the rows of one region: a parent category per collection and a
+ * child category per artifact, in page order. Tag `Collection: …`; the description is the wiki text.
+ */
+const buildArtifactBundleTemplate = (rows: ArtifactRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    const findCategory = (name: string, parentId?: string) => {
+        let category = categories.find(c => c.name === name && c.parentId === parentId);
+        if (!category) {
+            category = {
+                id: uniqueId(
+                    name,
+                    categories.map(c => c.id)
+                ),
+                name,
+                order: categories.filter(c => c.parentId === parentId).length,
+                ...(parentId ? { parentId } : {}),
+            };
+            categories.push(category);
+        }
+        return category;
+    };
+    for (const row of rows) {
+        const collection = findCategory(row.collection);
+        const artifact = findCategory(row.artifact, collection.id);
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl && !/\/Unknown\.png$/i.test(row.imageUrl)) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: artifact.id,
+            name: row.name,
+            description: row.description,
+            attributes: {},
+            tags: [`Collection: ${row.collection}`],
+            defaults: { target: 1 },
+        });
+    }
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: artifactCounters(),
+            categories,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
 export type {
+    ArtifactRow,
     BugRow,
     BundleRow,
     FishRow,
@@ -1508,6 +1661,7 @@ export type {
     WikiItem,
 };
 export {
+    buildArtifactBundleTemplate,
     buildBugTemplate,
     buildBundleTemplate,
     buildFishTemplate,
@@ -1523,6 +1677,7 @@ export {
     fullImageUrl,
     isOnlyFromGuild,
     isPaidWithMedals,
+    parseArtifactBundles,
     parseBait,
     parseBugTable,
     parseBundleTables,
