@@ -3,6 +3,7 @@ import { getVariantCounters } from "../src/Domain/Counters.ts";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
+    buildArtifactBundleTemplate,
     buildBugTemplate,
     buildBundleTemplate,
     buildFishTemplate,
@@ -16,6 +17,7 @@ import {
     findGuildLink,
     fullImageUrl,
     isPaidWithMedals,
+    parseArtifactBundles,
     parseBait,
     parseBugTable,
     parseBundleTables,
@@ -285,6 +287,75 @@ describe("bundles", () => {
         ]);
         expect(template.attributeDefs).toEqual([]);
         expect(imageUrls.get("sample-snail-seekers-bundle")).toBe("https://palia.wiki.gg/images/Sample_Snail.png");
+    });
+});
+
+/** One artifact row: the item box (no amount) and the description cell. */
+const artifactRow = (name: string, text: string) => `
+<tr data-checklist-id="${name}">
+<td><center><div class="template-itembox"><div><div class="frame"><i class="template-itembox-rel"><a href="/wiki/${name.replace(/ /g, "_")}"><img alt="${name}" src="/images/thumb/${name.replace(/ /g, "_")}.png/80px-${name.replace(/ /g, "_")}.png?aa"></a></i></div></div>
+<div class="caption"><b><a><span>${name}</span></a></b></div></div></center></td>
+<td>${text}<br><br>An artifact from the test.</td>
+</tr>`;
+
+const artifactHtml = `
+<div class="mw-parser-output">
+<h2><span class="mw-headline">Contents</span></h2>
+<h2><span class="mw-headline">Sample Hills Artifacts</span></h2>
+<h3><span class="mw-headline">Tester's Bundle</span><span class="mw-editsection">[<a>edit</a>]</span></h3>
+<h4><span class="mw-headline">Tester's Device</span></h4>
+<table class="paliatable" data-checklist-id="Tester's Device Bundle"><tr><th>Items</th><th>Description</th><th>Reward</th></tr>
+${artifactRow("Tester's Device 1", "A device.")}
+${artifactRow("Tester's Device 2", "Another part.")}
+<tr data-checklist-id="Reward"><th>Reward</th><td>6 Certificates of Merit</td></tr>
+</table>
+<h4><span class="mw-headline">Tester's Device</span></h4>
+<table class="paliatable" data-checklist-id="Tester's Device Bundle"><tr><th>Items</th><th>Description</th></tr>
+${artifactRow("Tester's Glass 1", "A glass.")}
+</table>
+<h2><span class="mw-headline">Example Woods Artifacts</span></h2>
+<h3><span class="mw-headline">Old Collection</span></h3>
+<h4><span class="mw-headline">Old Toy</span></h4>
+<table class="paliatable"><tr><th>Items</th><th>Description</th></tr>${artifactRow("Old Toy", "A toy.")}</table>
+<h2><span class="mw-headline">Gallery</span></h2>
+<table class="paliatable"><tr><th>Items</th></tr>${artifactRow("Not Counted", "")}</table>
+</div>`;
+
+describe("artifact bundles", () => {
+    it("names each artifact after its pieces, not the repeated heading or table id", () => {
+        const rows = parseArtifactBundles(artifactHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => [r.region, r.collection, r.artifact, r.name])).toEqual([
+            ["Sample Hills", "Tester's Bundle", "Tester's Device", "Tester's Device 1"],
+            ["Sample Hills", "Tester's Bundle", "Tester's Device", "Tester's Device 2"],
+            ["Sample Hills", "Tester's Bundle", "Tester's Glass", "Tester's Glass 1"],
+            ["Example Woods", "Old Collection", "Old Toy", "Old Toy"],
+        ]);
+        expect(rows[0].description).toBe("A device.\nAn artifact from the test.");
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Tester's_Device_1.png");
+    });
+
+    it("builds collection and artifact categories with Placed (max 1), Storage and a read-only target of 1", () => {
+        const rows = parseArtifactBundles(artifactHtml).filter(r => r.region === "Sample Hills");
+        const { template, imageUrls } = buildArtifactBundleTemplate(rows, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => [c.id, c.parentId, c.order])).toEqual([
+            ["testers-bundle", undefined, 0],
+            ["testers-device", "testers-bundle", 0],
+            ["testers-glass", "testers-bundle", 1],
+        ]);
+        expect(template.items.map(i => [i.id, i.categoryId, i.defaults, i.tags])).toEqual([
+            ["testers-device-1", "testers-device", { target: 1 }, ["Collection: Tester's Bundle"]],
+            ["testers-device-2", "testers-device", { target: 1 }, ["Collection: Tester's Bundle"]],
+            ["testers-glass-1", "testers-glass", { target: 1 }, ["Collection: Tester's Bundle"]],
+        ]);
+        expect(template.counterDefs).toEqual([
+            { key: "placed", label: "Placed", kind: "manual", max: 1, order: 0 },
+            { key: "storage", label: "Storage", kind: "manual", order: 1 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], role: "owned", order: 2 },
+            { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 3 },
+        ]);
+        expect(imageUrls.size).toBe(3);
     });
 });
 
