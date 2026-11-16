@@ -3,6 +3,7 @@ import type { SaveItem } from "../Schemas/SaveSchema.ts";
 import {
     clampCounter,
     emptySaveItem,
+    getCounterMax,
     getCounterValue,
     getItemCounterTotal,
     getItemVariants,
@@ -159,6 +160,22 @@ describe("read-only counters", () => {
         expect(isEditableCounter(t.counterDefs[2])).toBe(false);
         expect(isEditableCounter(t.counterDefs[0])).toBe(true);
         expect(createSaveItem(t, t.items[0]).counts).toEqual({});
+    });
+
+    it("limits a counter to the item's value of its maxFrom counter", () => {
+        const t = bundleTemplate();
+        t.counterDefs[0].maxFrom = "target";
+        const item = t.items[0];
+        expect(getCounterMax(t, t.counterDefs[0], item)).toBe(20);
+        expect(getCounterMax(t, t.counterDefs[0])).toBeUndefined();
+        expect(getCounterMax(t, t.counterDefs[2], item)).toBeUndefined();
+        const s = emptySaveItem();
+        expect(setCounterValue(t, s, noVariantKey, "placed", 25, item).counts[noVariantKey].placed).toBe(20);
+        expect(setCounterValue(t, s, noVariantKey, "placed", 7, item).counts[noVariantKey].placed).toBe(7);
+        expect(
+            setCounterValue(t, s, noVariantKey, "placed", 3, { ...item, defaults: { target: 1 } }).counts[noVariantKey]
+                .placed
+        ).toBe(1);
     });
 });
 
