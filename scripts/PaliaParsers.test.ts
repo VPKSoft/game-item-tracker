@@ -350,9 +350,9 @@ describe("artifact bundles", () => {
             ["testers-glass-1", "testers-glass", { target: 1 }, ["Collection: Tester's Bundle"]],
         ]);
         expect(template.counterDefs).toEqual([
-            { key: "placed", label: "Placed", kind: "manual", max: 1, order: 0 },
+            { key: "placed", label: "Placed", kind: "manual", max: 1, role: "owned", order: 0 },
             { key: "storage", label: "Storage", kind: "manual", order: 1 },
-            { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], role: "owned", order: 2 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], order: 2 },
             { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 3 },
         ]);
         expect(imageUrls.size).toBe(3);

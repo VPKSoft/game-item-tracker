@@ -1,6 +1,6 @@
 import { faMinus, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, InputNumber, Space } from "antd";
+import { Button, Checkbox, InputNumber, Space } from "antd";
 import classNames from "classnames";
 import type * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ type Props = {
 
 /**
  * A compact "− [n] +" counter. Shift-click steps by 10. Read-only when no change handler is given.
+ * A counter whose maximum is 1 is a checkbox instead (checked = 1).
  */
 let CounterStepper = ({ className, label, value, onChange, max, size = "small" }: Props) => {
     const { t } = useTranslation();
@@ -34,7 +35,14 @@ let CounterStepper = ({ className, label, value, onChange, max, size = "small" }
     return (
         <div className={classNames(className, "CounterStepper")} onClick={e => e.stopPropagation()}>
             <div className="CounterStepper-label">{label}</div>
-            {onChange ? (
+            {onChange && max === 1 ? (
+                <Checkbox
+                    aria-label={label}
+                    className="CounterStepper-checkbox"
+                    checked={value >= 1}
+                    onChange={e => onChange(e.target.checked ? 1 : 0)}
+                />
+            ) : onChange ? (
                 <Space.Compact size={size}>
                     <Button
                         aria-label={t("stepper.decrease", { label })}
@@ -83,6 +91,9 @@ CounterStepper = styled(CounterStepper)`
         input {
             text-align: center;
         }
+    }
+    .CounterStepper-checkbox {
+        line-height: 24px;
     }
     .CounterStepper-computed {
         min-width: 40px;
