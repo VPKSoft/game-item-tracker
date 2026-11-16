@@ -60,6 +60,20 @@ describe("CounterStepper", () => {
         expect(onChange).toHaveBeenLastCalledWith(10);
     });
 
+    it("is a checkbox when the maximum is 1", async () => {
+        const onChange = vi.fn();
+        const { rerender } = render(<CounterStepper label="Placed" value={0} max={1} onChange={onChange} />);
+        expect(screen.queryByLabelText("Increase Placed")).toBeNull();
+        const checkbox = screen.getByRole("checkbox", { name: "Placed" });
+        expect(checkbox).not.toBeChecked();
+        await userEvent.click(checkbox);
+        expect(onChange).toHaveBeenLastCalledWith(1);
+        rerender(<CounterStepper label="Placed" value={1} max={1} onChange={onChange} />);
+        expect(screen.getByRole("checkbox", { name: "Placed" })).toBeChecked();
+        await userEvent.click(screen.getByRole("checkbox", { name: "Placed" }));
+        expect(onChange).toHaveBeenLastCalledWith(0);
+    });
+
     it("is read-only without a change handler", () => {
         render(<CounterStepper label="Total" value={7} />);
         expect(screen.getByLabelText("Total")).toHaveTextContent("7");

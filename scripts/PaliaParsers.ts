@@ -1577,13 +1577,14 @@ const buildBundleTemplate = (rows: BundleRow[], meta: TemplateMeta) => {
 };
 
 /**
- * The counters of the artifact bundles samples: one piece placed in the bundle (at most 1), spare pieces in
- * storage, Total = Storage, and a read-only target of 1 (each item's `defaults.target`).
+ * The counters of the artifact bundles samples: one piece placed in the bundle (at most 1, a checkbox, and the
+ * owned counter, so the progress bar and missing filter follow it), spare pieces in storage, Total = Storage,
+ * and a read-only target of 1 (each item's `defaults.target`).
  */
 const artifactCounters = (): CounterDef[] => [
-    { key: "placed", label: "Placed", kind: "manual", max: 1, order: 0 },
+    { key: "placed", label: "Placed", kind: "manual", max: 1, role: "owned", order: 0 },
     { key: "storage", label: "Storage", kind: "manual", order: 1 },
-    { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], role: "owned", order: 2 },
+    { key: "total", label: "Total", kind: "computed", sumOf: ["storage"], order: 2 },
     { key: "target", label: "Target", kind: "manual", role: "target", readOnly: true, order: 3 },
 ];
 

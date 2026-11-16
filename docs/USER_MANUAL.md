@@ -154,6 +154,7 @@ Changing amounts:
 - **Shift-click** + or − to change by 10.
 - Click the number to type a value directly.
 - Values never go below 0, or above a counter's maximum when the template sets one.
+- A counter whose maximum is 1 is a **checkbox**: checked is 1, unchecked 0.
 - A **read-only** counter shows its number without + and −. The template sets it per item, e.g. how many of an item a bundle needs.
 
 ### 5.2 Item details drawer
@@ -342,7 +343,7 @@ Each counter has:
 - **Type**: *Manual* or *Computed sum*. For a computed counter, pick the manual counters to add up. A formula such as *Total = Inventory + Placed* is shown below it.
 - **Role**: *Owned* or *Target* (at most one of each)
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
-- **Max**: an optional upper limit for manual counters
+- **Max**: an optional upper limit for manual counters. With a maximum of 1 the counter is shown as a checkbox in saves.
 - **Read-only** (manual counters): the value in saves is always the item's initial amount, and users cannot change it. Use it for fixed amounts such as a bundle's requirement, usually together with the *Target* role. Set the amount per item under *Initial amounts in new saves*; when a newer template version changes it, saves show the new value after the upgrade.
 - Move up/down and delete buttons. Deleting a counter hides its values in saves; they are not lost.
 
