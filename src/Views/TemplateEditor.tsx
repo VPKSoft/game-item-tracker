@@ -1,6 +1,6 @@
 import { faDownload, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, App, Badge, Button, Dropdown, Empty, Form, Input, Spin, Tabs } from "antd";
+import { Alert, App, Badge, Button, Dropdown, Form, Input, Spin, Tabs } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,7 @@ import type { BaseProps } from "../Types/BaseTypes.ts";
 import { CountersEditor } from "./CountersEditor.tsx";
 import { AttributesEditor, CategoriesEditor, TagsVocabularyEditor, VariantsEditor } from "./StructureEditors.tsx";
 import { newItemDraft, TemplateItemDrawer } from "./TemplateItemDrawer.tsx";
+import { TemplatePicker } from "./TemplatePicker.tsx";
 
 /** Identifies a stored template version. */
 type TemplateKey = { templateId: string; version: string };
@@ -82,13 +83,7 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
     );
 
     if (!templateKey) {
-        return (
-            <Empty className={className} description={t("templateEditor.noTemplateOpen")}>
-                <Button type="primary" onClick={onOpenLibrary}>
-                    {t("common.openLibrary")}
-                </Button>
-            </Empty>
-        );
+        return <TemplatePicker className={className} onOpenTemplate={onOpenTemplate} onOpenLibrary={onOpenLibrary} />;
     }
     if (loading) {
         return <Spin className={className} />;
@@ -97,6 +92,7 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
         return (
             <div className={className}>
                 <Alert type="error" showIcon title={error ?? t("templateEditor.couldNotOpen")} />
+                <TemplatePicker onOpenTemplate={onOpenTemplate} onOpenLibrary={onOpenLibrary} />
             </div>
         );
     }
