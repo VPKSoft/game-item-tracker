@@ -1,16 +1,17 @@
 import { type Save, type SaveItem, saveFormat, saveSchemaVersion } from "../Schemas/SaveSchema.ts";
 import { type Template, type TemplateItem, templateFormat, templateSchemaVersion } from "../Schemas/TemplateSchema.ts";
-import { counterAppliesTo, getItemVariants, isEditableCounter, isVariantUnique } from "./Counters.ts";
+import { counterAppliesTo, getItemVariants, isEditableForItem, isVariantUnique } from "./Counters.ts";
 import { newUuid } from "./Ids.ts";
 
 /**
  * Creates the initial save item for a template item, applying the item's default counter values.
- * Read-only counters are not stored: their value is always the template's default.
+ * Read-only counters, and counters the item's counter profile turns off or fixes, are not stored: their value
+ * always comes from the template.
  */
 const createSaveItem = (template: Template, item: TemplateItem): SaveItem => {
     const counts: SaveItem["counts"] = {};
     for (const [key, value] of Object.entries(item.defaults ?? {})) {
-        const def = template.counterDefs.find(c => c.key === key && isEditableCounter(c));
+        const def = template.counterDefs.find(c => c.key === key && isEditableForItem(template, c, item));
         if (!def) {
             continue;
         }

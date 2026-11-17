@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AttributeBadges } from "../Components/AttributeBadges.tsx";
 import { CounterRows } from "../Components/ItemCard.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
-import { hasUniqueVariants } from "../Domain/Counters.ts";
+import { hasUniqueVariants, hasVisibleCounters } from "../Domain/Counters.ts";
 import { getEffectiveTags, setEffectiveTags } from "../Domain/EffectiveTags.ts";
 import type { SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
@@ -63,7 +63,7 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                     <Divider titlePlacement="start" plain>
                         {t("saveItem.amounts")}
                     </Divider>
-                    {template.counterDefs.length === 0 && !hasUniqueVariants(template, item) ? (
+                    {!hasVisibleCounters(template, item) && !hasUniqueVariants(template, item) ? (
                         <div style={{ opacity: 0.7 }}>{t("saveItem.noCounters")}</div>
                     ) : (
                         <CounterRows

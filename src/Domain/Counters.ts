@@ -1,5 +1,12 @@
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
-import type { CounterDef, Template, TemplateItem, VariantDef } from "../Schemas/TemplateSchema.ts";
+import type {
+    CounterDef,
+    CounterOverride,
+    CounterProfile,
+    Template,
+    TemplateItem,
+    VariantDef,
+} from "../Schemas/TemplateSchema.ts";
 
 /** The variant key used for items of a template that defines no variants. */
 const noVariantKey = "_";
@@ -27,13 +34,80 @@ const getItemVariants = (template: Template, item: TemplateItem): VariantDef[] =
 const counterAppliesTo = (counter: CounterDef, variantKey: string) =>
     variantKey === noVariantKey || !counter.variants || counter.variants.includes(variantKey);
 
-/** Gets the counters shown for a variant, in display order. */
-const getVariantCounters = (template: Template, variantKey: string): CounterDef[] =>
-    [...template.counterDefs].sort(byOrder).filter(c => counterAppliesTo(c, variantKey));
+/** Category id -> the key of the counter profile it has or inherits (undefined = none), per template. */
+const categoryProfileCache = new WeakMap<Template, Map<string, string | undefined>>();
 
-/** Finds the counter that has the given role, if any. */
-const findRoleCounter = (template: Template, role: "owned" | "target") =>
-    template.counterDefs.find(c => c.role === role);
+/** Gets the key of the counter profile a category has or inherits from its nearest ancestor with one. */
+const getCategoryProfileKey = (template: Template, categoryId: string): string | undefined => {
+    let cache = categoryProfileCache.get(template);
+    if (!cache) {
+        cache = new Map();
+        categoryProfileCache.set(template, cache);
+    }
+    if (cache.has(categoryId)) {
+        return cache.get(categoryId);
+    }
+    let key: string | undefined;
+    const seen = new Set<string>();
+    let category = template.categories.find(c => c.id === categoryId);
+    while (category && !seen.has(category.id)) {
+        if (category.counterProfile !== undefined) {
+            key = category.counterProfile;
+            break;
+        }
+        seen.add(category.id);
+        const parentId = category.parentId;
+        category = parentId === undefined ? undefined : template.categories.find(c => c.id === parentId);
+    }
+    cache.set(categoryId, key);
+    return key;
+};
+
+/**
+ * Gets the counter profile in effect for an item: its own, else the one its category has or inherits.
+ * Undefined when there is none or the key is unknown.
+ */
+const getCounterProfile = (template: Template, item: TemplateItem | undefined): CounterProfile | undefined => {
+    if (!item || !template.counterProfiles?.length) {
+        return undefined;
+    }
+    const key = item.counterProfile ?? getCategoryProfileKey(template, item.categoryId);
+    return key === undefined ? undefined : template.counterProfiles.find(p => p.key === key);
+};
+
+/** Gets the override of a counter for an item from the item's counter profile, if any. */
+const getCounterOverride = (
+    template: Template,
+    def: CounterDef,
+    item: TemplateItem | undefined
+): CounterOverride | undefined => getCounterProfile(template, item)?.overrides[def.key];
+
+/** Gets a value indicating whether a counter is turned off for an item by its counter profile. */
+const isCounterOff = (template: Template, def: CounterDef, item: TemplateItem | undefined) =>
+    getCounterOverride(template, def, item)?.use === "off";
+
+/** Gets a value indicating whether a counter is shown for an item: neither hidden nor turned off by its profile. */
+const isCounterVisible = (template: Template, def: CounterDef, item: TemplateItem | undefined) =>
+    getCounterOverride(template, def, item)?.use === undefined;
+
+/**
+ * Gets the counters shown for a variant, in display order. With the item, the counters its counter profile hides
+ * or turns off are left out.
+ */
+const getVariantCounters = (template: Template, variantKey: string, item?: TemplateItem): CounterDef[] =>
+    [...template.counterDefs]
+        .sort(byOrder)
+        .filter(c => counterAppliesTo(c, variantKey) && (!item || isCounterVisible(template, c, item)));
+
+/** Gets a value indicating whether an item shows any counter in a save (unique variants not counted). */
+const hasVisibleCounters = (template: Template, item: TemplateItem) =>
+    getItemVariants(template, item).some(v => getVariantCounters(template, v.key, item).length > 0);
+
+/** Finds the counter that has the given role, if any. With the item, a counter turned off for it is not returned. */
+const findRoleCounter = (template: Template, role: "owned" | "target", item?: TemplateItem) => {
+    const def = template.counterDefs.find(c => c.role === role);
+    return def && item && isCounterOff(template, def, item) ? undefined : def;
+};
 
 /**
  * Gets a value indicating whether a variant of an item is unique: it is only obtained or not,
@@ -61,13 +135,42 @@ const setObtained = (saveItem: SaveItem, variantKey: string, obtained: boolean):
 /** Gets a value indicating whether the user can change a counter in a save: a manual counter that is not read-only. */
 const isEditableCounter = (def: CounterDef) => def.kind === "manual" && !def.readOnly;
 
-/** Gets the value of a manual counter: the stored one, or for a read-only counter the item's default. */
+/**
+ * Gets a value indicating whether the user can change a counter of an item: an editable counter that the item's
+ * counter profile neither turns off nor gives a fixed value.
+ */
+const isEditableForItem = (template: Template, def: CounterDef, item: TemplateItem | undefined) => {
+    if (!isEditableCounter(def)) {
+        return false;
+    }
+    const override = getCounterOverride(template, def, item);
+    return override?.use !== "off" && override?.value === undefined;
+};
+
+/**
+ * Gets the value of a manual counter: 0 when the item's counter profile turns it off, the profile's fixed value,
+ * the item's default for a read-only counter, or else the stored one (at most the profile's maximum).
+ */
 const getManualValue = (
+    template: Template,
     def: CounterDef,
     saveItem: SaveItem | undefined,
     variantKey: string,
     item: TemplateItem | undefined
-) => (def.readOnly ? (item?.defaults?.[def.key] ?? 0) : (saveItem?.counts[variantKey]?.[def.key] ?? 0));
+) => {
+    const override = getCounterOverride(template, def, item);
+    if (override?.use === "off") {
+        return 0;
+    }
+    if (override?.value !== undefined) {
+        return override.value;
+    }
+    if (def.readOnly) {
+        return item?.defaults?.[def.key] ?? 0;
+    }
+    const stored = saveItem?.counts[variantKey]?.[def.key] ?? 0;
+    return override?.max === undefined ? stored : Math.min(stored, override.max);
+};
 
 /**
  * Gets the value of a counter for one variant of an item. Computed counters are evaluated.
@@ -83,7 +186,7 @@ const getCounterValue = (
     item?: TemplateItem
 ): number => {
     const def = template.counterDefs.find(c => c.key === counterKey);
-    if (!def || !counterAppliesTo(def, variantKey)) {
+    if (!def || !counterAppliesTo(def, variantKey) || isCounterOff(template, def, item)) {
         return 0;
     }
     if (isVariantUnique(item, variantKey)) {
@@ -93,13 +196,13 @@ const getCounterValue = (
         return def.role === "target" ? 1 : 0;
     }
     if (def.kind === "manual") {
-        return getManualValue(def, saveItem, variantKey, item);
+        return getManualValue(template, def, saveItem, variantKey, item);
     }
     let sum = 0;
     for (const key of def.sumOf ?? []) {
         const part = template.counterDefs.find(c => c.key === key);
         if (part && part.kind === "manual" && counterAppliesTo(part, variantKey)) {
-            sum += getManualValue(part, saveItem, variantKey, item);
+            sum += getManualValue(template, part, saveItem, variantKey, item);
         }
     }
     return sum;
@@ -124,8 +227,8 @@ const getItemCounterTotal = (
  * or undefined when the template does not define both roles.
  */
 const getMissing = (template: Template, item: TemplateItem, saveItem: SaveItem | undefined): number | undefined => {
-    const owned = findRoleCounter(template, "owned");
-    const target = findRoleCounter(template, "target");
+    const owned = findRoleCounter(template, "owned", item);
+    const target = findRoleCounter(template, "target", item);
     if (!owned || !target) {
         return undefined;
     }
@@ -139,15 +242,20 @@ const getMissing = (template: Template, item: TemplateItem, saveItem: SaveItem |
 };
 
 /**
- * Gets the maximum of a manual counter for an item: the item's value of the `maxFrom` counter, or the fixed
- * `max`. Undefined when there is no limit, or when `maxFrom` is set but the item is not given.
+ * Gets the maximum of a manual counter for an item: the `max` of the item's counter profile, the item's value of the
+ * `maxFrom` counter, or the fixed `max`. Undefined when there is no limit, or when `maxFrom` is set but the item is
+ * not given.
  */
 const getCounterMax = (template: Template, def: CounterDef, item?: TemplateItem): number | undefined => {
+    const override = getCounterOverride(template, def, item);
+    if (override?.max !== undefined) {
+        return override.max;
+    }
     if (def.maxFrom === undefined) {
         return def.max;
     }
     const source = template.counterDefs.find(c => c.key === def.maxFrom);
-    return source && item ? getManualValue(source, undefined, noVariantKey, item) : undefined;
+    return source && item ? getManualValue(template, source, undefined, noVariantKey, item) : undefined;
 };
 
 /** Clamps a value into the allowed range of a manual counter (`max` is the counter's maximum, if any). */
@@ -161,8 +269,9 @@ const clampCounter = (def: CounterDef, value: number, max = def.max) => {
 };
 
 /**
- * Returns a copy of the save item with one manual counter set. Computed and read-only counters are ignored.
- * The item is needed to apply a `maxFrom` maximum.
+ * Returns a copy of the save item with one manual counter set. Computed and read-only counters are ignored, and so
+ * are counters that the item's counter profile turns off or fixes. The item is needed to apply the profile and a
+ * `maxFrom` maximum.
  */
 const setCounterValue = (
     template: Template,
@@ -173,7 +282,7 @@ const setCounterValue = (
     item?: TemplateItem
 ): SaveItem => {
     const def = template.counterDefs.find(c => c.key === counterKey);
-    if (!def || !isEditableCounter(def) || !counterAppliesTo(def, variantKey)) {
+    if (!def || !isEditableForItem(template, def, item) || !counterAppliesTo(def, variantKey)) {
         return saveItem;
     }
     return {
@@ -232,7 +341,10 @@ export {
     counterAppliesTo,
     emptySaveItem,
     findRoleCounter,
+    getCategoryProfileKey,
     getCounterMax,
+    getCounterOverride,
+    getCounterProfile,
     getCounterValue,
     getItemCounterTotal,
     getItemVariants,
@@ -240,7 +352,11 @@ export {
     getSaveItem,
     getVariantCounters,
     hasUniqueVariants,
+    hasVisibleCounters,
+    isCounterOff,
+    isCounterVisible,
     isEditableCounter,
+    isEditableForItem,
     isObtained,
     isVariantUnique,
     noVariantKey,

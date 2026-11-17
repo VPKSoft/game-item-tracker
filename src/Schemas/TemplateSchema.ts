@@ -47,6 +47,25 @@ const counterDefSchema = z.object({
     order: z.number(),
 });
 
+/**
+ * How a counter profile changes one counter for the items it applies to. `use: "hidden"` keeps the counter in
+ * effect (value, role, progress) but does not show it; `use: "off"` removes it from the items (value 0, no role).
+ * `value` (manual only) fixes the value: the counter is read-only for those items and not stored in saves.
+ * `max` (manual only) replaces the counter's `max` or `maxFrom`.
+ */
+const counterOverrideSchema = z.object({
+    use: z.enum(["hidden", "off"]).optional(),
+    value: z.number().int().nonnegative().optional(),
+    max: z.number().int().nonnegative().optional(),
+});
+
+/** A named set of counter overrides that categories and items can use, e.g. "Single" or "No counters". */
+const counterProfileSchema = z.object({
+    key: keySchema,
+    label: z.string().min(1),
+    overrides: z.record(z.string(), counterOverrideSchema),
+});
+
 const variantDefSchema = z.object({
     key: keySchema,
     label: z.string().min(1),
@@ -58,6 +77,8 @@ const categorySchema = z.object({
     name: z.string().min(1),
     order: z.number(),
     parentId: keySchema.optional(),
+    /** The counter profile of the category's items; child categories without their own profile inherit it. */
+    counterProfile: keySchema.optional(),
 });
 
 const templateItemSchema = z.object({
@@ -76,6 +97,8 @@ const templateItemSchema = z.object({
      */
     unique: z.union([z.literal(true), z.array(keySchema)]).optional(),
     deprecated: z.boolean().optional(),
+    /** The counter profile of the item; overrides the profile of its category. */
+    counterProfile: keySchema.optional(),
 });
 
 const templateSchema = z.object({
@@ -89,6 +112,8 @@ const templateSchema = z.object({
     updatedAt: z.string(),
     attributeDefs: z.array(attributeDefSchema),
     counterDefs: z.array(counterDefSchema),
+    /** Named counter overrides that categories and items refer to by key. */
+    counterProfiles: z.array(counterProfileSchema).optional(),
     variantDefs: z.array(variantDefSchema),
     tags: z.array(z.string()),
     categories: z.array(categorySchema),
@@ -105,10 +130,12 @@ const templateSchema = z.object({
 
 type AttributeDef = z.infer<typeof attributeDefSchema>;
 type CounterDef = z.infer<typeof counterDefSchema>;
+type CounterOverride = z.infer<typeof counterOverrideSchema>;
+type CounterProfile = z.infer<typeof counterProfileSchema>;
 type VariantDef = z.infer<typeof variantDefSchema>;
 type Category = z.infer<typeof categorySchema>;
 type TemplateItem = z.infer<typeof templateItemSchema>;
 type Template = z.infer<typeof templateSchema>;
 
-export type { AttributeDef, Category, CounterDef, Template, TemplateItem, VariantDef };
+export type { AttributeDef, Category, CounterDef, CounterOverride, CounterProfile, Template, TemplateItem, VariantDef };
 export { templateFormat, templateSchema, templateSchemaVersion };

@@ -1,4 +1,5 @@
-import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
+import type { CounterOverride, CounterProfile, Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
+import { getCategoryProfileKey } from "./Counters.ts";
 import { bumpVersion } from "./Ids.ts";
 
 /** Marks the template as changed now. */
@@ -46,23 +47,40 @@ const pruneImages = (template: Template): Template => {
     return { ...template, images };
 };
 
-/** Deletes a category, moving its items and child categories to another category. */
-const deleteCategory = (template: Template, categoryId: string, moveTo: string): Template =>
-    touch({
+/**
+ * Deletes a category, moving its items to another category. Its child categories become top-level categories and
+ * keep the counter profile they inherited from it.
+ */
+const deleteCategory = (template: Template, categoryId: string, moveTo: string): Template => {
+    const deleted = template.categories.find(c => c.id === categoryId);
+    const inherited = deleted ? getCategoryProfileKey(template, deleted.id) : undefined;
+    return touch({
         ...template,
         categories: template.categories
             .filter(c => c.id !== categoryId)
-            .map(c => (c.parentId === categoryId ? { ...c, parentId: undefined } : c)),
+            .map(c =>
+                c.parentId === categoryId
+                    ? { ...c, parentId: undefined, counterProfile: c.counterProfile ?? inherited }
+                    : c
+            ),
         items: template.items.map(i => (i.categoryId === categoryId ? { ...i, categoryId: moveTo } : i)),
     });
+};
 
-/** Deletes a counter and every reference to it (sums and item defaults). */
+/** Deletes a counter and every reference to it (sums, item defaults and counter profile overrides). */
 const deleteCounter = (template: Template, key: string): Template =>
     touch({
         ...template,
         counterDefs: template.counterDefs
             .filter(c => c.key !== key)
             .map(c => (c.sumOf?.includes(key) ? { ...c, sumOf: c.sumOf.filter(k => k !== key) } : c)),
+        counterProfiles: template.counterProfiles?.map(p => {
+            if (!(key in p.overrides)) {
+                return p;
+            }
+            const { [key]: _removed, ...overrides } = p.overrides;
+            return { ...p, overrides };
+        }),
         items: template.items.map(i => {
             if (!i.defaults || !(key in i.defaults)) {
                 return i;
@@ -145,6 +163,64 @@ const moveOrdered = <T extends { order: number }>(list: T[], index: number, delt
     return sorted.map((entry, order) => ({ ...entry, order }));
 };
 
+/** Adds a counter profile, or replaces the one with the same key. */
+const upsertCounterProfile = (template: Template, profile: CounterProfile): Template => {
+    const profiles = template.counterProfiles ?? [];
+    const index = profiles.findIndex(p => p.key === profile.key);
+    return touch({
+        ...template,
+        counterProfiles: index >= 0 ? profiles.map((p, i) => (i === index ? profile : p)) : [...profiles, profile],
+    });
+};
+
+/**
+ * Returns a copy of a counter profile with one counter's override changed. Empty fields are removed, and so is an
+ * override that changes nothing.
+ */
+const setCounterOverride = (
+    profile: CounterProfile,
+    counterKey: string,
+    override: CounterOverride | undefined
+): CounterProfile => {
+    const { [counterKey]: _old, ...overrides } = profile.overrides;
+    const cleaned: CounterOverride = {};
+    if (override?.use !== undefined) {
+        cleaned.use = override.use;
+    }
+    if (override?.value !== undefined && override.use !== "off") {
+        cleaned.value = override.value;
+    }
+    if (override?.max !== undefined && override.use !== "off") {
+        cleaned.max = override.max;
+    }
+    return Object.keys(cleaned).length > 0
+        ? { ...profile, overrides: { ...overrides, [counterKey]: cleaned } }
+        : { ...profile, overrides };
+};
+
+/** Deletes a counter profile and every category and item reference to it. */
+const deleteCounterProfile = (template: Template, key: string): Template => {
+    const profiles = (template.counterProfiles ?? []).filter(p => p.key !== key);
+    return touch({
+        ...template,
+        counterProfiles: profiles.length > 0 ? profiles : undefined,
+        categories: template.categories.map(c => {
+            if (c.counterProfile !== key) {
+                return c;
+            }
+            const { counterProfile: _removed, ...rest } = c;
+            return rest;
+        }),
+        items: template.items.map(i => {
+            if (i.counterProfile !== key) {
+                return i;
+            }
+            const { counterProfile: _removed, ...rest } = i;
+            return rest;
+        }),
+    });
+};
+
 /** Creates a copy of the template with a bumped version. */
 const newVersion = (template: Template, part: "major" | "minor" | "patch"): Template =>
     touch({ ...template, version: bumpVersion(template.version, part) });
@@ -166,6 +242,7 @@ export {
     deleteAttribute,
     deleteCategory,
     deleteCounter,
+    deleteCounterProfile,
     deleteItem,
     deleteTag,
     deleteVariant,
@@ -173,6 +250,8 @@ export {
     newVersion,
     pruneImages,
     renameTag,
+    setCounterOverride,
     touch,
+    upsertCounterProfile,
     upsertItem,
 };

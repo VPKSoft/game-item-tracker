@@ -125,6 +125,30 @@ const CategoriesEditor = ({ template, onChange }: Props) => {
                             />
                         ),
                     },
+                    ...((template.counterProfiles?.length ?? 0) > 0
+                        ? [
+                              {
+                                  title: t("profiles.profile"),
+                                  width: 180,
+                                  render: (_: unknown, c: Category) => (
+                                      <Select
+                                          allowClear
+                                          aria-label={t("profiles.categoryProfile")}
+                                          style={{ width: "100%" }}
+                                          placeholder={
+                                              c.parentId === undefined ? t("profiles.noProfile") : t("profiles.inherit")
+                                          }
+                                          value={c.counterProfile}
+                                          onChange={counterProfile => update(c.id, { counterProfile })}
+                                          options={(template.counterProfiles ?? []).map(p => ({
+                                              value: p.key,
+                                              label: p.label,
+                                          }))}
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
                     { title: t("common.items"), width: 70, render: (_, c) => counts.get(c.id) ?? 0 },
                     {
                         title: "",

@@ -30,6 +30,11 @@ const validationMessages = {
     itemUnknownAttribute: 'Item "{{item}}" has unknown attribute "{{key}}"',
     itemAttributeOutOfRange: 'Item "{{item}}" has {{attribute}} {{value}}, outside {{min}}–{{max}}',
     itemDefaultUnknownCounter: 'Item "{{item}}" has a default for unknown manual counter "{{key}}"',
+    duplicateCounterProfileKey: 'Duplicate counter profile key "{{key}}"',
+    profileUnknownCounter: 'Counter profile "{{profile}}" changes unknown counter "{{key}}"',
+    profileComputedValue: 'Counter profile "{{profile}}" cannot give computed counter "{{counter}}" a value or maximum',
+    categoryUnknownProfile: 'Category "{{category}}" refers to unknown counter profile "{{key}}"',
+    itemUnknownProfile: 'Item "{{item}}" refers to unknown counter profile "{{key}}"',
 } as const;
 
 /** The code of a validation message. */
@@ -97,6 +102,33 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
     const variantKeys = new Set(template.variantDefs.map(v => v.key));
     const manualKeys = new Set(template.counterDefs.filter(c => c.kind === "manual").map(c => c.key));
     const counterKeys = new Set(template.counterDefs.map(c => c.key));
+
+    const profiles = template.counterProfiles ?? [];
+    const profileKeys = new Set(profiles.map(p => p.key));
+    for (const key of findDuplicates(profiles.map(p => p.key))) {
+        issues.push(issue(`counterProfiles.${key}`, "duplicateCounterProfileKey", { key }));
+    }
+    for (const profile of profiles) {
+        for (const [key, override] of Object.entries(profile.overrides)) {
+            const path = `counterProfiles.${profile.key}`;
+            const counter = template.counterDefs.find(c => c.key === key);
+            if (!counter) {
+                issues.push(issue(path, "profileUnknownCounter", { profile: profile.label, key }));
+            } else if (counter.kind === "computed" && (override.value !== undefined || override.max !== undefined)) {
+                issues.push(issue(path, "profileComputedValue", { profile: profile.label, counter: counter.label }));
+            }
+        }
+    }
+    for (const category of template.categories) {
+        if (category.counterProfile !== undefined && !profileKeys.has(category.counterProfile)) {
+            issues.push(
+                issue(`categories.${category.id}`, "categoryUnknownProfile", {
+                    category: category.name,
+                    key: category.counterProfile,
+                })
+            );
+        }
+    }
 
     for (const role of ["owned", "target"] as const) {
         const withRole = template.counterDefs.filter(c => c.role === role);
@@ -198,6 +230,9 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
             if (!manualKeys.has(key)) {
                 issues.push(issue(path, "itemDefaultUnknownCounter", { item: item.name, key }));
             }
+        }
+        if (item.counterProfile !== undefined && !profileKeys.has(item.counterProfile)) {
+            issues.push(issue(path, "itemUnknownProfile", { item: item.name, key: item.counterProfile }));
         }
     }
 

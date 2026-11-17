@@ -7,6 +7,7 @@ import { commonCounters } from "../Domain/Counters.ts";
 import { uniqueId } from "../Domain/Ids.ts";
 import { deleteCounter, moveOrdered, touch } from "../Domain/TemplateEdits.ts";
 import type { CounterDef, Template } from "../Schemas/TemplateSchema.ts";
+import { CounterProfilesEditor } from "./CounterProfilesEditor.tsx";
 
 type Props = {
     template: Template;
@@ -266,6 +267,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                     {t("counters.addCounter")}
                 </Button>
             </Space.Compact>
+            {counters.length > 0 && <CounterProfilesEditor template={template} onChange={onChange} />}
         </div>
     );
 };

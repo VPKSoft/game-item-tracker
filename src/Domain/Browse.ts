@@ -1,6 +1,6 @@
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
-import { findRoleCounter, getCounterValue, getItemCounterTotal, getMissing } from "./Counters.ts";
+import { findRoleCounter, getCounterValue, getItemCounterTotal, getMissing, isCounterOff } from "./Counters.ts";
 import { getEffectiveTags } from "./EffectiveTags.ts";
 import type { SearchEntry } from "./Search.ts";
 
@@ -123,6 +123,11 @@ const getSortValue = (
     }
     if (sort.startsWith("counter:")) {
         const [counterKey, variantKey] = sort.slice(8).split("@");
+        const def = template.counterDefs.find(c => c.key === counterKey);
+        if (def && isCounterOff(template, def, item)) {
+            // The item does not use this counter: no sort value, so it goes last.
+            return undefined;
+        }
         if (variantKey) {
             return getCounterValue(template, saveItem, variantKey, counterKey, item);
         }
