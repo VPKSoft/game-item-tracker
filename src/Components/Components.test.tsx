@@ -357,6 +357,63 @@ describe("CountersEditor", () => {
         await userEvent.click(screen.getByRole("checkbox", { name: "Read-only" }));
         expect(latest.counterDefs[0].readOnly).toBeUndefined();
     });
+
+    it("adds a counter profile and sets a counter's fixed value", async () => {
+        const t = fishTemplate();
+        let latest = t;
+        render(<Harness initial={t} onTemplate={x => (latest = x)} />);
+        await userEvent.type(screen.getByLabelText("New profile label"), "Single{Enter}");
+        expect(latest.counterProfiles).toEqual([{ key: "single", label: "Single", overrides: {} }]);
+        fireEvent.change(screen.getByLabelText("Fixed value of Target"), { target: { value: "1" } });
+        await waitFor(() => expect(latest.counterProfiles?.[0].overrides).toEqual({ target: { value: 1 } }));
+    });
+});
+
+describe("counter profiles in saves", () => {
+    const base = fishTemplate();
+    const t: Template = {
+        ...base,
+        counterProfiles: [
+            {
+                key: "single",
+                label: "Single",
+                overrides: { inventory: { max: 1 }, target: { use: "hidden", value: 1 } },
+            },
+            {
+                key: "none",
+                label: "None",
+                overrides: Object.fromEntries(base.counterDefs.map(c => [c.key, { use: "off" as const }])),
+            },
+        ],
+        items: base.items.map(i =>
+            i.id === "koi" ? { ...i, counterProfile: "single" } : i.id === "bass" ? { ...i, counterProfile: "none" } : i
+        ),
+    };
+    const drawer = (itemId: string) =>
+        render(
+            <SaveItemDrawer
+                template={t}
+                item={t.items.find(i => i.id === itemId) ?? t.items[0]}
+                saveItem={createSave(t, "s").items[itemId]}
+                onClose={() => undefined}
+                onChange={() => undefined}
+                onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
+            />
+        );
+
+    it("shows a single amount as a checkbox and hides the target", async () => {
+        drawer("koi");
+        expect(await screen.findAllByRole("checkbox", { name: "Inventory" })).toHaveLength(2);
+        expect(screen.queryByLabelText("Target")).not.toBeInTheDocument();
+        expect(screen.getAllByLabelText("Total")).toHaveLength(2);
+    });
+
+    it("shows no counters when the profile turns them all off", async () => {
+        drawer("bass");
+        expect(await screen.findByText("This item has no counters.")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Inventory")).not.toBeInTheDocument();
+    });
 });
 
 describe("UpgradeDialog", () => {

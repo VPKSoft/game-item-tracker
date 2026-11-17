@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getVariantCounters } from "../src/Domain/Counters.ts";
+import { getCounterMax, getCounterValue, getMissing, getVariantCounters } from "../src/Domain/Counters.ts";
 import { validateTemplate } from "../src/Domain/Validation.ts";
 import { templateSchema } from "../src/Schemas/TemplateSchema.ts";
 import {
@@ -625,6 +625,26 @@ describe("stickers", () => {
             "Cost: 100 Palia Coins",
         ]);
         expect(imageUrls.size).toBe(3);
+    });
+
+    it("gives Default stickers no counters and Premium stickers a single amount with a hidden target", () => {
+        const { template } = buildStickerTemplate(parseStickerTables(stickerHtml), meta);
+        expect(template.categories.map(c => c.counterProfile)).toEqual(["none", undefined, "single"]);
+        const [wave, chapaa, coin] = template.items;
+        const amount = template.counterDefs[0];
+        const owned = { counts: { _: { amount: 1 } }, notes: "", removedTags: [], customTags: [] };
+
+        expect(getVariantCounters(template, "_", wave)).toEqual([]);
+        expect(getMissing(template, wave, owned)).toBeUndefined();
+
+        expect(getVariantCounters(template, "_", chapaa).map(c => c.key)).toEqual(["amount", "total", "target"]);
+        expect(getCounterMax(template, amount, chapaa)).toBeUndefined();
+
+        expect(getVariantCounters(template, "_", coin).map(c => c.key)).toEqual(["amount", "total"]);
+        expect(getCounterMax(template, amount, coin)).toBe(1);
+        expect(getCounterValue(template, undefined, "_", "target", coin)).toBe(1);
+        expect(getMissing(template, coin, undefined)).toBe(1);
+        expect(getMissing(template, coin, owned)).toBe(0);
     });
 });
 

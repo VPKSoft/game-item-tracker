@@ -304,6 +304,7 @@ The item drawer fields:
 | Tags | Choose from the template's tags or type new ones |
 | Variants | Which of the template's variants apply to this item |
 | Unique | Makes the item, or some of its variants, unique (see [Unique items](#7-unique-items)) |
+| Counter profile | Shown when the template has counter profiles. Gives this item its own profile instead of its category's (see [Counter profiles](#84-counters)). Empty uses the category's profile, which the hint below the field names. |
 | Initial amounts in new saves | Default counter values, e.g. a target of 1. For a read-only counter this is its value in every save. |
 | Deprecated | The item was removed from the game but is kept for old saves |
 
@@ -325,7 +326,7 @@ The image is shown in a preview with its original size and the size it will be s
 
 ### 8.3 Categories
 
-Add, rename and reorder categories and choose a parent to make sub-categories. The table shows how many items each one has. When you delete a category that has items, you choose another category to move them to.
+Add, rename and reorder categories and choose a parent to make sub-categories. When the template has counter profiles, a **Counter profile** column chooses the profile of the category's items; sub-categories without their own profile inherit their parent's. The table shows how many items each one has. When you delete a category that has items, you choose another category to move them to.
 
 ![Categories tab](images/manual/17-template-categories.png)
 
@@ -349,6 +350,14 @@ Each counter has:
 - Move up/down and delete buttons. Deleting a counter hides its values in saves; they are not lost.
 
 ![The fish template's counters](images/manual/18-template-counters.png)
+
+**Counter profiles** (below the counters) change the counters for some items only. Add a profile with **Add profile**, then set for each counter:
+
+- **Use**: *Shown* (normal), *Hidden* (still counts, e.g. for the progress bar, but saves don't show it) or *Off* (the items don't use the counter at all: no value, no progress, never missing).
+- **Fixed value** (manual counters): the value in saves for these items; users cannot change it.
+- **Maximum** (manual counters): replaces the counter's own maximum for these items. A maximum of 1 shows a checkbox.
+
+Choose a profile for a category in the *Categories* tab, or for one item in its drawer. For example, the Palia stickers template keeps the normal counters for *Series 1 Stickers*, gives *Premium* and *Other Stickers* the *Single* profile (Amount at most 1 and a hidden Target of 1, so the progress bar shows 0 / 1 or 1 / 1), and turns every counter off for *Default Stickers*, which every player has. Deleting a profile gives its categories and items the normal counters again. Values that saves hold for a counter a profile turns off or fixes are kept, but not shown.
 
 ### 8.5 Variants
 

@@ -69,6 +69,7 @@ Template building blocks:
 | Item | `TemplateItem` | Stable `id` (slug). Never reuse an id for a different item. |
 | Attribute | `AttributeDef` | Read-only numbers in saves (e.g. rarity 1–5), optional named `levels` with colors. |
 | Counter | `CounterDef` | `manual` (user edits) or `computed` (sum of manual counters). Optional role `owned` / `target`, optional `variants` limit, optional `max`. A `readOnly` manual counter takes its value from the item's `defaults` and is never stored in saves. A manual counter with `maxFrom` takes its maximum per item from a read-only counter. |
+| Counter profile | `CounterProfile` | Named set of per-counter overrides in `template.counterProfiles`: hide a counter, turn it off, fix its value or replace its maximum. Assigned to a category (`Category.counterProfile`, inherited by child categories) or an item (`TemplateItem.counterProfile`, wins). Section 5.1. |
 | Variant | `VariantDef` | Splits an item's amounts into rows, e.g. `normal` and `starred` fish. |
 | Unique | `TemplateItem.unique` | `true` (whole item) or a list of variant keys. A unique variant has an obtained flag instead of counters. |
 | Tag | `string` | Vocabulary in `template.tags`, per item in `item.tags`. |
@@ -124,6 +125,7 @@ src/
     TemplateItemDrawer.tsx Template item editor (incl. unique, defaults, image)
     StructureEditors.tsx   Categories, variants, attributes, tags tabs
     CountersEditor.tsx     Counters tab
+    CounterProfilesEditor.tsx  Counter profiles, shown in the Counters tab
     UpgradeDialog.tsx      Save upgrade preview
     OnlineTemplatesDialog.tsx  Online template list: install and update
     ExchangePanel.tsx      Exchange list side panel: entries, quick fill, image options, copy / save PNG
@@ -272,7 +274,18 @@ type CounterDef = {
 
 type VariantDef = { key: string; label: string; order: number };
 
-type Category = { id: string; name: string; order: number; parentId?: string };
+type CounterOverride = {
+    use?: "hidden" | "off";      // hidden: in effect (value, role, progress) but not shown; off: not used (0, no role)
+    value?: number;              // manual only: fixed value; read-only for the items, not stored in saves
+    max?: number;                // manual only: replaces max / maxFrom for the items
+};
+
+type CounterProfile = { key: string; label: string; overrides: Record<string /* counterKey */, CounterOverride> };
+
+type Category = {
+    id: string; name: string; order: number; parentId?: string;
+    counterProfile?: string;     // profile key for the category's items; child categories inherit it
+};
 
 type TemplateItem = {
     id: string; categoryId: string; name: string; description: string;
@@ -283,8 +296,11 @@ type TemplateItem = {
     defaults?: Record<string, number>;   // manual counter key -> initial value in new saves (the fixed value of a read-only counter)
     unique?: true | string[];    // true = every variant unique; list = those variant keys
     deprecated?: boolean;        // removed from the game, kept for old saves
+    counterProfile?: string;     // profile key; wins over the category's profile
 };
 ```
+
+`Template` also has an optional `counterProfiles?: CounterProfile[]`. The profile fields are optional, so they were added without a `schemaVersion` bump.
 
 Keys and ids (`key`, `id`, `categoryId`, `parentId`, variant keys) must match `/^[a-z0-9][a-z0-9_-]*$/i`.
 
@@ -355,19 +371,25 @@ Save item:
 |---|---|
 | `getItemVariants(template, item)` | Variants that apply to the item in `order`. Without `variantDefs`: one anonymous variant `"_"`. |
 | `counterAppliesTo(counter, variantKey)` | `true` when `counter.variants` is empty/omitted or contains the key. |
-| `getVariantCounters(template, variantKey)` | Counters shown for a variant, sorted by `order`. |
-| `findRoleCounter(template, role)` | The counter with role `owned` or `target`. |
-| `getCounterValue(template, saveItem, variant, counter, item?)` | Manual: stored value or 0. Read-only manual (needs `item`): `item.defaults[key]` or 0, whatever the save holds. Computed: sum of its `sumOf` manual counters that apply to the variant. Unique variant (needs `item`): owned-role counter = 1 if obtained else 0, target-role counter = 1, all others 0. Pass the item wherever it is known. |
+| `getVariantCounters(template, variantKey, item?)` | Counters shown for a variant, sorted by `order`. With the item, the counters its profile hides or turns off are left out. |
+| `hasVisibleCounters(template, item)` | Any variant of the item shows a counter. |
+| `findRoleCounter(template, role, item?)` | The counter with role `owned` or `target`; with the item, `undefined` when its profile turns that counter off. |
+| `getCounterValue(template, saveItem, variant, counter, item?)` | Manual: stored value or 0. Read-only manual (needs `item`): `item.defaults[key]` or 0, whatever the save holds. Computed: sum of its `sumOf` manual counters that apply to the variant. Unique variant (needs `item`): owned-role counter = 1 if obtained else 0, target-role counter = 1, all others 0. Counter profile (needs `item`): an *off* counter is 0 (and is left out of sums), a fixed `value` wins over everything else, and a stored value is capped at the profile's `max`. Pass the item wherever it is known. |
 | `getItemCounterTotal(...)` | `getCounterValue` summed over the item's variants. Used by counter sorts and the *counter above zero* filter. |
-| `getMissing(template, item, saveItem)` | Σ over variants of `max(0, target − owned)`; `undefined` if either role is missing. |
-| `getCounterMax(template, def, item?)` | The maximum of a manual counter: the item's value of its `maxFrom` counter (needs `item`), else `max`; `undefined` = no limit. |
+| `getMissing(template, item, saveItem)` | Σ over variants of `max(0, target − owned)`; `undefined` if either role is missing or turned off for the item. |
+| `getCounterMax(template, def, item?)` | The maximum of a manual counter: the `max` of the item's counter profile, else the item's value of its `maxFrom` counter (needs `item`), else `max`; `undefined` = no limit. |
 | `clampCounter(def, value, max = def.max)` | Rounds; clamps to `[0, max]`. |
-| `setCounterValue(template, saveItem, variant, counter, value, item?)` | Sets a manual counter, clamped to `getCounterMax` (pass the item for `maxFrom`); ignores computed and read-only counters and counters that don't apply to the variant. |
+| `setCounterValue(template, saveItem, variant, counter, value, item?)` | Sets a manual counter, clamped to `getCounterMax` (pass the item for `maxFrom`); ignores computed and read-only counters, counters the item's profile turns off or fixes, and counters that don't apply to the variant. |
 | `isEditableCounter(def)` | A manual counter that is not read-only: the user can change it, and saves store it. |
+| `isEditableForItem(template, def, item)` | `isEditableCounter` and the item's profile neither turns it off nor fixes its value. Use it wherever an item is known. |
+| `getCounterProfile(template, item)` | The profile in effect: `item.counterProfile`, else the nearest category up the parent chain with one (`getCategoryProfileKey`, cached per template object in a `WeakMap`, which is safe because templates are immutable). |
+| `getCounterOverride(template, def, item)` / `isCounterOff` / `isCounterVisible` | The item's override of one counter, and whether it is off / neither hidden nor off. |
 | `isVariantUnique(item, variantKey)` | `item.unique === true` or the list contains the key. |
 | `hasUniqueVariants(template, item)` | Any of the item's variants is unique. |
 | `isObtained` / `setObtained` | Read/write `saveItem.obtained`. `setObtained` removes the field when it becomes empty. |
 | `commonCounters()` | Preset: Inventory, Placed, Storage, Total (= Inventory + Placed + Storage, owned), Target (target), Tradeable. |
+
+**Counter profiles.** A profile changes counters per item without new counter definitions, e.g. Palia stickers: Premium stickers are owned once (Amount max 1, hidden Target fixed at 1), Default stickers have no counters at all. Profiles are named and shared, so several categories use one set of rules, and an item can override its category. *Hidden* keeps the counter in every calculation (progress, missing, sorting, exchange); *off* removes it, so an item whose owned or target counter is off has no progress bar and no missing value, and a `counter:` sort gives it no value (it sorts last). Stored values of a counter that a profile turns off or fixes stay in the save; they are ignored, not discarded.
 
 Why computed counters are limited to sums of manual counters: no cycles, no evaluation order, no formula parser. If weights or subtraction are ever needed, extend `CounterDef` and `getCounterValue` together with `validateTemplate`.
 
@@ -397,7 +419,7 @@ Storing the difference instead of a copy means tags added in a newer template ve
 
 ### 5.4 Creating saves and templates (`CreateSave.ts`)
 
-- `createSave(template, name)` creates a `SaveItem` for every non-deprecated item, applying `item.defaults` to each applicable, non-unique variant. Defaults of read-only counters are not copied: their value is read from the template, so a newer template version changes it in every save.
+- `createSave(template, name)` creates a `SaveItem` for every non-deprecated item, applying `item.defaults` to each applicable, non-unique variant. Defaults of read-only counters, and of counters the item's profile turns off or fixes, are not copied: their value is read from the template, so a newer template version changes it in every save.
 - `createTemplate(name, game)` returns an empty template at version `1.0.0` with no counters, variants or categories.
 
 ### 5.5 Template upgrades (`UpgradeSave.ts`)
@@ -426,8 +448,9 @@ Orphaned items are only dropped by the user: `getRemovedItemIds(save)` lists the
 All functions are immutable. Use them from the UI instead of editing nested objects inline; they keep references consistent:
 
 - `upsertItem`, `deleteItem`, `addImage`, `pruneImages` (drops images no item uses)
-- `deleteCategory(template, id, moveTo)` moves items and child categories
-- `deleteCounter` also cleans `sumOf` and item `defaults`
+- `deleteCategory(template, id, moveTo)` moves items and child categories; child categories keep the profile they inherited
+- `deleteCounter` also cleans `sumOf`, item `defaults` and counter profile overrides
+- `upsertCounterProfile`, `setCounterOverride` (drops empty fields, and `value`/`max` of an *off* override), `deleteCounterProfile` (clears category and item references)
 - `deleteVariant` also cleans counter `variants`, item `variants`, `unique` lists and defaults
 - `deleteAttribute`, `renameTag` (merges on collision), `deleteTag`, `countTags`
 - `moveOrdered(list, index, ±1)` reorders and renumbers `order`
@@ -436,7 +459,7 @@ All functions are immutable. Use them from the UI instead of editing nested obje
 
 ### 5.7 Validation (`Validation.ts`)
 
-Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max`, `maxFrom` or `readOnly`; manual counters have no `sumOf`, and a `maxFrom` refers to another read-only manual counter and is not combined with `max`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters.
+Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max`, `maxFrom` or `readOnly`; manual counters have no `sumOf`, and a `maxFrom` refers to another read-only manual counter and is not combined with `max`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters; counter profile keys are unique, overrides refer to existing counters and give no `value` or `max` to computed counters, and category and item profile references exist.
 
 The template editor shows issues in the *Details* tab and asks for confirmation before exporting an invalid template. The sample generator refuses to write templates with issues.
 
@@ -600,7 +623,7 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - **Potato Pods**: one Image/Name/Set table; categories by set (Bonsai Pods, Merpods, …); no variants; the plushie counters (Placed, Storage, Total = Placed + Storage, Target, Tradeable); no attributes (the wiki lists no rarity for pods); tag `Set: …`.
 - **Bugs**: the "List of Bugs" table; categories by behavior (Flying, Running, Jumping, Dashing), because many bugs live in several locations; the fish variants and counters; attribute `rarity`; tags `Location: …` (one per location), `Time: …` (none when the cell is blank), `Behavior: …`, and `Quest: …`/`Bundle: …` named after the quest or bundle (not the icon type, as with fish). Location typos are fixed in `locationFixes`.
 - **Maji Market**: the item names are a fixed list in `scripts/MajiMarketItems.ts`, taken from paliatracker.com (update it when the market gets new items); the data comes from each item's wiki page (`parseWikiItemPage`: portable infobox fields `category`, `group`, `rarity`, `event`, `obtain`, `recipeobtain`, the image and the description quote). Categories are the shops in `majiMarketShops` order; an item goes under the first shop in its "Obtained From" field, or the shop that sells its recipe. No variants; counters Inventory, Placed, Total = Inventory + Placed (owned), Target (target). Tags `Shop: …`, `Type: …` (infobox group or category, or `Recipe`) and `Event: …` (other than Maji Market). The description ends with the shop prices, with the currency read from the cost icon's link (Maji Market Ticket, Lucky Envelope, Gold, …); recipe prices are left out because the wiki lists them as a placeholder "1 Gold". "Abundant" items (waterfall fireworks) have no rarity, as it is not on the 1–5 scale.
-- **Stickers**: the Image/Name/… tables, one per section; categories are the sections in page order (Default, Series 1, Premium, Other). The third column is the rarity attribute where the header is Rarity, otherwise the description as `Label: value` (`Chat message: …`, `Cost: …`, `Obtain: …`). No variants or tags; counters Amount, Total = Amount (owned), Target (target).
+- **Stickers**: the Image/Name/… tables, one per section; categories are the sections in page order (Default, Series 1, Premium, Other). The third column is the rarity attribute where the header is Rarity, otherwise the description as `Label: value` (`Chat message: …`, `Cost: …`, `Obtain: …`). No variants or tags; counters Amount, Total = Amount (owned), Target (target). Counter profiles by section (`stickerSectionProfile`): *Series …* keeps the counters; *Default* gets `none` (every counter off: every player has them); the others (Premium, Other) get `single` (Amount max 1, Target hidden with a fixed value of 1).
 - **Zeki's Prize Wheel**: the items are the articles in *Category:Obtained from Zeki's Prize Wheel*, read when the template is built, so new prizes need no code change; the data comes from each item page (`parseWikiItemPage`). Categories are the prize bags (the line under "Zeki's Prize Wheel" in "Obtained From", e.g. `Decor Prize Bag`), sorted by name. No variants; the Maji Market counters (Inventory, Placed, Total = Inventory + Placed, Target); tag `Type: …`; the description is the wiki quote. "Abundant" and "Unspecified" rarities are left out.
 - **Guild store exclusives**: found by following the wiki: the skills are the links in the level-3 headings of *Weekly Challenges* (`parseWeeklyChallengeSkills`); each skill page links to its guild (`findGuildLink`; Home Tours has none); the guild page's store table (Item/Cost/… headers) gives the store items with their prices (`parseGuildStoreItems`), without the recipe rows (a bold "Recipe" next to the item; the cell text runs together as "Worm FarmRecipe", so a word match does not work); an item is kept when its store price is paid in guild medals only (`isPaidWithMedals`: every cost currency ends in " Medal", so Gold-priced animals, starter packs and fireworks drop out) and its infobox "Obtained From" lists that guild and nothing else (`isOnlyFromGuild`; crafted items have no "Obtained From" and drop out). Item pages are fetched only for medal-priced rows. One category per guild in Weekly Challenges order; the Maji Market counters; tag `Type: …`; the description ends with the store price, with the bundle size when a row sells several (`Bug Catching Guild • 980 Bug Catching Medal`, `Gardening Guild • 10 Gardening Medal for 50`).
 - **Zeki's Wondrous Machine**: the machine gives a Lucky Box for a Lucky Coin, and the box holds the prize, so the items are the "Possible Rewards" of the *Lucky Box* page (`parseLuckyBoxRewards`: the `data-item` list entries under each level-3 heading of that section), read on each build; the box itself is not in the template. The data comes from each item page (`parseWikiItemPage`). Categories are the reward sections in page order (Decor, Equipment, Gatherable, Material, Product, Seed); the Maji Market counters; tags `Type: …` where the item has an infobox group; `Wondrous Machine` on every item; `Super Lucky Prize` when the *Super Lucky Prize* page's "Possible Rewards" lists the item (read with the same parser; the list has no headings) or the item's "Obtained From" names it, because the wiki keeps the two lists separately and neither is complete; and `Unique to Wondrous Machine` when the item's "Obtained From" lists only Zeki's Wondrous Machine and the item is not in the Super Lucky Prize (a Lunar Paths reward). The tag names are in `wondrousMachineTags`.
@@ -623,6 +646,7 @@ npm run coverage
 | Test file | Covers |
 |---|---|
 | `Domain/Counters.test.ts` | Computed sums, variant limits, clamping, roles, missing, unique/obtained |
+| `Domain/CounterProfiles.test.ts` | Profile resolution and inheritance; hidden, off, fixed and capped counters in values, saves, sorting, exchange, validation and edits |
 | `Domain/Validation.test.ts` | `validateTemplate` rules and Zod schemas |
 | `Domain/SaveLifecycle.test.ts` | `createSave`, `upgradeSave`, effective tags, ids and versions |
 | `Domain/TemplateEdits.test.ts` | Edit operations and reference cleanup |
@@ -721,7 +745,7 @@ Code changes must keep these true. Most are enforced by `validateTemplate` or te
 
 ### Change the counter model (e.g. formulas)
 
-Change `CounterDef` in the schema, `getCounterValue`, `validateTemplate` (cycles, unknown keys), `CountersEditor.tsx` and its formula text, then `Counters.test.ts`. Consider `schemaVersion`.
+Change `CounterDef` in the schema, `getCounterValue` (and `getManualValue`, which applies counter profiles), `validateTemplate` (cycles, unknown keys), `CountersEditor.tsx` and its formula text, then `Counters.test.ts`. Consider `schemaVersion`.
 
 ### Change a file format incompatibly
 
@@ -785,6 +809,7 @@ Later changes:
 - Template upgrade safety: items deleted from a template are always kept in the save as orphans (`orphan.removedIn` records the version), shown in a warning banner and removed only by the user with a confirmation. The upgrade dialog warns about removed counters and variants with affected item counts and confirms before discarding their values.
 - Online templates: the template repository publishes a validated catalog to GitHub Pages from CI, and *Library → Online templates* installs and updates templates from it, so players never need GitHub.
 - Exchange list: Give / Need toggles on item cards and quick fill create an in-memory list per save, which is drawn as a PNG of 100 × 100 tiles to copy into chat apps or save (section 9.1).
+- Counter profiles: per-category or per-item overrides that hide, turn off, fix or cap counters, first used by the Palia stickers sample (Default stickers without counters; Premium and Other stickers owned once).
 - Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
 
 ## 16. Known limitations

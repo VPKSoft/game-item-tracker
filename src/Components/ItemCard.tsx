@@ -13,7 +13,7 @@ import {
     getItemVariants,
     getVariantCounters,
     hasUniqueVariants,
-    isEditableCounter,
+    isEditableForItem,
     isObtained,
     isVariantUnique,
     noVariantKey,
@@ -184,7 +184,7 @@ const CounterRows = ({
                         </div>
                     );
                 }
-                const counters = getVariantCounters(template, variant.key);
+                const counters = getVariantCounters(template, variant.key, item);
                 if (counters.length === 0) {
                     return null;
                 }
@@ -200,7 +200,7 @@ const CounterRows = ({
                                     max={getCounterMax(template, counter, item)}
                                     value={getCounterValue(template, saveItem, variant.key, counter.key, item)}
                                     onChange={
-                                        isEditableCounter(counter) && onCounterChange
+                                        isEditableForItem(template, counter, item) && onCounterChange
                                             ? v => onCounterChange(item.id, variant.key, counter.key, v)
                                             : undefined
                                     }
@@ -232,8 +232,8 @@ let ItemCard = ({
     const tags = getEffectiveTags(item, saveItem);
     const category = template.categories.find(c => c.id === item.categoryId);
 
-    const owned = findRoleCounter(template, "owned");
-    const target = findRoleCounter(template, "target");
+    const owned = findRoleCounter(template, "owned", item);
+    const target = findRoleCounter(template, "target", item);
     const ownedValue = owned ? getItemCounterTotal(template, item, saveItem, owned.key) : 0;
     const targetValue = target ? getItemCounterTotal(template, item, saveItem, target.key) : 0;
 

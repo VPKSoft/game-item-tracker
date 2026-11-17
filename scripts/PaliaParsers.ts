@@ -1,6 +1,6 @@
 import { type HTMLElement, parse } from "node-html-parser";
 import { uniqueId } from "../src/Domain/Ids.ts";
-import type { Category, CounterDef, Template, TemplateItem } from "../src/Schemas/TemplateSchema.ts";
+import type { Category, CounterDef, CounterProfile, Template, TemplateItem } from "../src/Schemas/TemplateSchema.ts";
 import { templateFormat, templateSchemaVersion } from "../src/Schemas/TemplateSchema.ts";
 
 /** The rarity names of Palia, mapped to the 1–5 attribute scale. */
@@ -1188,6 +1188,34 @@ const stickerCounters = (): CounterDef[] => [
     { key: "target", label: "Target", kind: "manual", role: "target", order: 2 },
 ];
 
+/**
+ * The counter profiles of the stickers sample. "Single": the sticker is owned or not (Amount at most 1, a hidden
+ * Target of 1). "None": the sticker needs no tracking, so it has no counters.
+ */
+const stickerProfiles = (): CounterProfile[] => [
+    {
+        key: "single",
+        label: "Single",
+        overrides: { amount: { max: 1 }, target: { use: "hidden", value: 1 } },
+    },
+    {
+        key: "none",
+        label: "No counters",
+        overrides: { amount: { use: "off" }, total: { use: "off" }, target: { use: "off" } },
+    },
+];
+
+/**
+ * Gets the counter profile of a sticker section: Default stickers every player has get none, series stickers keep
+ * the normal counters, and the others (Premium, Other, …) are single.
+ */
+const stickerSectionProfile = (section: string) => {
+    if (/^default\b/i.test(section)) {
+        return "none";
+    }
+    return /^series\b/i.test(section) ? undefined : "single";
+};
+
 /** Builds the stickers template: one category per page section, in page order. */
 const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
@@ -1200,6 +1228,7 @@ const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
         }
         let category = categories.find(c => c.name === row.section);
         if (!category) {
+            const counterProfile = stickerSectionProfile(row.section);
             category = {
                 id: uniqueId(
                     row.section,
@@ -1207,6 +1236,7 @@ const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
                 ),
                 name: row.section,
                 order: categories.length,
+                ...(counterProfile ? { counterProfile } : {}),
             };
             categories.push(category);
         }
@@ -1227,7 +1257,14 @@ const buildStickerTemplate = (rows: StickerRow[], meta: TemplateMeta) => {
         });
     }
     return {
-        template: { ...template, counterDefs: stickerCounters(), categories, items, tags: collectTags(items) },
+        template: {
+            ...template,
+            counterDefs: stickerCounters(),
+            counterProfiles: stickerProfiles(),
+            categories,
+            items,
+            tags: collectTags(items),
+        },
         imageUrls,
     };
 };

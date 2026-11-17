@@ -59,8 +59,8 @@ const suggestAmount = (
     if (isVariantUnique(item, variantKey)) {
         return mode === "need" && !isObtained(saveItem, variantKey) ? 1 : 0;
     }
-    const owned = findRoleCounter(template, "owned");
-    const target = findRoleCounter(template, "target");
+    const owned = findRoleCounter(template, "owned", item);
+    const target = findRoleCounter(template, "target", item);
     const value = (counterKey: string | undefined) =>
         counterKey ? getCounterValue(template, saveItem, variantKey, counterKey, item) : 0;
     if (mode === "need") {

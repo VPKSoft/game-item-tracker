@@ -3,7 +3,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ImageDropZone } from "../Components/ImageDropZone.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
-import { getItemVariants } from "../Domain/Counters.ts";
+import { getCounterProfile, getItemVariants } from "../Domain/Counters.ts";
 import { uniqueId } from "../Domain/Ids.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 
@@ -190,6 +190,25 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                         )}
                     </Space>
                 </Form.Item>
+                {(template.counterProfiles?.length ?? 0) > 0 && (
+                    <Form.Item
+                        label={t("templateItem.counterProfile")}
+                        extra={t("templateItem.counterProfileHint", {
+                            profile:
+                                getCounterProfile(template, { ...draft, counterProfile: undefined })?.label ??
+                                t("profiles.noProfile"),
+                        })}
+                    >
+                        <Select
+                            allowClear
+                            aria-label={t("templateItem.counterProfile")}
+                            placeholder={t("profiles.inherit")}
+                            value={draft.counterProfile}
+                            onChange={counterProfile => set({ counterProfile })}
+                            options={(template.counterProfiles ?? []).map(p => ({ value: p.key, label: p.label }))}
+                        />
+                    </Form.Item>
+                )}
                 {manualCounters.length > 0 && draft.unique !== true && (
                     <Form.Item label={t("templateItem.initialAmounts")}>
                         <Space wrap>
