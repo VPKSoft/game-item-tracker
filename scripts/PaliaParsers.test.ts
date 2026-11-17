@@ -627,7 +627,7 @@ describe("stickers", () => {
         expect(imageUrls.size).toBe(3);
     });
 
-    it("gives Default stickers no counters and Premium stickers a single amount with a hidden target", () => {
+    it("gives Default stickers no counters and Premium stickers a single amount with a hidden total and target", () => {
         const { template } = buildStickerTemplate(parseStickerTables(stickerHtml), meta);
         expect(template.categories.map(c => c.counterProfile)).toEqual(["none", undefined, "single"]);
         const [wave, chapaa, coin] = template.items;
@@ -640,7 +640,7 @@ describe("stickers", () => {
         expect(getVariantCounters(template, "_", chapaa).map(c => c.key)).toEqual(["amount", "total", "target"]);
         expect(getCounterMax(template, amount, chapaa)).toBeUndefined();
 
-        expect(getVariantCounters(template, "_", coin).map(c => c.key)).toEqual(["amount", "total"]);
+        expect(getVariantCounters(template, "_", coin).map(c => c.key)).toEqual(["amount"]);
         expect(getCounterMax(template, amount, coin)).toBe(1);
         expect(getCounterValue(template, undefined, "_", "target", coin)).toBe(1);
         expect(getMissing(template, coin, undefined)).toBe(1);

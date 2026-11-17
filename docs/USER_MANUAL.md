@@ -357,7 +357,7 @@ Each counter has:
 - **Fixed value** (manual counters): the value in saves for these items; users cannot change it.
 - **Maximum** (manual counters): replaces the counter's own maximum for these items. A maximum of 1 shows a checkbox.
 
-Choose a profile for a category in the *Categories* tab, or for one item in its drawer. For example, the Palia stickers template keeps the normal counters for *Series 1 Stickers*, gives *Premium* and *Other Stickers* the *Single* profile (Amount at most 1 and a hidden Target of 1, so the progress bar shows 0 / 1 or 1 / 1), and turns every counter off for *Default Stickers*, which every player has. Deleting a profile gives its categories and items the normal counters again. Values that saves hold for a counter a profile turns off or fixes are kept, but not shown.
+Choose a profile for a category in the *Categories* tab, or for one item in its drawer. For example, the Palia stickers template keeps the normal counters for *Series 1 Stickers*, gives *Premium* and *Other Stickers* the *Single* profile (Amount at most 1, with *Total* hidden and a hidden Target of 1, so the progress bar shows 0 / 1 or 1 / 1), and turns every counter off for *Default Stickers*, which every player has. Deleting a profile gives its categories and items the normal counters again. Values that saves hold for a counter a profile turns off or fixes are kept, but not shown.
 
 ### 8.5 Variants
 

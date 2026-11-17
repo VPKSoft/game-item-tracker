@@ -1189,14 +1189,14 @@ const stickerCounters = (): CounterDef[] => [
 ];
 
 /**
- * The counter profiles of the stickers sample. "Single": the sticker is owned or not (Amount at most 1, a hidden
- * Target of 1). "None": the sticker needs no tracking, so it has no counters.
+ * The counter profiles of the stickers sample. "Single": the sticker is owned or not (Amount at most 1, with Total
+ * and a Target of 1 hidden). "None": the sticker needs no tracking, so it has no counters.
  */
 const stickerProfiles = (): CounterProfile[] => [
     {
         key: "single",
         label: "Single",
-        overrides: { amount: { max: 1 }, target: { use: "hidden", value: 1 } },
+        overrides: { amount: { max: 1 }, total: { use: "hidden" }, target: { use: "hidden", value: 1 } },
     },
     {
         key: "none",
