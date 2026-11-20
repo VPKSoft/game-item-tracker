@@ -23,6 +23,7 @@ import {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildTintTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     isPaidWithMedals,
@@ -35,6 +36,7 @@ import {
     parsePlushieTables,
     parsePotatoPodTable,
     parseStickerTables,
+    parseTints,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -56,6 +58,7 @@ const wondrousMachineTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e09";
 const bundleTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0a";
 const royalHighlandsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0b";
 const elderwoodsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0c";
+const tintTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0d";
 
 const { values } = parseArgs({
     options: {
@@ -158,9 +161,12 @@ const addImages = async (template: Template, imageUrls: Map<string, string>) => 
                 const webp = await toWebp(Buffer.from(await response.arrayBuffer()));
                 const imageId = createHash("sha256").update(webp).digest("hex").slice(0, 32);
                 template.images[imageId] = `data:image/webp;base64,${webp.toString("base64")}`;
-                const item = template.items.find(i => i.id === itemId);
-                if (item) {
-                    item.imageId = imageId;
+                // Keys "material:<id>" are images of materials; the others are item ids.
+                const target = itemId.startsWith("material:")
+                    ? template.materials?.find(m => m.id === itemId.slice("material:".length))
+                    : template.items.find(i => i.id === itemId);
+                if (target) {
+                    target.imageId = imageId;
                 }
             } catch (error) {
                 console.warn(`  image for ${itemId} failed (${url}): ${String(error)}`);
@@ -373,6 +379,23 @@ const main = async () => {
         }
         await writeTemplate(built.template);
     }
+
+    console.log("Fetching Tints…");
+    const tints = buildTintTemplate(parseTints(await fetchPageHtml("Tints"), wikiBase), {
+        templateId: tintTemplateId,
+        version: values.version,
+        name: "Palia – Tints",
+        description:
+            "The tints of Palia and their ingredients. Set To craft on the tints you want, and the Materials list shows the ingredients to gather.",
+        sourceUrl: `${wikiBase}/wiki/Tints`,
+    });
+    if (tints.template.items.length === 0) {
+        throw new Error("No tints were found on the Tints page");
+    }
+    if (!values["no-images"]) {
+        await addImages(tints.template, tints.imageUrls);
+    }
+    await writeTemplate(tints.template);
 };
 
 main().catch(error => {

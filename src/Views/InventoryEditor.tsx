@@ -1,4 +1,10 @@
-import { faChevronDown, faDownload, faRightLeft, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import {
+    faChevronDown,
+    faDownload,
+    faListCheck,
+    faRightLeft,
+    faTriangleExclamation,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Alert, Badge, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table, Tooltip } from "antd";
 import classNames from "classnames";
@@ -17,6 +23,13 @@ import {
     toggleEntry,
 } from "../Domain/Exchange.ts";
 import { compareVersions } from "../Domain/Ids.ts";
+import {
+    clearGathered,
+    getMaterialNeeds,
+    hasMaterialsList,
+    isMaterialComplete,
+    setGathered,
+} from "../Domain/Materials.ts";
 import { removeSaveItems } from "../Domain/UpgradeSave.ts";
 import { downloadFile, fileNameFor, serialize } from "../Files/FileIo.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
@@ -25,6 +38,7 @@ import { getSave, getTemplate, listTemplateVersions, putSave } from "../Storage/
 import { useAutosave } from "../Storage/UseAutosave.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
 import { ExchangePanel, type ExchangeUpdate, getStoredGiveSource } from "./ExchangePanel.tsx";
+import { MaterialsPanel } from "./MaterialsPanel.tsx";
 import { SaveItemDrawer } from "./SaveItemDrawer.tsx";
 import { UpgradeDialog } from "./UpgradeDialog.tsx";
 
@@ -50,6 +64,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
     const [upgradeOpen, setUpgradeOpen] = React.useState(false);
     const [removedOpen, setRemovedOpen] = React.useState(false);
     const [exchangeOpen, setExchangeOpen] = React.useState(false);
+    const [materialsOpen, setMaterialsOpen] = React.useState(false);
     const visibleItems = React.useRef<Template["items"]>([]);
     const { t } = useTranslation();
 
@@ -176,6 +191,23 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
         [template, updateExchange]
     );
 
+    const onGatheredChange = React.useCallback((materialId: string, value: number) => {
+        setSave(s => (s ? setGathered(s, materialId, value) : s));
+    }, []);
+
+    const onClearGathered = React.useCallback(() => {
+        setSave(s => (s ? clearGathered(s) : s));
+    }, []);
+
+    // The number of materials still short, shown on the toolbar button.
+    const materialsShort = React.useMemo(
+        () =>
+            template && save && hasMaterialsList(template)
+                ? getMaterialNeeds(template, save).filter(n => n.needed > 0 && !isMaterialComplete(n)).length
+                : 0,
+        [template, save]
+    );
+
     const onItemsChange = React.useCallback((items: Template["items"]) => {
         visibleItems.current = items;
     }, []);
@@ -285,12 +317,32 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                                         type={exchangeOpen ? "primary" : "default"}
                                         aria-pressed={exchangeOpen}
                                         icon={<FontAwesomeIcon icon={faRightLeft} />}
-                                        onClick={() => setExchangeOpen(o => !o)}
+                                        onClick={() => {
+                                            setExchangeOpen(o => !o);
+                                            setMaterialsOpen(false);
+                                        }}
                                     >
                                         {t("exchange.toggle")}
                                     </Button>
                                 </Badge>
                             </Tooltip>
+                            {hasMaterialsList(template) && (
+                                <Tooltip title={t("materials.toggleTooltip")}>
+                                    <Badge count={materialsShort} size="small" overflowCount={999}>
+                                        <Button
+                                            type={materialsOpen ? "primary" : "default"}
+                                            aria-pressed={materialsOpen}
+                                            icon={<FontAwesomeIcon icon={faListCheck} />}
+                                            onClick={() => {
+                                                setMaterialsOpen(o => !o);
+                                                setExchangeOpen(false);
+                                            }}
+                                        >
+                                            {t("materials.toggle")}
+                                        </Button>
+                                    </Badge>
+                                </Tooltip>
+                            )}
                             <Space.Compact>
                                 <Button
                                     icon={<FontAwesomeIcon icon={faDownload} />}
@@ -321,6 +373,14 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                     entries={entries}
                     onChange={updateExchange}
                     getVisibleItems={() => visibleItems.current}
+                />
+                <MaterialsPanel
+                    open={materialsOpen && hasMaterialsList(template)}
+                    onClose={() => setMaterialsOpen(false)}
+                    template={template}
+                    save={save}
+                    onGatheredChange={onGatheredChange}
+                    onClear={onClearGathered}
                 />
             </div>
             <SaveItemDrawer

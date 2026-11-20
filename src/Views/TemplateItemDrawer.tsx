@@ -1,3 +1,5 @@
+import { faXmark } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { Button, Checkbox, Drawer, Form, Input, InputNumber, Popconfirm, Select, Space, Switch } from "antd";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -5,6 +7,7 @@ import { ImageDropZone } from "../Components/ImageDropZone.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
 import { getCounterProfile, getItemVariants } from "../Domain/Counters.ts";
 import { uniqueId } from "../Domain/Ids.ts";
+import { getMaterials } from "../Domain/Materials.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 
 type Props = {
@@ -45,6 +48,12 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
     const imageUrl = image?.dataUrl ?? (draft.imageId ? template.images[draft.imageId] : undefined);
     const manualCounters = template.counterDefs.filter(c => c.kind === "manual");
     const itemVariants = getItemVariants(template, draft);
+    const materials = getMaterials(template);
+    const setMaterialAmount = (materialId: string, amount: number | undefined) => {
+        const { [materialId]: _old, ...rest } = draft.materials ?? {};
+        const next = amount !== undefined && amount > 0 ? { ...rest, [materialId]: amount } : rest;
+        set({ materials: Object.keys(next).length > 0 ? next : undefined });
+    };
     const canSave = draft.name.trim().length > 0 && template.categories.some(c => c.id === draft.categoryId);
 
     const save = () => {
@@ -232,6 +241,45 @@ const TemplateItemDrawer = ({ template, item, onClose, onSave, onDelete }: Props
                                     />
                                 </Space.Compact>
                             ))}
+                        </Space>
+                    </Form.Item>
+                )}
+                {materials.length > 0 && (
+                    <Form.Item label={t("templateItem.materials")} extra={t("templateItem.materialsHint")}>
+                        <Space orientation="vertical" style={{ width: "100%" }}>
+                            {materials
+                                .filter(m => draft.materials?.[m.id] !== undefined)
+                                .map(material => (
+                                    <Space.Compact key={material.id} block>
+                                        <Space.Addon style={{ flex: 1 }}>{material.name}</Space.Addon>
+                                        <InputNumber
+                                            aria-label={t("templateItem.materialAmount", { name: material.name })}
+                                            min={1}
+                                            precision={0}
+                                            style={{ width: 80 }}
+                                            value={draft.materials?.[material.id]}
+                                            onChange={value =>
+                                                setMaterialAmount(material.id, typeof value === "number" ? value : 1)
+                                            }
+                                        />
+                                        <Button
+                                            aria-label={t("templateItem.removeMaterial", { name: material.name })}
+                                            icon={<FontAwesomeIcon icon={faXmark} />}
+                                            onClick={() => setMaterialAmount(material.id, undefined)}
+                                        />
+                                    </Space.Compact>
+                                ))}
+                            <Select
+                                aria-label={t("templateItem.addMaterial")}
+                                placeholder={t("templateItem.addMaterial")}
+                                showSearch={{ optionFilterProp: "label" }}
+                                value={null}
+                                style={{ width: "100%" }}
+                                onChange={(id: string | null) => id && setMaterialAmount(id, 1)}
+                                options={materials
+                                    .filter(m => draft.materials?.[m.id] === undefined)
+                                    .map(m => ({ value: m.id, label: m.name }))}
+                            />
                         </Space>
                     </Form.Item>
                 )}

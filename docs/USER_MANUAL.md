@@ -200,6 +200,17 @@ Notes:
 - The list is **not saved**. It stays while the app is open, including when you switch views, and is cleared when the page is reloaded. Each save has its own list.
 - **Copy image** is hidden in browsers that cannot copy images to the clipboard. Use **Save PNG…** there.
 
+### 5.6 Materials list: what to gather for what you plan to make
+
+Some templates list **materials**, the things items are made from (for example the ingredients of Palia tints). In such a template one counter is the **planned** amount, e.g. *To craft*. Set it on the items you want to make, and the materials list adds up what they need.
+
+1. Set the planned counter (e.g. *To craft*) on the item cards: how many of each item you want.
+2. Click **Materials** in the Inventory toolbar. The panel opens next to the grid. The badge on the button shows how many materials you still need more of.
+3. Each material shows how many are **needed** (hover the name to see which items need it) and a **Gathered** amount. Enter how many you have. A green check mark appears when you have enough; otherwise the panel shows how many are still missing.
+4. **Hide gathered** hides the materials you have enough of. **Clear gathered** sets every gathered amount back to 0.
+
+The gathered amounts are kept in the save (and in exported save files). The item drawer also lists the materials one of the item needs. The **Materials** button appears only in templates that have materials and a planned counter, and the materials panel and the exchange list are not open at the same time.
+
 ## 6. Finding items: categories, search, sorting and filters
 
 The same toolbar is used in the Inventory and Templates views. The item count on the right shows *visible / total*.
@@ -305,6 +316,7 @@ The item drawer fields:
 | Variants | Which of the template's variants apply to this item |
 | Unique | Makes the item, or some of its variants, unique (see [Unique items](#7-unique-items)) |
 | Counter profile | Shown when the template has counter profiles. Gives this item its own profile instead of its category's (see [Counter profiles](#84-counters)). Empty uses the category's profile, which the hint below the field names. |
+| Materials for one | Shown when the template has materials. How many of each material one of this item needs. Pick a material from **Add a material**, set the amount, or remove it with **×**. |
 | Initial amounts in new saves | Default counter values, e.g. a target of 1. For a read-only counter this is its value in every save. |
 | Deprecated | The item was removed from the game but is kept for old saves |
 
@@ -342,7 +354,7 @@ Each counter has:
 
 - **Label** (and a fixed key used in files)
 - **Type**: *Manual* or *Computed sum*. For a computed counter, pick the manual counters to add up. A formula such as *Total = Inventory + Placed* is shown below it.
-- **Role**: *Owned* or *Target* (at most one of each)
+- **Role**: *Owned*, *Target* or *Planned* (at most one of each). *Planned* is how many of an item the user plans to make or get; the materials list multiplies the item's materials by it (see [Materials](#88-materials)).
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
 - **Max**: an optional upper limit for manual counters. With a maximum of 1 the counter is shown as a checkbox in saves.
 - **Maximum from** (manual counters): instead of a fixed *Max*, the limit is each item's value of a read-only counter, e.g. at most as many placed as the bundle's target needs.
@@ -377,7 +389,11 @@ The tag vocabulary of the template, with the number of items that use each tag. 
 
 ![Tags tab](images/manual/21-template-tags.png)
 
-### 8.8 Details
+### 8.8 Materials
+
+The Materials tab lists what items are made from, e.g. ingredients. Add a material by name, rename it, click its image button to add an image (file, drag and drop or paste, as for items), reorder or delete it. Each material shows how many items need it; deleting a material removes it from those items. Set the amounts per item in the item drawer (*Materials for one*), and give one counter the **Planned** role on the Counters tab: saves then get the [materials list](#56-materials-list-what-to-gather-for-what-you-plan-to-make). A tab notice reminds you when the planned counter is missing.
+
+### 8.9 Details
 
 The Details tab holds the template's name, game, description, source/attribution (name, URL, license) and version. It also lists validation problems, such as missing categories or invalid counter formulas. The tab shows a badge with the number of problems, and exporting a template that has problems asks for confirmation.
 

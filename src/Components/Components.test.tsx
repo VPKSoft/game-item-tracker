@@ -16,6 +16,7 @@ import type { Template } from "../Schemas/TemplateSchema.ts";
 import { getTemplate, putTemplate } from "../Storage/Database.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
 import { ExchangePanel } from "../Views/ExchangePanel.tsx";
+import { MaterialsPanel } from "../Views/MaterialsPanel.tsx";
 import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
 import { TemplateEditor } from "../Views/TemplateEditor.tsx";
@@ -649,5 +650,69 @@ describe("exchange list", () => {
         expect(document.querySelector(".ant-drawer")).toBeNull();
         await userEvent.click(screen.getByRole("button", { name: "Add as Give" }));
         expect(await screen.findByText("Nothing to add from the items shown.")).toBeInTheDocument();
+    });
+});
+
+describe("MaterialsPanel", () => {
+    /** The fish fixture with a planned counter and the materials Wood and Salt. */
+    const craftTemplate = (): Template => {
+        const base = fishTemplate();
+        return {
+            ...base,
+            counterDefs: [
+                ...base.counterDefs,
+                { key: "to-make", label: "To make", kind: "manual", role: "planned", order: 5 },
+            ],
+            materials: [
+                { id: "wood", name: "Wood", order: 0 },
+                { id: "salt", name: "Salt", order: 1 },
+            ],
+            items: base.items.map(i => (i.id === "koi" ? { ...i, materials: { wood: 3, salt: 1 } } : i)),
+        };
+    };
+
+    const Harness = ({ template, initial }: { template: Template; initial: Save }) => {
+        const [save, setSave] = React.useState(initial);
+        return (
+            <AntdApp>
+                <MaterialsPanel
+                    open
+                    onClose={() => undefined}
+                    template={template}
+                    save={save}
+                    onGatheredChange={(id, value) => setSave(s => ({ ...s, gathered: { ...s.gathered, [id]: value } }))}
+                    onClear={() => setSave(s => ({ ...s, gathered: undefined }))}
+                />
+            </AntdApp>
+        );
+    };
+
+    it("lists the needed materials and marks a material once enough is gathered", async () => {
+        const template = craftTemplate();
+        const save = createSave(template, "s");
+        save.items.koi = setCounterValue(template, save.items.koi, "normal", "to-make", 2);
+        render(<Harness template={template} initial={save} />);
+        const wood = screen.getByTestId("material-wood");
+        expect(within(wood).getByText("Needed 6")).toBeTruthy();
+        expect(within(wood).getByText("6 more")).toBeTruthy();
+        expect(screen.getByText("0 of 2 materials gathered")).toBeTruthy();
+        const salt = screen.getByTestId("material-salt");
+        await userEvent.click(within(salt).getByLabelText("Increase Gathered"));
+        await userEvent.click(within(salt).getByLabelText("Increase Gathered"));
+        expect(within(salt).getByLabelText("Enough")).toBeTruthy();
+        expect(screen.getByText("1 of 2 materials gathered")).toBeTruthy();
+        await userEvent.click(screen.getByLabelText("Hide gathered"));
+        expect(screen.queryByTestId("material-salt")).toBeNull();
+        expect(screen.getByTestId("material-wood")).toBeTruthy();
+    });
+
+    it("explains how to plan when nothing is planned", () => {
+        const template = craftTemplate();
+        render(<Harness template={template} initial={createSave(template, "s")} />);
+        expect(
+            screen.getByText(
+                "Nothing is planned yet. Set the To make counter of items to list the materials they need."
+            )
+        ).toBeTruthy();
     });
 });

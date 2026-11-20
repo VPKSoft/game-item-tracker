@@ -31,7 +31,11 @@ const counterDefSchema = z.object({
     label: z.string().min(1),
     kind: z.enum(["manual", "computed"]),
     sumOf: z.array(keySchema).optional(),
-    role: z.enum(["owned", "target"]).optional(),
+    /**
+     * `owned` and `target` drive progress bars, the missing filter and exchange suggestions. `planned` is how many
+     * of the item the user plans to make or get: the materials list multiplies the item's `materials` by it.
+     */
+    role: z.enum(["owned", "target", "planned"]).optional(),
     variants: z.array(keySchema).optional(),
     max: z.number().int().nonnegative().optional(),
     /**
@@ -64,6 +68,14 @@ const counterProfileSchema = z.object({
     key: keySchema,
     label: z.string().min(1),
     overrides: z.record(z.string(), counterOverrideSchema),
+});
+
+/** Something items are made from, e.g. an ingredient. Items list how many of each material one of them needs. */
+const materialSchema = z.object({
+    id: keySchema,
+    name: z.string().min(1),
+    imageId: z.string().optional(),
+    order: z.number(),
 });
 
 const variantDefSchema = z.object({
@@ -99,6 +111,8 @@ const templateItemSchema = z.object({
     deprecated: z.boolean().optional(),
     /** The counter profile of the item; overrides the profile of its category. */
     counterProfile: keySchema.optional(),
+    /** Material id -> how many of that material one of this item needs. */
+    materials: z.record(z.string(), z.number().int().positive()).optional(),
 });
 
 const templateSchema = z.object({
@@ -115,6 +129,8 @@ const templateSchema = z.object({
     /** Named counter overrides that categories and items refer to by key. */
     counterProfiles: z.array(counterProfileSchema).optional(),
     variantDefs: z.array(variantDefSchema),
+    /** The materials items can need (see `TemplateItem.materials` and the `planned` counter role). */
+    materials: z.array(materialSchema).optional(),
     tags: z.array(z.string()),
     categories: z.array(categorySchema),
     items: z.array(templateItemSchema),
@@ -133,9 +149,22 @@ type CounterDef = z.infer<typeof counterDefSchema>;
 type CounterOverride = z.infer<typeof counterOverrideSchema>;
 type CounterProfile = z.infer<typeof counterProfileSchema>;
 type VariantDef = z.infer<typeof variantDefSchema>;
+type Material = z.infer<typeof materialSchema>;
+type CounterRole = NonNullable<CounterDef["role"]>;
 type Category = z.infer<typeof categorySchema>;
 type TemplateItem = z.infer<typeof templateItemSchema>;
 type Template = z.infer<typeof templateSchema>;
 
-export type { AttributeDef, Category, CounterDef, CounterOverride, CounterProfile, Template, TemplateItem, VariantDef };
+export type {
+    AttributeDef,
+    Category,
+    CounterDef,
+    CounterOverride,
+    CounterProfile,
+    CounterRole,
+    Material,
+    Template,
+    TemplateItem,
+    VariantDef,
+};
 export { templateFormat, templateSchema, templateSchemaVersion };
