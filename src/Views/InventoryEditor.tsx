@@ -26,6 +26,7 @@ import { compareVersions } from "../Domain/Ids.ts";
 import {
     clearGathered,
     getMaterialNeeds,
+    getMaterialsLabel,
     hasMaterialsList,
     isMaterialComplete,
     setGathered,
@@ -338,7 +339,7 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                                                 setExchangeOpen(false);
                                             }}
                                         >
-                                            {t("materials.toggle")}
+                                            {getMaterialsLabel(template) ?? t("materials.toggle")}
                                         </Button>
                                     </Badge>
                                 </Tooltip>

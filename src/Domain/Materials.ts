@@ -28,6 +28,9 @@ const getMaterials = (template: Template): Material[] =>
 const hasMaterialsList = (template: Template) =>
     (template.materials?.length ?? 0) > 0 && !!findRoleCounter(template, "planned");
 
+/** Gets the template's own text for the materials button and panel, if it sets one (not translated). */
+const getMaterialsLabel = (template: Template) => template.materialsLabel?.trim() || undefined;
+
 /** Gets how many of an item are planned in a save (the `planned` counter summed over the item's variants). */
 const getPlannedAmount = (template: Template, item: TemplateItem, save: Save | undefined) => {
     const planned = findRoleCounter(template, "planned", item);
@@ -99,6 +102,7 @@ export {
     getGathered,
     getMaterialNeeds,
     getMaterials,
+    getMaterialsLabel,
     getPlannedAmount,
     hasMaterialsList,
     isMaterialComplete,

@@ -355,6 +355,9 @@ const en = {
         materialName: "Material name",
         newMaterial: "New material, e.g. Wood",
         addMaterial: "Add material",
+        buttonText: "Button text in saves",
+        buttonTextHint:
+            "Replaces “{{text}}” on the materials button and panel, e.g. Ingredients. A custom text is not translated: it is shown as written in every language. Leave empty to use the translated default.",
         deleteTitle: "Delete this material? Items stop needing it.",
         deleteMaterial: "Delete material",
         image: "Image",

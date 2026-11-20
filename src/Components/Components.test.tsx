@@ -706,6 +706,13 @@ describe("MaterialsPanel", () => {
         expect(screen.getByTestId("material-wood")).toBeTruthy();
     });
 
+    it("shows the template's own title instead of the translated one", () => {
+        const template = { ...craftTemplate(), materialsLabel: "Ingredients" };
+        render(<Harness template={template} initial={createSave(template, "s")} />);
+        expect(screen.getByRole("complementary", { name: "Ingredients" })).toBeTruthy();
+        expect(screen.queryByText("Materials")).toBeNull();
+    });
+
     it("explains how to plan when nothing is planned", () => {
         const template = craftTemplate();
         render(<Harness template={template} initial={createSave(template, "s")} />);

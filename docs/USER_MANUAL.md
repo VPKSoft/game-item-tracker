@@ -205,7 +205,7 @@ Notes:
 Some templates list **materials**, the things items are made from (for example the ingredients of Palia tints). In such a template one counter is the **planned** amount, e.g. *To craft*. Set it on the items you want to make, and the materials list adds up what they need.
 
 1. Set the planned counter (e.g. *To craft*) on the item cards: how many of each item you want.
-2. Click **Materials** in the Inventory toolbar. The panel opens next to the grid. The badge on the button shows how many materials you still need more of.
+2. Click **Materials** in the Inventory toolbar (a template can give the button its own name, such as *Ingredients*). The panel opens next to the grid. The badge on the button shows how many materials you still need more of.
 3. Each material shows how many are **needed** (hover the name to see which items need it) and a **Gathered** amount. Enter how many you have. A green check mark appears when you have enough; otherwise the panel shows how many are still missing.
 4. **Hide gathered** hides the materials you have enough of. **Clear gathered** sets every gathered amount back to 0.
 
@@ -391,7 +391,7 @@ The tag vocabulary of the template, with the number of items that use each tag. 
 
 ### 8.8 Materials
 
-The Materials tab lists what items are made from, e.g. ingredients. Add a material by name, rename it, click its image button to add an image (file, drag and drop or paste, as for items), reorder or delete it. Each material shows how many items need it; deleting a material removes it from those items. Set the amounts per item in the item drawer (*Materials for one*), and give one counter the **Planned** role on the Counters tab: saves then get the [materials list](#56-materials-list-what-to-gather-for-what-you-plan-to-make). A tab notice reminds you when the planned counter is missing.
+The Materials tab lists what items are made from, e.g. ingredients. **Button text in saves** replaces the word *Materials* on the save's button and panel, e.g. with *Ingredients*. Note that a custom text is **not translated**: it is shown exactly as written in every language, while the default follows the language setting. Leave it empty to use the default. Add a material by name, rename it, click its image button to add an image (file, drag and drop or paste, as for items), reorder or delete it. Each material shows how many items need it; deleting a material removes it from those items. Set the amounts per item in the item drawer (*Materials for one*), and give one counter the **Planned** role on the Counters tab: saves then get the [materials list](#56-materials-list-what-to-gather-for-what-you-plan-to-make). A tab notice reminds you when the planned counter is missing.
 
 ### 8.9 Details
 
