@@ -12,6 +12,7 @@ import {
     hasUniqueVariants,
     isEditableCounter,
     isObtained,
+    isRequirementUnmet,
     isVariantUnique,
     noVariantKey,
     setCounterValue,
@@ -215,5 +216,40 @@ describe("unique items", () => {
         const obtained = setObtained(s, "starred", true);
         expect(getItemCounterTotal(t, koi, obtained, "total")).toBe(2 + 1);
         expect(getMissing(t, koi, obtained)).toBe(1);
+    });
+});
+
+describe("counters that require another counter", () => {
+    /** A recipe-like template: To craft counts and can be changed only after Acquired is ticked. */
+    const recipeTemplate = () => {
+        const t = createTemplate("Recipes", "Game");
+        t.counterDefs = [
+            { key: "acquired", label: "Acquired", kind: "manual", max: 1, order: 0 },
+            { key: "to-craft", label: "To craft", kind: "manual", requires: "acquired", order: 1 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["to-craft"], order: 2 },
+        ];
+        t.categories = [{ id: "tints", name: "Tints", order: 0 }];
+        t.items = [{ id: "slate", categoryId: "tints", name: "Slate", description: "", attributes: {}, tags: [] }];
+        return t;
+    };
+
+    it("is 0 and locked until the required counter is above 0", () => {
+        const t = recipeTemplate();
+        const item = t.items[0];
+        const [acquired, toCraft] = t.counterDefs;
+        let s = emptySaveItem();
+        expect(isRequirementUnmet(t, toCraft, s, noVariantKey, item)).toBe(true);
+        expect(isRequirementUnmet(t, acquired, s, noVariantKey, item)).toBe(false);
+        expect(setCounterValue(t, s, noVariantKey, "to-craft", 3, item)).toBe(s);
+        s = setCounterValue(t, s, noVariantKey, "acquired", 1, item);
+        expect(isRequirementUnmet(t, toCraft, s, noVariantKey, item)).toBe(false);
+        s = setCounterValue(t, s, noVariantKey, "to-craft", 3, item);
+        expect(getCounterValue(t, s, noVariantKey, "to-craft", item)).toBe(3);
+        expect(getCounterValue(t, s, noVariantKey, "total", item)).toBe(3);
+        // Unticking keeps the stored amount but it no longer counts.
+        s = setCounterValue(t, s, noVariantKey, "acquired", 0, item);
+        expect(s.counts[noVariantKey]["to-craft"]).toBe(3);
+        expect(getCounterValue(t, s, noVariantKey, "to-craft", item)).toBe(0);
+        expect(getCounterValue(t, s, noVariantKey, "total", item)).toBe(0);
     });
 });

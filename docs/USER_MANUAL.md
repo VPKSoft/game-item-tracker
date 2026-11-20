@@ -204,7 +204,7 @@ Notes:
 
 Some templates list **materials**, the things items are made from (for example the ingredients of Palia tints). In such a template one counter is the **planned** amount, e.g. *To craft*. Set it on the items you want to make, and the materials list adds up what they need.
 
-1. Set the planned counter (e.g. *To craft*) on the item cards: how many of each item you want.
+1. Set the planned counter (e.g. *To craft*) on the item cards: how many of each item you want. If the counter requires another one (e.g. *Acquired* for a recipe), tick that first.
 2. Click **Materials** in the Inventory toolbar (a template can give the button its own name, such as *Ingredients*). The panel opens next to the grid. The badge on the button shows how many materials you still need more of.
 3. Each material shows how many are **needed** (hover the name to see which items need it) and a **Gathered** amount. Enter how many you have. A green check mark appears when you have enough; otherwise the panel shows how many are still missing.
 4. **Hide gathered** hides the materials you have enough of. **Clear gathered** sets every gathered amount back to 0.
@@ -358,6 +358,7 @@ Each counter has:
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
 - **Max**: an optional upper limit for manual counters. With a maximum of 1 the counter is shown as a checkbox in saves.
 - **Maximum from** (manual counters): instead of a fixed *Max*, the limit is each item's value of a read-only counter, e.g. at most as many placed as the bundle's target needs.
+- **Requires** (manual counters): the counter can be changed, and counts, only while the chosen counter is above 0. Until then it shows 0 and its controls are disabled, with a tooltip naming the counter it needs. For example, in the Palia tints template *To craft* requires *Acquired* (the recipe), so tints whose recipe you don't have add nothing to the materials list. If the required counter goes back to 0, the amount you entered is kept but counts as 0 until it is above 0 again.
 - **Read-only** (manual counters): the value in saves is always the item's initial amount, and users cannot change it. Use it for fixed amounts such as a bundle's requirement, usually together with the *Target* role. Set the amount per item under *Initial amounts in new saves*; when a newer template version changes it, saves show the new value after the upgrade.
 - Move up/down and delete buttons. Deleting a counter hides its values in saves; they are not lost.
 

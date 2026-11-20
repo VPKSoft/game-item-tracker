@@ -75,7 +75,18 @@ const deleteCounter = (template: Template, key: string): Template =>
         ...template,
         counterDefs: template.counterDefs
             .filter(c => c.key !== key)
-            .map(c => (c.sumOf?.includes(key) ? { ...c, sumOf: c.sumOf.filter(k => k !== key) } : c)),
+            .map(c => {
+                let next = c.sumOf?.includes(key) ? { ...c, sumOf: c.sumOf.filter(k => k !== key) } : c;
+                if (next.requires === key) {
+                    const { requires: _removed, ...rest } = next;
+                    next = rest;
+                }
+                if (next.maxFrom === key) {
+                    const { maxFrom: _removed, ...rest } = next;
+                    next = rest;
+                }
+                return next;
+            }),
         counterProfiles: template.counterProfiles?.map(p => {
             if (!(key in p.overrides)) {
                 return p;

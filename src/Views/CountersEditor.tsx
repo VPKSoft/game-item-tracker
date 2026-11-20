@@ -150,6 +150,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                               max: undefined,
                                               maxFrom: undefined,
                                               readOnly: undefined,
+                                              requires: undefined,
                                               sumOf: counter.sumOf ?? [],
                                           }
                                         : { kind, sumOf: undefined }
@@ -233,6 +234,21 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 />
                             </Tooltip>
                         )}
+                        {counter.kind === "manual" && !counter.readOnly && (
+                            <Tooltip title={t("counters.requiresHint")}>
+                                <Select
+                                    aria-label={t("counters.requires")}
+                                    allowClear
+                                    placeholder={t("counters.requiresPlaceholder")}
+                                    style={{ width: 170 }}
+                                    value={counter.requires}
+                                    onChange={requires => update(counter.key, { requires: requires || undefined })}
+                                    options={template.counterDefs
+                                        .filter(c => c.key !== counter.key && c.kind === "manual" && !c.requires)
+                                        .map(c => ({ value: c.key, label: c.label }))}
+                                />
+                            </Tooltip>
+                        )}
                         {counter.kind === "manual" && (
                             <Tooltip title={t("counters.readOnlyHint")}>
                                 <Checkbox
@@ -241,7 +257,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                         update(
                                             counter.key,
                                             e.target.checked
-                                                ? { readOnly: true, maxFrom: undefined }
+                                                ? { readOnly: true, maxFrom: undefined, requires: undefined }
                                                 : { readOnly: undefined }
                                         )
                                     }

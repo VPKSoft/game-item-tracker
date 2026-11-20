@@ -48,6 +48,13 @@ describe("template edits", () => {
         const t2 = deleteCounter(fishTemplate(), "target");
         expect(t2.items[0].defaults).toEqual({});
         expect(validateTemplate(t2)).toEqual([]);
+        const required = fishTemplate();
+        required.counterDefs = required.counterDefs.map(c =>
+            c.key === "inventory" ? { ...c, requires: "tradeable" } : c
+        );
+        const t3 = deleteCounter(required, "tradeable");
+        expect(t3.counterDefs.find(c => c.key === "inventory")).not.toHaveProperty("requires");
+        expect(validateTemplate(t3)).toEqual([]);
     });
 
     it("deletes a variant with its references", () => {

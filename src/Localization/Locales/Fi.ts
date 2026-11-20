@@ -298,6 +298,10 @@ const fi: Translation = {
         planned: "Suunniteltu",
         allVariants: "Kaikki muunnelmat",
         noMax: "Ei ylärajaa",
+        requires: "Vaatii",
+        requiresPlaceholder: "Vaatii laskurin",
+        requiresHint:
+            "Laskuria voi muuttaa, ja se lasketaan, vain kun valittu laskuri on yli 0, esim. Valmistettavat vaatii Hankittu-laskurin. Siihen asti se on 0 eikä sitä voi muuttaa.",
         maxFrom: "Enimmäisarvo laskurista",
         maxFromPlaceholder: "Yläraja laskurista",
         maxFromHint: "Enimmäisarvo on esineen vain luku -laskurin arvo, esim. enintään nipun tavoite.",
@@ -433,6 +437,7 @@ const fi: Translation = {
         variantObtained: "{{variant}}: hankittu",
     },
     stepper: {
+        requires: "Vaatii ensin: {{label}}",
         decrease: "Vähennä: {{label}}",
         increase: "Lisää: {{label}}",
     },
@@ -470,6 +475,9 @@ const fi: Translation = {
         computedReadOnly: "Laskettu laskuri ”{{counter}}” ei voi olla vain luku -tilassa",
         maxFromInvalid:
             "Laskuri ”{{counter}}” ottaa enimmäisarvonsa laskurista ”{{key}}”, joka ei ole toinen vain luku -tilainen käsin syötettävä laskuri",
+        requiresInvalid:
+            "Laskuri ”{{counter}}” vaatii laskurin ”{{key}}”, joka ei ole toinen käsin syötettävä laskuri ilman omaa vaatimusta",
+        computedRequires: "Laskettu laskuri ”{{counter}}” ei voi vaatia toista laskuria",
         maxFromWithMax: "Laskurilla ”{{counter}}” ei voi olla sekä enimmäisarvoa että enimmäisarvoa laskurista",
         manualHasSum: "Manuaalisella laskurilla ”{{counter}}” ei voi olla summaa",
         counterUnknownVariant: "Laskuri ”{{counter}}” viittaa tuntemattomaan muunnelmaan ”{{key}}”",

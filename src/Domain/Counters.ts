@@ -149,6 +149,31 @@ const isEditableForItem = (template: Template, def: CounterDef, item: TemplateIt
 };
 
 /**
+ * Gets a value indicating whether a counter `requires` another counter that is 0 for the variant: the counter is
+ * then locked (cannot be changed) and counts as 0. The required counter is a manual counter without a requirement of
+ * its own (validated), so this does not recurse further.
+ */
+const isRequirementUnmet = (
+    template: Template,
+    def: CounterDef,
+    saveItem: SaveItem | undefined,
+    variantKey: string,
+    item: TemplateItem | undefined
+): boolean => {
+    if (def.requires === undefined) {
+        return false;
+    }
+    const required = template.counterDefs.find(c => c.key === def.requires);
+    if (!required || required.kind !== "manual" || required.requires !== undefined) {
+        return false;
+    }
+    if (!counterAppliesTo(required, variantKey) || isCounterOff(template, required, item)) {
+        return true;
+    }
+    return getManualValue(template, required, saveItem, variantKey, item) <= 0;
+};
+
+/**
  * Gets the value of a manual counter: 0 when the item's counter profile turns it off, the profile's fixed value,
  * the item's default for a read-only counter, or else the stored one (at most the profile's maximum).
  */
@@ -168,6 +193,9 @@ const getManualValue = (
     }
     if (def.readOnly) {
         return item?.defaults?.[def.key] ?? 0;
+    }
+    if (isRequirementUnmet(template, def, saveItem, variantKey, item)) {
+        return 0;
     }
     const stored = saveItem?.counts[variantKey]?.[def.key] ?? 0;
     return override?.max === undefined ? stored : Math.min(stored, override.max);
@@ -283,7 +311,12 @@ const setCounterValue = (
     item?: TemplateItem
 ): SaveItem => {
     const def = template.counterDefs.find(c => c.key === counterKey);
-    if (!def || !isEditableForItem(template, def, item) || !counterAppliesTo(def, variantKey)) {
+    if (
+        !def ||
+        !isEditableForItem(template, def, item) ||
+        !counterAppliesTo(def, variantKey) ||
+        isRequirementUnmet(template, def, saveItem, variantKey, item)
+    ) {
         return saveItem;
     }
     return {
@@ -359,6 +392,7 @@ export {
     isEditableCounter,
     isEditableForItem,
     isObtained,
+    isRequirementUnmet,
     isVariantUnique,
     noVariantKey,
     setCounterValue,
