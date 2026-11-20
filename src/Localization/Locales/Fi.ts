@@ -349,6 +349,9 @@ const fi: Translation = {
         materialName: "Materiaalin nimi",
         newMaterial: "Uusi materiaali, esim. Puu",
         addMaterial: "Lisää materiaali",
+        buttonText: "Painikkeen teksti tallenteissa",
+        buttonTextHint:
+            "Korvaa tekstin ”{{text}}” materiaalipainikkeessa ja -paneelissa, esim. Ainekset. Omaa tekstiä ei käännetä: se näkyy kirjoitetussa muodossa kaikilla kielillä. Jätä tyhjäksi, niin käytetään käännettyä oletustekstiä.",
         deleteTitle: "Poistetaanko tämä materiaali? Esineet eivät enää tarvitse sitä.",
         deleteMaterial: "Poista materiaali",
         image: "Kuva",

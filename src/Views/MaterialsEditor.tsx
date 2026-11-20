@@ -1,7 +1,7 @@
 import { faImage } from "@fortawesome/free-regular-svg-icons";
 import { faArrowDown, faArrowUp, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, Button, Input, Modal, Popconfirm, Space } from "antd";
+import { Alert, Button, Form, Input, Modal, Popconfirm, Space } from "antd";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { ImageDropZone } from "../Components/ImageDropZone.tsx";
@@ -59,6 +59,24 @@ const MaterialsEditor = ({ template, onChange }: Props) => {
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 760 }}>
             <p style={{ margin: 0 }}>{t("materialsEditor.help")}</p>
+            <Form layout="vertical" style={{ maxWidth: 420 }}>
+                <Form.Item
+                    label={t("materialsEditor.buttonText")}
+                    extra={t("materialsEditor.buttonTextHint", { text: t("materials.toggle") })}
+                    style={{ marginBottom: 0 }}
+                >
+                    <Input
+                        aria-label={t("materialsEditor.buttonText")}
+                        placeholder={t("materials.toggle")}
+                        allowClear
+                        value={template.materialsLabel ?? ""}
+                        onChange={e => {
+                            const { materialsLabel: _old, ...rest } = template;
+                            onChange(touch(e.target.value ? { ...rest, materialsLabel: e.target.value } : rest));
+                        }}
+                    />
+                </Form.Item>
+            </Form>
             {materials.length > 0 && !findRoleCounter(template, "planned") && (
                 <Alert type="info" showIcon title={t("materialsEditor.noPlannedCounter")} />
             )}

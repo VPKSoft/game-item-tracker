@@ -254,6 +254,7 @@ type Template = {
     counterDefs: CounterDef[];
     variantDefs: VariantDef[];
     materials?: Material[];      // what items are made from (section 5.9)
+    materialsLabel?: string;     // replaces "Materials" on the save's button and panel; not translated
     tags: string[];              // tag vocabulary
     categories: Category[];
     items: TemplateItem[];
@@ -499,6 +500,7 @@ Requested as a generic way to see what to gather for things the user wants to ma
 - **Save**: `save.gathered` (material id → amount) is the only stored part. It is save-level, not per item, because one material serves many items.
 - `getMaterialNeeds(template, save)`: for each material in `order`, `needed = Σ over items of planned × item.materials[id]`, where planned is the `planned` counter summed over the item's variants (`getItemCounterTotal`; a counter profile that turns it off gives 0). Each need lists its `uses` (item, planned, amount per item). Materials neither needed nor gathered are left out; gathered ones stay listed so the user can clear them.
 - `isMaterialComplete` = gathered ≥ needed. `setGathered` rounds and clamps to ≥ 0 and removes zero entries (and the field when empty); `clearGathered` resets all.
+- `template.materialsLabel` (optional, `getMaterialsLabel` trims it and treats blank as unset) replaces the translated *Materials* text on the toolbar button and as the panel title, e.g. *Ingredients*. It is template data, so it is **not translated** (section 9.2); the Materials tab says so next to the input.
 - `hasMaterialsList(template)`: the template has materials and a `planned` counter. Only then does `InventoryEditor` show the **Materials** toolbar button; its badge counts materials still short.
 - UI: `MaterialsPanel.tsx` is a side column like the exchange panel (the two are exclusive): per material the image, name, needed amount (tooltip: the items that need it), a *Gathered* stepper and a check mark when enough, or how many are missing. A summary with a progress bar, *Hide gathered* (remembered in localStorage as a UI preference) and *Clear gathered* (confirmed). The template editor has a **Materials** tab (`MaterialsEditor.tsx`: names, images in a modal, order, delete) and the item drawer a *Materials for one* list. `SaveItemDrawer` shows the item's materials (`MaterialList.tsx`).
 
@@ -628,7 +630,7 @@ The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next
 - **Texts** live in `Locales/En.ts` (reference) and `Locales/Fi.ts`. Keys are grouped by screen (`library.*`, `templateEditor.*`, `counters.*`…) plus `common.*` for shared words. Interpolation uses `{{name}}`; plurals use the `_one` / `_other` suffixes and a `count` option. Rich text uses `<Trans>` with named components (e.g. `<b>` in `counters.help`).
 - **Type safety**: `I18next.d.ts` registers `typeof en` as the resource type, so `t("unknown.key")` fails `tsc`. `Fi.ts` is typed as `Translation` (the English tree with string leaves), so a missing or extra Finnish key fails `tsc` too. `Localization.test.tsx` also checks that both languages use the same `{{placeholders}}`.
 - **Non-UI code** (Domain, Files, Images) does not import i18next; scripts and tests use it without the UI. It returns coded messages instead: `validateTemplate` issues, `parseFileText` errors and `validateImageFile` problems are `LocalizedMessage`s (`code`, `params`, English `message`), and image/clipboard failures throw `LocalizedError`. Each module keeps its English templates in one table (`validationMessages`, `fileMessages`, `imageMessages`), which `En.ts` spreads into `messages.*`. The UI shows them with `translateMessage(t, message)` / `translateError(t, error)`.
-- **Template and save contents are never translated**: names, labels, tags and descriptions are user data. The only exception is the *Add common counters* preset, which `commonCounters(labels)` creates with labels in the current UI language. The sort selector translates only its fixed options (`relevance`, `name`, `missing`).
+- **Template and save contents are never translated**: names, labels, tags and descriptions are user data. This includes `template.materialsLabel`, which overrides a translated UI text; the template editor warns about that. The only exception is the *Add common counters* preset, which `commonCounters(labels)` creates with labels in the current UI language. The sort selector translates only its fixed options (`relevance`, `name`, `missing`).
 - Dates in the Library are formatted with `toLocaleString(i18n.language)`.
 - Error texts stored in component state when a document is opened (`InventoryEditor`, `TemplateEditor`) stay in the language that was active then.
 

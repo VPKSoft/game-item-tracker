@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { CounterStepper } from "../Components/CounterStepper.tsx";
 import { findRoleCounter } from "../Domain/Counters.ts";
-import { getMaterialNeeds, isMaterialComplete, type MaterialNeed } from "../Domain/Materials.ts";
+import { getMaterialNeeds, getMaterialsLabel, isMaterialComplete, type MaterialNeed } from "../Domain/Materials.ts";
 import type { Save } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
@@ -59,6 +59,7 @@ let MaterialsPanel = ({ className, open, onClose, template, save, onGatheredChan
     }
 
     const planned = findRoleCounter(template, "planned");
+    const title = getMaterialsLabel(template) ?? t("materials.title");
     const required = needs.filter(n => n.needed > 0);
     const done = required.filter(isMaterialComplete).length;
     const shown = hideComplete ? needs.filter(n => n.needed > 0 && !isMaterialComplete(n)) : needs;
@@ -115,7 +116,7 @@ let MaterialsPanel = ({ className, open, onClose, template, save, onGatheredChan
     return (
         <aside
             className={classNames(className, "MaterialsPanel")}
-            aria-label={t("materials.title")}
+            aria-label={title}
             style={{
                 background: token.colorBgContainer,
                 borderColor: token.colorBorderSecondary,
@@ -130,7 +131,7 @@ let MaterialsPanel = ({ className, open, onClose, template, save, onGatheredChan
                     icon={<FontAwesomeIcon icon={faXmark} />}
                     onClick={onClose}
                 />
-                <div className="MaterialsPanel-title">{t("materials.title")}</div>
+                <div className="MaterialsPanel-title">{title}</div>
                 <Popconfirm
                     title={t("materials.clearTitle")}
                     okText={t("materials.clear")}

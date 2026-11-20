@@ -131,6 +131,11 @@ const templateSchema = z.object({
     variantDefs: z.array(variantDefSchema),
     /** The materials items can need (see `TemplateItem.materials` and the `planned` counter role). */
     materials: z.array(materialSchema).optional(),
+    /**
+     * Replaces the "Materials" text of the save's materials button and panel, e.g. "Ingredients". Template text,
+     * so it is shown as is in every UI language; omitted = the translated default.
+     */
+    materialsLabel: z.string().min(1).optional(),
     tags: z.array(z.string()),
     categories: z.array(categorySchema),
     items: z.array(templateItemSchema),

@@ -6,6 +6,7 @@ import { createSave } from "./CreateSave.ts";
 import {
     clearGathered,
     getMaterialNeeds,
+    getMaterialsLabel,
     getPlannedAmount,
     hasMaterialsList,
     isMaterialComplete,
@@ -88,6 +89,12 @@ describe("materials list", () => {
             ["wood", 0],
             ["salt", 0],
         ]);
+    });
+
+    it("uses the template's own button text only when it has one", () => {
+        expect(getMaterialsLabel(craftTemplate())).toBeUndefined();
+        expect(getMaterialsLabel({ ...craftTemplate(), materialsLabel: "  " })).toBeUndefined();
+        expect(getMaterialsLabel({ ...craftTemplate(), materialsLabel: " Ingredients " })).toBe("Ingredients");
     });
 
     it("is available only with materials and a planned counter", () => {
