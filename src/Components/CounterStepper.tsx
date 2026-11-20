@@ -1,6 +1,6 @@
 import { faMinus, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Button, Checkbox, InputNumber, Space } from "antd";
+import { Button, Checkbox, InputNumber, Space, Tooltip } from "antd";
 import classNames from "classnames";
 import type * as React from "react";
 import { useTranslation } from "react-i18next";
@@ -14,13 +14,16 @@ type Props = {
     onChange?: (value: number) => void;
     max?: number;
     size?: "small" | "middle";
+    /** Shows the controls disabled, e.g. while a required counter is 0; the reason is shown as a tooltip. */
+    disabledReason?: string;
 } & BaseProps;
 
 /**
  * A compact "− [n] +" counter. Shift-click steps by 10. Read-only when no change handler is given.
  * A counter whose maximum is 1 is a checkbox instead (checked = 1).
  */
-let CounterStepper = ({ className, label, value, onChange, max, size = "small" }: Props) => {
+let CounterStepper = ({ className, label, value, onChange, max, size = "small", disabledReason }: Props) => {
+    const disabled = disabledReason !== undefined;
     const { t } = useTranslation();
     const step = (event: React.MouseEvent, delta: number) => {
         event.stopPropagation();
@@ -36,37 +39,43 @@ let CounterStepper = ({ className, label, value, onChange, max, size = "small" }
         <div className={classNames(className, "CounterStepper")} onClick={e => e.stopPropagation()}>
             <div className="CounterStepper-label">{label}</div>
             {onChange && max === 1 ? (
-                <Checkbox
-                    aria-label={label}
-                    className="CounterStepper-checkbox"
-                    checked={value >= 1}
-                    onChange={e => onChange(e.target.checked ? 1 : 0)}
-                />
-            ) : onChange ? (
-                <Space.Compact size={size}>
-                    <Button
-                        aria-label={t("stepper.decrease", { label })}
-                        icon={<FontAwesomeIcon icon={faMinus} />}
-                        onClick={e => step(e, -1)}
-                        disabled={value <= 0}
-                    />
-                    <InputNumber
+                <Tooltip title={disabledReason}>
+                    <Checkbox
                         aria-label={label}
-                        className="CounterStepper-input"
-                        controls={false}
-                        min={0}
-                        max={max}
-                        precision={0}
-                        value={value}
-                        onChange={v => onChange(typeof v === "number" ? v : 0)}
+                        className="CounterStepper-checkbox"
+                        checked={value >= 1}
+                        disabled={disabled}
+                        onChange={e => onChange(e.target.checked ? 1 : 0)}
                     />
-                    <Button
-                        aria-label={t("stepper.increase", { label })}
-                        icon={<FontAwesomeIcon icon={faPlus} />}
-                        onClick={e => step(e, 1)}
-                        disabled={max !== undefined && value >= max}
-                    />
-                </Space.Compact>
+                </Tooltip>
+            ) : onChange ? (
+                <Tooltip title={disabledReason}>
+                    <Space.Compact size={size}>
+                        <Button
+                            aria-label={t("stepper.decrease", { label })}
+                            icon={<FontAwesomeIcon icon={faMinus} />}
+                            onClick={e => step(e, -1)}
+                            disabled={disabled || value <= 0}
+                        />
+                        <InputNumber
+                            aria-label={label}
+                            className="CounterStepper-input"
+                            controls={false}
+                            min={0}
+                            max={max}
+                            precision={0}
+                            value={value}
+                            disabled={disabled}
+                            onChange={v => onChange(typeof v === "number" ? v : 0)}
+                        />
+                        <Button
+                            aria-label={t("stepper.increase", { label })}
+                            icon={<FontAwesomeIcon icon={faPlus} />}
+                            onClick={e => step(e, 1)}
+                            disabled={disabled || (max !== undefined && value >= max)}
+                        />
+                    </Space.Compact>
+                </Tooltip>
             ) : (
                 <div className="CounterStepper-computed" aria-label={label}>
                     {value}

@@ -15,6 +15,7 @@ import {
     hasUniqueVariants,
     isEditableForItem,
     isObtained,
+    isRequirementUnmet,
     isVariantUnique,
     noVariantKey,
 } from "../Domain/Counters.ts";
@@ -199,6 +200,15 @@ const CounterRows = ({
                                     label={counter.label}
                                     max={getCounterMax(template, counter, item)}
                                     value={getCounterValue(template, saveItem, variant.key, counter.key, item)}
+                                    disabledReason={
+                                        isRequirementUnmet(template, counter, saveItem, variant.key, item)
+                                            ? t("stepper.requires", {
+                                                  label:
+                                                      template.counterDefs.find(c => c.key === counter.requires)
+                                                          ?.label ?? "",
+                                              })
+                                            : undefined
+                                    }
                                     onChange={
                                         isEditableForItem(template, counter, item) && onCounterChange
                                             ? v => onCounterChange(item.id, variant.key, counter.key, v)

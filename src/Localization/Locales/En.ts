@@ -304,6 +304,10 @@ const en = {
         planned: "Planned",
         allVariants: "All variants",
         noMax: "No max",
+        requires: "Requires",
+        requiresPlaceholder: "Requires counter",
+        requiresHint:
+            "The counter can be changed, and counts, only while the chosen counter is above 0, e.g. To craft requires Acquired. Until then it is 0 and locked.",
         maxFrom: "Maximum from",
         maxFromPlaceholder: "Max from counter",
         maxFromHint: "The maximum is the item's value of a read-only counter, e.g. at most the bundle's target.",
@@ -438,6 +442,7 @@ const en = {
         variantObtained: "{{variant}}: obtained",
     },
     stepper: {
+        requires: "Needs {{label}} first",
         decrease: "Decrease {{label}}",
         increase: "Increase {{label}}",
     },

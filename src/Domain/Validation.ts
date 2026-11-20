@@ -19,6 +19,9 @@ const validationMessages = {
     maxFromInvalid:
         'Counter "{{counter}}" takes its maximum from "{{key}}", which is not another read-only manual counter',
     maxFromWithMax: 'Counter "{{counter}}" cannot have both a maximum and a maximum from a counter',
+    requiresInvalid:
+        'Counter "{{counter}}" requires "{{key}}", which is not another manual counter without a requirement of its own',
+    computedRequires: 'Computed counter "{{counter}}" cannot require another counter',
     manualHasSum: 'Manual counter "{{counter}}" cannot have a sum',
     counterUnknownVariant: 'Counter "{{counter}}" refers to unknown variant "{{key}}"',
     attributeMinAboveMax: 'Attribute "{{attribute}}" has a minimum greater than its maximum',
@@ -173,6 +176,9 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
             if (counter.maxFrom !== undefined) {
                 issues.push(issue(path, "computedHasMax", { counter: counter.label }));
             }
+            if (counter.requires !== undefined) {
+                issues.push(issue(path, "computedRequires", { counter: counter.label }));
+            }
         } else {
             if (counter.sumOf && counter.sumOf.length > 0) {
                 issues.push(issue(path, "manualHasSum", { counter: counter.label }));
@@ -184,6 +190,12 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
                 }
                 if (counter.max !== undefined) {
                     issues.push(issue(path, "maxFromWithMax", { counter: counter.label }));
+                }
+            }
+            if (counter.requires !== undefined) {
+                const required = template.counterDefs.find(c => c.key === counter.requires);
+                if (!required || required === counter || required.kind !== "manual" || required.requires) {
+                    issues.push(issue(path, "requiresInvalid", { counter: counter.label, key: counter.requires }));
                 }
             }
         }

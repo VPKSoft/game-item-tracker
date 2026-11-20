@@ -386,7 +386,7 @@ const main = async () => {
         version: values.version,
         name: "Palia – Tints",
         description:
-            "The tints of Palia and their ingredients. Set To craft on the tints you want, and the Materials list shows the ingredients to gather.",
+            "The tints of Palia and their ingredients. Tick Acquired for the recipes you know, set To craft on the tints you want, and the Materials list shows the ingredients to gather.",
         sourceUrl: `${wikiBase}/wiki/Tints`,
     });
     if (tints.template.items.length === 0) {

@@ -48,6 +48,11 @@ const counterDefSchema = z.object({
      * e.g. at most as many placed as the bundle needs.
      */
     maxFrom: keySchema.optional(),
+    /**
+     * Manual only: the counter can be changed, and counts, only while this other manual counter is above 0 for the
+     * same variant, e.g. "To craft" requires "Acquired" (a recipe). Otherwise its value is 0; a stored value is kept.
+     */
+    requires: keySchema.optional(),
     order: z.number(),
 });
 

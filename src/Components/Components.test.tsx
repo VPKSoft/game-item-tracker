@@ -75,6 +75,17 @@ describe("CounterStepper", () => {
         expect(onChange).toHaveBeenLastCalledWith(0);
     });
 
+    it("is disabled with a reason, e.g. while a required counter is 0", async () => {
+        const onChange = vi.fn();
+        render(<CounterStepper label="To craft" value={0} onChange={onChange} disabledReason="Needs Acquired first" />);
+        expect(screen.getByLabelText("Increase To craft")).toBeDisabled();
+        expect(screen.getByLabelText("To craft")).toBeDisabled();
+        render(
+            <CounterStepper label="Done" value={0} max={1} onChange={onChange} disabledReason="Needs Acquired first" />
+        );
+        expect(screen.getByRole("checkbox", { name: "Done" })).toBeDisabled();
+    });
+
     it("is read-only without a change handler", () => {
         render(<CounterStepper label="Total" value={7} />);
         expect(screen.getByLabelText("Total")).toHaveTextContent("7");

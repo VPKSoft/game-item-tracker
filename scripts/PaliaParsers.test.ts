@@ -919,7 +919,7 @@ describe("tints", () => {
         expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Slate_Tint.png");
     });
 
-    it("builds materials sorted by name, item materials and an owned and a planned counter", () => {
+    it("builds materials sorted by name, item materials, Acquired and a planned counter that requires it", () => {
         const { template, imageUrls } = buildTintTemplate(parseTints(tintHtml), meta);
         expect(templateSchema.safeParse(template).success).toBe(true);
         expect(validateTemplate(template)).toEqual([]);
@@ -935,9 +935,10 @@ describe("tints", () => {
             ["classic-tint", { coral: 4, flint: 2 }, ""],
         ]);
         expect(template.items[0].tags).toEqual(["Ingredient: Flint", "Ingredient: Kilima Night Moth"]);
-        expect(template.counterDefs.map(c => [c.key, c.role])).toEqual([
-            ["inventory", "owned"],
-            ["to-craft", "planned"],
+        expect(template.counterDefs.map(c => [c.key, c.role, c.max, c.requires])).toEqual([
+            ["acquired", undefined, 1, undefined],
+            ["inventory", "owned", undefined, undefined],
+            ["to-craft", "planned", undefined, "acquired"],
         ]);
         expect(imageUrls.get("material:flint")).toBe("https://palia.wiki.gg/images/Flint.png");
         expect(imageUrls.get("slate-tint")).toBe("https://palia.wiki.gg/images/Slate_Tint.png");

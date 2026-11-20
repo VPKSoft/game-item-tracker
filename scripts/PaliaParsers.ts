@@ -1752,10 +1752,14 @@ const parseTints = (html: string, base = "https://palia.wiki.gg"): TintRow[] => 
     return rows;
 };
 
-/** The counters of the tints sample: tints in the inventory (owned) and how many to craft (planned). */
+/**
+ * The counters of the tints sample: whether the recipe is acquired (a checkbox), tints in the inventory (owned) and
+ * how many to craft (planned). To craft requires the recipe, so unlearned tints add nothing to the materials list.
+ */
 const tintCounters = (): CounterDef[] => [
-    { key: "inventory", label: "Inventory", kind: "manual", role: "owned", order: 0 },
-    { key: "to-craft", label: "To craft", kind: "manual", role: "planned", order: 1 },
+    { key: "acquired", label: "Acquired", kind: "manual", max: 1, order: 0 },
+    { key: "inventory", label: "Inventory", kind: "manual", role: "owned", order: 1 },
+    { key: "to-craft", label: "To craft", kind: "manual", role: "planned", requires: "acquired", order: 2 },
 ];
 
 /**

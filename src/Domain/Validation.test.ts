@@ -64,6 +64,26 @@ describe("validateTemplate", () => {
         }
     });
 
+    it("accepts requires another manual counter and rejects other requirements", () => {
+        const t = fishTemplate();
+        const inventory = t.counterDefs.find(c => c.key === "inventory");
+        const total = t.counterDefs.find(c => c.key === "total");
+        if (!inventory || !total) {
+            throw new Error("fixture changed");
+        }
+        inventory.requires = "tradeable";
+        expect(validateTemplate(t)).toEqual([]);
+        for (const key of ["total", "inventory", "nothing"]) {
+            inventory.requires = key;
+            expect(messages(t)).toContain(
+                `Counter "Inventory" requires "${key}", which is not another manual counter without a requirement of its own`
+            );
+        }
+        inventory.requires = undefined;
+        total.requires = "inventory";
+        expect(messages(t)).toContain('Computed counter "Total" cannot require another counter');
+    });
+
     it("rejects duplicate roles", () => {
         const t = fishTemplate();
         t.counterDefs[0].role = "owned";
