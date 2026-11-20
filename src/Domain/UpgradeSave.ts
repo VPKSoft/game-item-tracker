@@ -35,6 +35,19 @@ const hasUserData = (saveItem: SaveItem) =>
     (saveItem.obtained?.length ?? 0) > 0 ||
     Object.values(saveItem.counts).some(c => Object.values(c).some(v => v > 0));
 
+/**
+ * The gathered amounts after an upgrade: amounts of materials the new template no longer has are kept (hidden)
+ * unless `discardHidden` is set.
+ */
+const pruneGathered = (save: Save, newTemplate: Template, discardHidden?: boolean): Pick<Save, "gathered"> => {
+    if (!save.gathered || !discardHidden) {
+        return save.gathered ? { gathered: save.gathered } : {};
+    }
+    const ids = new Set((newTemplate.materials ?? []).map(m => m.id));
+    const gathered = Object.fromEntries(Object.entries(save.gathered).filter(([id]) => ids.has(id)));
+    return Object.keys(gathered).length > 0 ? { gathered } : {};
+};
+
 /** Counts the save items for which `test` is true. */
 const countItems = (save: Save, test: (saveItem: SaveItem) => boolean) => Object.values(save.items).filter(test).length;
 
@@ -161,9 +174,10 @@ const upgradeSave = (
         }
     }
 
+    const { gathered: _gathered, ...rest } = save;
     return {
         save: {
-            ...save,
+            ...rest,
             template: {
                 templateId: newTemplate.templateId,
                 version: newTemplate.version,
@@ -172,6 +186,7 @@ const upgradeSave = (
             },
             updatedAt: new Date().toISOString(),
             items,
+            ...pruneGathered(save, newTemplate, options.discardHidden),
         },
         summary,
     };

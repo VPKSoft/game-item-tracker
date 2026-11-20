@@ -35,6 +35,9 @@ const validationMessages = {
     profileComputedValue: 'Counter profile "{{profile}}" cannot give computed counter "{{counter}}" a value or maximum',
     categoryUnknownProfile: 'Category "{{category}}" refers to unknown counter profile "{{key}}"',
     itemUnknownProfile: 'Item "{{item}}" refers to unknown counter profile "{{key}}"',
+    duplicateMaterialId: 'Duplicate material id "{{id}}"',
+    materialMissingImage: 'Material "{{material}}" refers to a missing image',
+    itemUnknownMaterial: 'Item "{{item}}" needs unknown material "{{key}}"',
 } as const;
 
 /** The code of a validation message. */
@@ -130,7 +133,18 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
         }
     }
 
-    for (const role of ["owned", "target"] as const) {
+    const materials = template.materials ?? [];
+    const materialIds = new Set(materials.map(m => m.id));
+    for (const id of findDuplicates(materials.map(m => m.id))) {
+        issues.push(issue(`materials.${id}`, "duplicateMaterialId", { id }));
+    }
+    for (const material of materials) {
+        if (material.imageId !== undefined && !(material.imageId in template.images)) {
+            issues.push(issue(`materials.${material.id}`, "materialMissingImage", { material: material.name }));
+        }
+    }
+
+    for (const role of ["owned", "target", "planned"] as const) {
         const withRole = template.counterDefs.filter(c => c.role === role);
         if (withRole.length > 1) {
             issues.push(issue(`counterDefs.${withRole[1].key}`, "duplicateRole", { role }));
@@ -233,6 +247,11 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
         }
         if (item.counterProfile !== undefined && !profileKeys.has(item.counterProfile)) {
             issues.push(issue(path, "itemUnknownProfile", { item: item.name, key: item.counterProfile }));
+        }
+        for (const key of Object.keys(item.materials ?? {})) {
+            if (!materialIds.has(key)) {
+                issues.push(issue(path, "itemUnknownMaterial", { item: item.name, key }));
+            }
         }
     }
 

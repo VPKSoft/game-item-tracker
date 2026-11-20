@@ -66,10 +66,15 @@ const VirtualGridInner = <T,>({
         initialRect,
     });
 
-    // Re-measure when the column count changes, since row contents change.
+    // Re-measure when the column count changes, since row contents change. measure() resets every row to the
+    // estimate, and a mounted row is measured again only when its size changes, so the mounted rows are measured
+    // here; otherwise a narrower grid (e.g. next to the materials panel) keeps estimated heights and shows gaps.
     // biome-ignore lint/correctness/useExhaustiveDependencies: columns is the trigger, not a value used inside
     React.useEffect(() => {
         virtualizer.measure();
+        for (const row of scrollRef.current?.querySelectorAll<HTMLElement>(".VirtualGrid-row") ?? []) {
+            virtualizer.measureElement(row);
+        }
     }, [columns, virtualizer]);
 
     return (

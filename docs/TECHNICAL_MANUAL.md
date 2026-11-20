@@ -59,7 +59,7 @@ The app has two document types. Keeping them apart is the central design decisio
 | `format` field | `game-item-tracker/template` | `game-item-tracker/save` |
 | Schema | `src/Schemas/TemplateSchema.ts` | `src/Schemas/SaveSchema.ts` |
 
-A save references exactly one template version (`save.template.templateId` + `save.template.version`). It stores **only user data**: counter values, obtained marks, notes and tag differences. Names, descriptions, images, attributes and counter definitions are always looked up from the template by stable ids. This makes saves small and makes template upgrades possible without copying data.
+A save references exactly one template version (`save.template.templateId` + `save.template.version`). It stores **only user data**: counter values, obtained marks, notes, tag differences and gathered material amounts. Names, descriptions, images, attributes and counter definitions are always looked up from the template by stable ids. This makes saves small and makes template upgrades possible without copying data.
 
 Template building blocks:
 
@@ -68,9 +68,10 @@ Template building blocks:
 | Category | `Category` | Tree through optional `parentId`. Selecting a parent in the browser includes its children. |
 | Item | `TemplateItem` | Stable `id` (slug). Never reuse an id for a different item. |
 | Attribute | `AttributeDef` | Read-only numbers in saves (e.g. rarity 1–5), optional named `levels` with colors. |
-| Counter | `CounterDef` | `manual` (user edits) or `computed` (sum of manual counters). Optional role `owned` / `target`, optional `variants` limit, optional `max`. A `readOnly` manual counter takes its value from the item's `defaults` and is never stored in saves. A manual counter with `maxFrom` takes its maximum per item from a read-only counter. |
+| Counter | `CounterDef` | `manual` (user edits) or `computed` (sum of manual counters). Optional role `owned` / `target` / `planned`, optional `variants` limit, optional `max`. A `readOnly` manual counter takes its value from the item's `defaults` and is never stored in saves. A manual counter with `maxFrom` takes its maximum per item from a read-only counter. |
 | Counter profile | `CounterProfile` | Named set of per-counter overrides in `template.counterProfiles`: hide a counter, turn it off, fix its value or replace its maximum. Assigned to a category (`Category.counterProfile`, inherited by child categories) or an item (`TemplateItem.counterProfile`, wins). Section 5.1. |
 | Variant | `VariantDef` | Splits an item's amounts into rows, e.g. `normal` and `starred` fish. |
+| Material | `Material` | Something items are made from, in `template.materials`; `TemplateItem.materials` says how many of each one item needs. With a `planned` counter, saves get a materials list (section 5.9). |
 | Unique | `TemplateItem.unique` | `true` (whole item) or a list of variant keys. A unique variant has an obtained flag instead of counters. |
 | Tag | `string` | Vocabulary in `template.tags`, per item in `item.tags`. |
 | Image | `template.images` | `imageId → data URL`, deduplicated by content hash. |
@@ -96,6 +97,7 @@ src/
     Search.ts              Fuse.js index and query
     EffectiveTags.ts       Tag difference model (template tags − removed + custom)
     Exchange.ts            Exchange list entries, suggested amounts, image tiles and image layout
+    Materials.ts           Materials list: needed (planned × per item) and gathered amounts
     Ids.ts                 slugify, uniqueId, newUuid, bumpVersion, compareVersions
     TestFixtures.ts        Shared fixtures for tests
   Storage/
@@ -116,6 +118,7 @@ src/
     ItemCard.tsx           Item card and CounterRows (counter steppers / obtained checkbox)
     CounterStepper.tsx     "− [n] +" input; shift-click = ±10
     AttributeBadges.tsx, TagEditor.tsx, ImageDropZone.tsx, ImagePreviewDialog.tsx
+    MaterialList.tsx       The materials one item needs (read-only list)
     UseSearchIndex.ts      Rebuilds the Fuse index only when searchable text changes
   Views/                   Screens
     Library.tsx            Lists, import/export, create, delete
@@ -129,6 +132,8 @@ src/
     UpgradeDialog.tsx      Save upgrade preview
     OnlineTemplatesDialog.tsx  Online template list: install and update
     ExchangePanel.tsx      Exchange list side panel: entries, quick fill, image options, copy / save PNG
+    MaterialsPanel.tsx     Materials list side panel: needed / gathered per material
+    MaterialsEditor.tsx    Materials tab of the template editor
   Localization/
     I18n.ts                i18next setup, supported languages, stored language, setLanguage
     I18next.d.ts           Type augmentation: translation keys are checked by tsc
@@ -248,6 +253,7 @@ type Template = {
     attributeDefs: AttributeDef[];
     counterDefs: CounterDef[];
     variantDefs: VariantDef[];
+    materials?: Material[];      // what items are made from (section 5.9)
     tags: string[];              // tag vocabulary
     categories: Category[];
     items: TemplateItem[];
@@ -264,7 +270,7 @@ type CounterDef = {
     key: string; label: string;
     kind: "manual" | "computed";
     sumOf?: string[];            // computed only: keys of MANUAL counters
-    role?: "owned" | "target";   // at most one counter per role
+    role?: "owned" | "target" | "planned";   // at most one counter per role; planned = how many to make (5.9)
     variants?: string[];         // omitted = applies to all variants
     max?: number;                // manual only, integer >= 0; 1 shows a checkbox instead of a stepper
     readOnly?: true;             // manual only: value = item.defaults[key] ?? 0, not editable or stored in saves
@@ -273,6 +279,8 @@ type CounterDef = {
 };
 
 type VariantDef = { key: string; label: string; order: number };
+
+type Material = { id: string; name: string; imageId?: string; order: number };
 
 type CounterOverride = {
     use?: "hidden" | "off";      // hidden: in effect (value, role, progress) but not shown; off: not used (0, no role)
@@ -297,10 +305,11 @@ type TemplateItem = {
     unique?: true | string[];    // true = every variant unique; list = those variant keys
     deprecated?: boolean;        // removed from the game, kept for old saves
     counterProfile?: string;     // profile key; wins over the category's profile
+    materials?: Record<string, number>;  // material id -> amount one of this item needs (integer >= 1)
 };
 ```
 
-`Template` also has an optional `counterProfiles?: CounterProfile[]`. The profile fields are optional, so they were added without a `schemaVersion` bump.
+`Template` also has an optional `counterProfiles?: CounterProfile[]`. The profile and material fields are optional, so they were added without a `schemaVersion` bump.
 
 Keys and ids (`key`, `id`, `categoryId`, `parentId`, variant keys) must match `/^[a-z0-9][a-z0-9_-]*$/i`.
 
@@ -315,6 +324,7 @@ type Save = {
     template: { templateId: string; version: string; name: string; game: string };
     updatedAt: string;
     items: Record<string /* itemId */, SaveItem>;
+    gathered?: Record<string /* materialId */, number>;  // materials list: amounts gathered; omitted when empty
     bundle?: Template;           // optional embedded template ("Export with template")
 };
 
@@ -434,6 +444,7 @@ Storing the difference instead of a copy means tags added in a newer template ve
 | Orphaned item comes back | `orphan` cleared |
 | New item | `createSaveItem` |
 | New counter or variant | Its default filled in where no value exists |
+| Removed material | Its `gathered` amount kept (hidden) unless `discardHidden` |
 | Removed counter or variant | Values kept (hidden) unless `discardHidden`; `removedCounterData` / `removedVariantData` count the non-orphan items with values > 0 (or obtained marks) for each |
 | Different `templateId` | Throws |
 
@@ -452,6 +463,7 @@ All functions are immutable. Use them from the UI instead of editing nested obje
 - `deleteCounter` also cleans `sumOf`, item `defaults` and counter profile overrides
 - `upsertCounterProfile`, `setCounterOverride` (drops empty fields, and `value`/`max` of an *off* override), `deleteCounterProfile` (clears category and item references)
 - `deleteVariant` also cleans counter `variants`, item `variants`, `unique` lists and defaults
+- `upsertMaterial`, `deleteMaterial` (removes the material from item `materials`); `pruneImages` keeps material images
 - `deleteAttribute`, `renameTag` (merges on collision), `deleteTag`, `countTags`
 - `moveOrdered(list, index, ±1)` reorders and renumbers `order`
 - `newVersion(template, "major" | "minor" | "patch")` copies with a bumped version
@@ -459,7 +471,7 @@ All functions are immutable. Use them from the UI instead of editing nested obje
 
 ### 5.7 Validation (`Validation.ts`)
 
-Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max`, `maxFrom` or `readOnly`; manual counters have no `sumOf`, and a `maxFrom` refers to another read-only manual counter and is not combined with `max`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters; counter profile keys are unique, overrides refer to existing counters and give no `value` or `max` to computed counters, and category and item profile references exist.
+Zod checks shape. `validateTemplate(template): ValidationIssue[]` checks consistency: duplicate ids and keys; unknown or self parent categories; at most one counter per role; computed counters must sum ≥ 1 existing **manual** counter and have no `max`, `maxFrom` or `readOnly`; manual counters have no `sumOf`, and a `maxFrom` refers to another read-only manual counter and is not combined with `max`; counter, item and unique variant references exist; unique variants belong to the item; attribute `min ≤ max` and item values within range; item category and image references exist; defaults refer to manual counters; counter profile keys are unique, overrides refer to existing counters and give no `value` or `max` to computed counters, and category and item profile references exist; material ids are unique, material images exist and item `materials` refer to existing materials.
 
 The template editor shows issues in the *Details* tab and asks for confirmation before exporting an invalid template. The sample generator refuses to write templates with issues.
 
@@ -478,6 +490,17 @@ Sort keys: `name`, `relevance`, `missing`, `attr:<key>`, `counter:<key>` (summed
 Search (`Search.ts`): Fuse.js over `name` (weight 3), `tags` (2), `description` (1), `notes` (1); `threshold: 0.35`, `ignoreLocation: true`. `useSearchIndex` rebuilds the index only when searchable text changes, so counter edits don't re-index. The query is debounced by 150 ms in `ItemBrowser`.
 
 Performance target from the design: 10,000 items; search and sort within about 50 ms in Node (covered by a test in `Browse.test.ts`).
+
+### 5.9 Materials list (`Materials.ts`)
+
+Requested as a generic way to see what to gather for things the user wants to make (the Palia example: tints and their ingredients). The template lists the materials, each item says how many of each one needs, and the user sets a **planned** counter; the materials list in the save shows the totals and lets the user enter what they have gathered.
+
+- **Template**: `template.materials` (`{ id, name, imageId?, order }`) and `TemplateItem.materials` (material id → amount for one item). A counter with role `planned` (at most one, any kind) is how many of the item the user plans to make or get. Materials are separate from items on purpose: ingredients are often not tracked in the same template.
+- **Save**: `save.gathered` (material id → amount) is the only stored part. It is save-level, not per item, because one material serves many items.
+- `getMaterialNeeds(template, save)`: for each material in `order`, `needed = Σ over items of planned × item.materials[id]`, where planned is the `planned` counter summed over the item's variants (`getItemCounterTotal`; a counter profile that turns it off gives 0). Each need lists its `uses` (item, planned, amount per item). Materials neither needed nor gathered are left out; gathered ones stay listed so the user can clear them.
+- `isMaterialComplete` = gathered ≥ needed. `setGathered` rounds and clamps to ≥ 0 and removes zero entries (and the field when empty); `clearGathered` resets all.
+- `hasMaterialsList(template)`: the template has materials and a `planned` counter. Only then does `InventoryEditor` show the **Materials** toolbar button; its badge counts materials still short.
+- UI: `MaterialsPanel.tsx` is a side column like the exchange panel (the two are exclusive): per material the image, name, needed amount (tooltip: the items that need it), a *Gathered* stepper and a check mark when enough, or how many are missing. A summary with a progress bar, *Hide gathered* (remembered in localStorage as a UI preference) and *Clear gathered* (confirmed). The template editor has a **Materials** tab (`MaterialsEditor.tsx`: names, images in a modal, order, delete) and the item drawer a *Materials for one* list. `SaveItemDrawer` shows the item's materials (`MaterialList.tsx`).
 
 ## 6. Storage and persistence
 
@@ -557,9 +580,11 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
 | `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
 | `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle. |
+| `MaterialsPanel.tsx` | Materials list side panel (section 5.9): needed and gathered amounts per material, done marks, hide gathered, clear. |
+| `MaterialsEditor.tsx` | Template editor *Materials* tab: add, rename, image, reorder, delete materials. |
 | `ExchangePanel.tsx` | Exchange list side panel next to the grid (an `<aside>` in `InventoryEditor-body`, not an overlay drawer, so the grid reflows to fewer columns; stacked below the grid under 760 px): entries with amounts, quick fill, image options, preview, Copy image and Save PNG (section 9.1). |
 | `SaveItemDrawer.tsx` | Amounts, effective tags editor, notes (committed on blur). |
-| `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Details (metadata, version, validation issues). |
+| `TemplateEditor.tsx` | Tabs: Items, Categories, Counters, Variants, Attributes, Tags, Materials, Details (metadata, version, validation issues). |
 | `TemplateItemDrawer.tsx` | Edits a draft copy of an item; *Save* applies it with `upsertItem`. |
 | `ItemBrowser.tsx` | Shared toolbar and grid for both editors. Filters only when a save is given. |
 | `VirtualGrid.tsx` | Rows of N cards (N from container width and a minimum cell width); measures row heights because cards differ by variant count. |
@@ -613,7 +638,7 @@ The UI is translated with [i18next](https://www.i18next.com/) and `react-i18next
 npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 ```
 
-- `scripts/BuildPaliaTemplates.ts` (Node, `tsx`): fetches the rendered pages through the MediaWiki API (`/api.php?action=parse&page=Fish|Plushies|Potato_Pods|Bugs|Stickers|Bundles|Artifact_Bundles&prop=text&format=json&redirects=1`, plus one page per Maji Market, Zeki's Prize Wheel, guild store and Lucky Box item; the Prize Wheel items are listed with `action=query&list=categorymembers`). Page requests are spaced at least 500 ms apart, and a 429 or 5xx answer is retried after the `Retry-After` wait, because the wiki rate-limits long runs (a full build reads about 400 pages), downloads full-size images, converts them to 128 px WebP with `sharp` (`scripts/SampleImages.ts`: the color of fully transparent pixels is cleared first, because the wiki's CDN re-optimizes its PNGs now and then and changes only those hidden colors; without this, images that need no resizing got new bytes and image ids on every build), sorts the `images` entries by id before writing (`sortImages`; the parallel downloads finish in any order), validates with the Zod schema and `validateTemplate`, and writes `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json`, `palia-potato-pods.gitemplate.json`, `palia-bugs.gitemplate.json`, `palia-maji-market.gitemplate.json`, `palia-stickers.gitemplate.json`, `palia-zekis-prize-wheel.gitemplate.json`, `palia-guild-store-exclusives.gitemplate.json`, `palia-zekis-wondrous-machine.gitemplate.json`, `palia-bundles.gitemplate.json`, `palia-royal-highlands-artifacts-bundle.gitemplate.json` and `palia-elderwoods-artifacts-bundle.gitemplate.json`.
+- `scripts/BuildPaliaTemplates.ts` (Node, `tsx`): fetches the rendered pages through the MediaWiki API (`/api.php?action=parse&page=Fish|Plushies|Potato_Pods|Bugs|Stickers|Bundles|Artifact_Bundles|Tints&prop=text&format=json&redirects=1`, plus one page per Maji Market, Zeki's Prize Wheel, guild store and Lucky Box item; the Prize Wheel items are listed with `action=query&list=categorymembers`). Page requests are spaced at least 500 ms apart, and a 429 or 5xx answer is retried after the `Retry-After` wait, because the wiki rate-limits long runs (a full build reads about 400 pages), downloads full-size images, converts them to 128 px WebP with `sharp` (`scripts/SampleImages.ts`: the color of fully transparent pixels is cleared first, because the wiki's CDN re-optimizes its PNGs now and then and changes only those hidden colors; without this, images that need no resizing got new bytes and image ids on every build), sorts the `images` entries by id before writing (`sortImages`; the parallel downloads finish in any order), validates with the Zod schema and `validateTemplate`, and writes `palia-fish.gitemplate.json`, `palia-plushies.gitemplate.json`, `palia-potato-pods.gitemplate.json`, `palia-bugs.gitemplate.json`, `palia-maji-market.gitemplate.json`, `palia-stickers.gitemplate.json`, `palia-zekis-prize-wheel.gitemplate.json`, `palia-guild-store-exclusives.gitemplate.json`, `palia-zekis-wondrous-machine.gitemplate.json`, `palia-bundles.gitemplate.json`, `palia-royal-highlands-artifacts-bundle.gitemplate.json`, `palia-elderwoods-artifacts-bundle.gitemplate.json` and `palia-tints.gitemplate.json`.
 - Options: `--out <dir>` (default `../game-item-tracker-data/P/Palia`), `--version x.y.z` (default `1.0.0`), `--no-images`.
 - Template ids are fixed constants, so a regenerated template with a higher `--version` imports as an upgrade for existing saves.
 - **Always pass a higher `--version` than the one already in the template repository** when regenerating a template that has been published. The default `1.0.0` is only for the first build. Reusing a version number gives two different templates the same id and version, and saves are then not offered the upgrade.
@@ -629,6 +654,7 @@ npm run build-samples -- --out ../game-item-tracker-data/P/Palia --version 1.0.1
 - **Zeki's Wondrous Machine**: the machine gives a Lucky Box for a Lucky Coin, and the box holds the prize, so the items are the "Possible Rewards" of the *Lucky Box* page (`parseLuckyBoxRewards`: the `data-item` list entries under each level-3 heading of that section), read on each build; the box itself is not in the template. The data comes from each item page (`parseWikiItemPage`). Categories are the reward sections in page order (Decor, Equipment, Gatherable, Material, Product, Seed); the Maji Market counters; tags `Type: …` where the item has an infobox group; `Wondrous Machine` on every item; `Super Lucky Prize` when the *Super Lucky Prize* page's "Possible Rewards" lists the item (read with the same parser; the list has no headings) or the item's "Obtained From" names it, because the wiki keeps the two lists separately and neither is complete; and `Unique to Wondrous Machine` when the item's "Obtained From" lists only Zeki's Wondrous Machine and the item is not in the Super Lucky Prize (a Lunar Paths reward). The tag names are in `wondrousMachineTags`.
 - **Bundles**: the vault bundles of the *Bundles* page (`parseBundleTables`): each level-2 "Vault of …" heading is a vault and each level-3 "… Bundle" heading under it a bundle, with a table whose first header is "Items". A row's item box (`.template-itembox`) gives the name (caption), the image and the amount the bundle needs (`<p class="number">x20</p>`); the "How to Obtain" cell gives the sources (the large text, split at `+` and `&`, e.g. `Mining & Refining`) and the description (its paragraphs). The reward row has no item box, and the "Vault Reward" sections have no item table, so both are skipped. Categories: a parent per vault and a child per bundle, in page order. An item that two bundles ask for becomes two items (the second id gets the bundle name), because each bundle has its own amount. No variants or attributes; counters Placed (`maxFrom: "target"`, so at most the bundle amount, and a checkbox when it is 1), Total = Placed (owned) and a **read-only** Target (target), whose value is the bundle amount in `item.defaults.target`. Tags `Vault: …`, `Bundle: …`, `Source: …`. A bundle that needs a star quality item has an `<img alt="SQ.png">` icon in the item box: the item gets " ★" after its name and the tag `Quality: Star` (the item image is the box's other `img`). This is a marker, not a variant, so saves of earlier versions keep their counts; the item id still comes from the plain name.
 - **Royal Highlands and Elderwoods Artifacts Bundle** (two templates from one page): the *Artifact Bundles* page (`parseArtifactBundles`): each level-2 "… Artifacts" heading is a region, each level-3 heading a collection (e.g. *Eloine's Bundle*, *Ancient Artifact Collection*), and each table with an "Items" header one artifact whose rows are its pieces (item box with name and image, then the description). The artifact is named after its pieces with the piece number removed ("Halward's Glass 1" → "Halward's Glass"), because the wiki repeats some level-4 headings and mislabels a table id. The reward row has no item box and is skipped. The build script splits the rows by region into one template each. Categories: a parent per collection and a child per artifact, in page order. No variants or attributes; counters Placed (max 1, the piece placed in the bundle; owned, so the progress bar shows placed / target), Storage, Total = Storage and a read-only Target (target) of 1 for every item. Tag `Collection: …`.
+- **Tints**: the "List of Tints" table of the *Tints* page (`parseTints`, headers Image, Name, Ingredients, Colors). Each ingredient is a list entry whose item icon (`span.template-item[data-item]`) gives the name, its bold text the amount and its image the material image. One category; a **material** per ingredient, sorted by name so the materials list is easy to scan (the build script downloads material images under the keys `material:<id>`); each tint's ingredients become its `materials`. No variants or attributes; counters Inventory (owned) and To craft (**planned**), so a save's materials list shows the ingredients for the tints to craft. The description lists the tint's colors; tag `Ingredient: …`.
 - Generated data is CC BY-SA 4.0 (palia.wiki.gg; game assets © Singularity 6) and is **never committed**.
 
 ## 11. Testing
@@ -708,7 +734,7 @@ Code changes must keep these true. Most are enforced by `validateTemplate` or te
 1. A save stores only user data. Never copy template fields (names, images, counter definitions) into a save.
 2. Item ids, counter keys, variant keys and category ids are stable. Never reuse an id for a different thing; renaming changes only labels.
 3. Computed counters are not stored and sum only manual counters.
-4. At most one counter has role `owned` and one has role `target`.
+4. At most one counter has each role (`owned`, `target`, `planned`).
 5. Items without variants use variant key `"_"` in `counts` and `obtained`.
 6. A unique variant has no stored counts; its value comes from `obtained`.
 7. Domain functions are pure and immutable. State updates create new references (autosave depends on it).

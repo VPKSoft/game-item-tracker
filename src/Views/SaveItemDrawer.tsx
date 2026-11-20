@@ -3,6 +3,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { AttributeBadges } from "../Components/AttributeBadges.tsx";
 import { CounterRows } from "../Components/ItemCard.tsx";
+import { MaterialList } from "../Components/MaterialList.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
 import { hasUniqueVariants, hasVisibleCounters } from "../Domain/Counters.ts";
 import { getEffectiveTags, setEffectiveTags } from "../Domain/EffectiveTags.ts";
@@ -74,6 +75,14 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
                             onObtainedChange={onObtainedChange}
                             size="middle"
                         />
+                    )}
+                    {Object.keys(item.materials ?? {}).length > 0 && (
+                        <>
+                            <Divider titlePlacement="start" plain>
+                                {t("saveItem.materials")}
+                            </Divider>
+                            <MaterialList template={template} item={item} />
+                        </>
                     )}
                     <Divider titlePlacement="start" plain>
                         {t("common.tags")}

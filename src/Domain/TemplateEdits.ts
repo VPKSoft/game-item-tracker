@@ -1,4 +1,4 @@
-import type { CounterOverride, CounterProfile, Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
+import type { CounterOverride, CounterProfile, Material, Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 import { getCategoryProfileKey } from "./Counters.ts";
 import { bumpVersion } from "./Ids.ts";
 
@@ -33,9 +33,11 @@ const addImage = (template: Template, imageId: string, dataUrl: string): Templat
     images: { ...template.images, [imageId]: dataUrl },
 });
 
-/** Removes images that no item uses any more. */
+/** Removes images that no item or material uses any more. */
 const pruneImages = (template: Template): Template => {
-    const used = new Set(template.items.map(i => i.imageId).filter(Boolean));
+    const used = new Set(
+        [...template.items.map(i => i.imageId), ...(template.materials ?? []).map(m => m.imageId)].filter(Boolean)
+    );
     const unused = Object.keys(template.images).filter(id => !used.has(id));
     if (unused.length === 0) {
         return template;
@@ -89,6 +91,37 @@ const deleteCounter = (template: Template, key: string): Template =>
             return { ...i, defaults };
         }),
     });
+
+/** Replaces or adds a material (matched by id). Images no longer used are dropped. */
+const upsertMaterial = (template: Template, material: Material): Template => {
+    const materials = template.materials ?? [];
+    const exists = materials.some(m => m.id === material.id);
+    return pruneImages(
+        touch({
+            ...template,
+            materials: exists ? materials.map(m => (m.id === material.id ? material : m)) : [...materials, material],
+        })
+    );
+};
+
+/** Deletes a material and removes it from the items that need it. */
+const deleteMaterial = (template: Template, id: string): Template => {
+    const materials = (template.materials ?? []).filter(m => m.id !== id);
+    return pruneImages(
+        touch({
+            ...template,
+            materials: materials.length > 0 ? materials : undefined,
+            items: template.items.map(i => {
+                if (!i.materials || !(id in i.materials)) {
+                    return i;
+                }
+                const { [id]: _removed, ...rest } = i.materials;
+                const { materials: _old, ...item } = i;
+                return Object.keys(rest).length > 0 ? { ...item, materials: rest } : item;
+            }),
+        })
+    );
+};
 
 /** Deletes a variant and every reference to it. */
 const deleteVariant = (template: Template, key: string): Template =>
@@ -244,6 +277,7 @@ export {
     deleteCounter,
     deleteCounterProfile,
     deleteItem,
+    deleteMaterial,
     deleteTag,
     deleteVariant,
     moveOrdered,
@@ -254,4 +288,5 @@ export {
     touch,
     upsertCounterProfile,
     upsertItem,
+    upsertMaterial,
 };

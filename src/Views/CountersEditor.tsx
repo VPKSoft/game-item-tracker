@@ -183,6 +183,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                             options={[
                                 { value: "owned", label: t("counters.owned") },
                                 { value: "target", label: t("counters.target") },
+                                { value: "planned", label: t("counters.planned") },
                             ]}
                         />
                         {template.variantDefs.length > 0 && (

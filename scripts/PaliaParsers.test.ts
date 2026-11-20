@@ -13,6 +13,7 @@ import {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildTintTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     fullImageUrl,
@@ -28,6 +29,7 @@ import {
     parsePotatoPodTable,
     parseStickerTables,
     parseTimes,
+    parseTints,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -861,5 +863,84 @@ describe("Zeki's Wondrous Machine", () => {
         expect(template.items[0]).toMatchObject({ description: "A made-up prize.", attributes: { rarity: 3 } });
         expect(template.counterDefs.map(c => c.key)).toEqual(["inventory", "placed", "total", "target"]);
         expect(imageUrls.size).toBe(5);
+    });
+});
+
+/** One ingredient list entry of the Tints page: the item icon with the amount in bold, then the item link. */
+const tintIngredient = (name: string, amount: number) =>
+    `<li><span data-item="${name}" class="template-item"><i class="template-item-rel"><a href="/wiki/${name.replace(/ /g, "_")}"><img alt="${name}" src="/images/thumb/${name.replace(/ /g, "_")}.png/28px-${name.replace(/ /g, "_")}.png?a1"></a></i><b>${amount}</b></span> <a>${name}</a></li>`;
+
+const tintRow = (name: string, ingredients: [string, number][], colors: string[]) => `
+<tr>
+<td><img alt="${name}.png" src="/images/thumb/${name.replace(/ /g, "_")}.png/100px-${name.replace(/ /g, "_")}.png?b2"></td>
+<td><a href="/wiki/${name.replace(/ /g, "_")}"><span>${name}</span></a></td>
+<td><ul>${ingredients.map(([n, a]) => tintIngredient(n, a)).join("")}</ul></td>
+<td><style>.x{}</style>${colors.map(c => `<span class="template-hex"><span class="template-hex-color"></span><span>${c}</span></span><br>`).join("")}</td>
+</tr>`;
+
+const tintHtml = `
+<div class="mw-parser-output">
+<table class="paliatable sortable"><tbody>
+<tr><th>Image</th><th>Name</th><th>Ingredients</th><th>Colors</th></tr>
+${tintRow(
+    "Slate Tint",
+    [
+        ["Flint", 12],
+        ["Kilima Night Moth", 5],
+    ],
+    ["#969088", "#caad93"]
+)}
+${tintRow("Amaranth Tint", [["Elderwood Lotus", 3]], ["#8B5273"])}
+${tintRow(
+    "Classic Tint",
+    [
+        ["Coral", 4],
+        ["Flint", 2],
+    ],
+    []
+)}
+</tbody></table>
+<table class="paliatable"><tr><th>Name</th><th>Other</th></tr><tr><td>x</td><td>y</td></tr></table>
+</div>`;
+
+describe("tints", () => {
+    it("reads each tint's ingredients with amounts and images, and its colors", () => {
+        const rows = parseTints(tintHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => r.name)).toEqual(["Slate Tint", "Amaranth Tint", "Classic Tint"]);
+        expect(rows[0].ingredients).toEqual([
+            { name: "Flint", amount: 12, imageUrl: "https://palia.wiki.gg/images/Flint.png" },
+            {
+                name: "Kilima Night Moth",
+                amount: 5,
+                imageUrl: "https://palia.wiki.gg/images/Kilima_Night_Moth.png",
+            },
+        ]);
+        expect(rows[0].colors).toEqual(["#969088", "#CAAD93"]);
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Slate_Tint.png");
+    });
+
+    it("builds materials sorted by name, item materials and an owned and a planned counter", () => {
+        const { template, imageUrls } = buildTintTemplate(parseTints(tintHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.materials?.map(m => [m.id, m.name, m.order])).toEqual([
+            ["coral", "Coral", 0],
+            ["elderwood-lotus", "Elderwood Lotus", 1],
+            ["flint", "Flint", 2],
+            ["kilima-night-moth", "Kilima Night Moth", 3],
+        ]);
+        expect(template.items.map(i => [i.id, i.materials, i.description])).toEqual([
+            ["slate-tint", { flint: 12, "kilima-night-moth": 5 }, "Colors: #969088, #CAAD93"],
+            ["amaranth-tint", { "elderwood-lotus": 3 }, "Colors: #8B5273"],
+            ["classic-tint", { coral: 4, flint: 2 }, ""],
+        ]);
+        expect(template.items[0].tags).toEqual(["Ingredient: Flint", "Ingredient: Kilima Night Moth"]);
+        expect(template.counterDefs.map(c => [c.key, c.role])).toEqual([
+            ["inventory", "owned"],
+            ["to-craft", "planned"],
+        ]);
+        expect(imageUrls.get("material:flint")).toBe("https://palia.wiki.gg/images/Flint.png");
+        expect(imageUrls.get("slate-tint")).toBe("https://palia.wiki.gg/images/Slate_Tint.png");
+        expect(imageUrls.size).toBe(7);
     });
 });

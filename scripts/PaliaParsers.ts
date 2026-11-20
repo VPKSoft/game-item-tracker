@@ -1,6 +1,13 @@
 import { type HTMLElement, parse } from "node-html-parser";
 import { uniqueId } from "../src/Domain/Ids.ts";
-import type { Category, CounterDef, CounterProfile, Template, TemplateItem } from "../src/Schemas/TemplateSchema.ts";
+import type {
+    Category,
+    CounterDef,
+    CounterProfile,
+    Material,
+    Template,
+    TemplateItem,
+} from "../src/Schemas/TemplateSchema.ts";
 import { templateFormat, templateSchemaVersion } from "../src/Schemas/TemplateSchema.ts";
 
 /** The rarity names of Palia, mapped to the 1–5 attribute scale. */
@@ -1683,6 +1690,132 @@ const buildArtifactBundleTemplate = (rows: ArtifactRow[], meta: TemplateMeta) =>
     };
 };
 
+/** An ingredient of a tint: the item name, the amount one tint needs and its image. */
+type TintIngredient = ImageRef & {
+    name: string;
+    amount: number;
+};
+
+/** A tint on the Tints page. */
+type TintRow = ImageRef & {
+    name: string;
+    ingredients: TintIngredient[];
+    /** The hex colors the tint gives, e.g. "#3D3741". */
+    colors: string[];
+};
+
+/**
+ * Parses the "List of Tints" table of the Tints page (headers Image, Name, Ingredients, Colors). Each ingredient
+ * is a list entry with an item icon (`span.template-item[data-item]`) whose bold text is the amount.
+ */
+const parseTints = (html: string, base = "https://palia.wiki.gg"): TintRow[] => {
+    const root = parse(html);
+    const rows: TintRow[] = [];
+    for (const table of root.querySelectorAll("table")) {
+        const headers = headerTexts(table);
+        if (headers[1] !== "Name" || headers[2] !== "Ingredients") {
+            continue;
+        }
+        for (const tr of table.querySelectorAll("tr")) {
+            const cells = tr.querySelectorAll("td");
+            if (cells.length < 3) {
+                continue;
+            }
+            const name = cleanText(cells[1]);
+            if (!name || rows.some(r => r.name === name)) {
+                continue;
+            }
+            const ingredients: TintIngredient[] = [];
+            for (const li of cells[2].querySelectorAll("li")) {
+                const icon = li.querySelector(".template-item");
+                const ingredient = icon?.getAttribute("data-item")?.trim();
+                const amount = Number.parseInt(icon?.querySelector("b")?.text.trim() ?? "", 10);
+                if (ingredient && Number.isFinite(amount) && amount > 0) {
+                    ingredients.push({
+                        name: ingredient,
+                        amount,
+                        imageUrl: fullImageUrl(icon?.querySelector("img")?.getAttribute("src"), base),
+                    });
+                }
+            }
+            const colors = (cells[3]?.querySelectorAll(".template-hex > span") ?? [])
+                .map(span => span.text.trim().toUpperCase())
+                .filter(color => /^#[0-9A-F]{6}$/.test(color));
+            rows.push({
+                name,
+                ingredients,
+                colors,
+                imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    }
+    return rows;
+};
+
+/** The counters of the tints sample: tints in the inventory (owned) and how many to craft (planned). */
+const tintCounters = (): CounterDef[] => [
+    { key: "inventory", label: "Inventory", kind: "manual", role: "owned", order: 0 },
+    { key: "to-craft", label: "To craft", kind: "manual", role: "planned", order: 1 },
+];
+
+/**
+ * Builds the tints template: one category, a material per ingredient (sorted by name, so the materials list is
+ * easy to scan) and each tint's ingredients as its materials. Tag `Ingredient: …`; the description lists the
+ * colors. Images of materials are returned under the key `material:<id>`.
+ */
+const buildTintTemplate = (rows: TintRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const categories: Category[] = [{ id: "tints", name: "Tints", order: 0 }];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    const ingredientNames = [...new Set(rows.flatMap(r => r.ingredients.map(i => i.name)))].sort((a, b) =>
+        a.localeCompare(b)
+    );
+    const materials: Material[] = [];
+    for (const name of ingredientNames) {
+        const id = uniqueId(
+            name,
+            materials.map(m => m.id)
+        );
+        materials.push({ id, name, order: materials.length });
+        const imageUrl = rows.flatMap(r => r.ingredients).find(i => i.name === name && i.imageUrl)?.imageUrl;
+        if (imageUrl) {
+            imageUrls.set(`material:${id}`, imageUrl);
+        }
+    }
+    const materialId = (name: string) => materials.find(m => m.name === name)?.id ?? "";
+    for (const row of rows) {
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: "tints",
+            name: row.name,
+            description: row.colors.length > 0 ? `Colors: ${row.colors.join(", ")}` : "",
+            attributes: {},
+            tags: row.ingredients.map(i => `Ingredient: ${i.name}`),
+            materials: Object.fromEntries(row.ingredients.map(i => [materialId(i.name), i.amount])),
+        });
+    }
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: tintCounters(),
+            categories,
+            materials,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
 export type {
     ArtifactRow,
     BugRow,
@@ -1696,6 +1829,8 @@ export type {
     PotatoPodRow,
     StickerRow,
     TemplateMeta,
+    TintIngredient,
+    TintRow,
     WikiItem,
 };
 export {
@@ -1709,6 +1844,7 @@ export {
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildStickerTemplate,
+    buildTintTemplate,
     buildWondrousMachineTemplate,
     cleanText,
     findGuildLink,
@@ -1727,6 +1863,7 @@ export {
     parsePotatoPodTable,
     parseStickerTables,
     parseTimes,
+    parseTints,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 };

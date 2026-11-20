@@ -16,6 +16,7 @@ import { getTemplate, putTemplate } from "../Storage/Database.ts";
 import { useAutosave } from "../Storage/UseAutosave.ts";
 import type { BaseProps } from "../Types/BaseTypes.ts";
 import { CountersEditor } from "./CountersEditor.tsx";
+import { MaterialsEditor } from "./MaterialsEditor.tsx";
 import { AttributesEditor, CategoriesEditor, TagsVocabularyEditor, VariantsEditor } from "./StructureEditors.tsx";
 import { newItemDraft, TemplateItemDrawer } from "./TemplateItemDrawer.tsx";
 import { TemplatePicker } from "./TemplatePicker.tsx";
@@ -291,6 +292,11 @@ let TemplateEditor = ({ className, templateKey, onOpenTemplate, onOpenLibrary }:
                         key: "tags",
                         label: t("templateEditor.tabTags"),
                         children: <TagsVocabularyEditor template={template} onChange={change} />,
+                    },
+                    {
+                        key: "materials",
+                        label: t("templateEditor.tabMaterials"),
+                        children: <MaterialsEditor template={template} onChange={change} />,
                     },
                     {
                         key: "details",

@@ -35,6 +35,8 @@ const saveSchema = z.object({
     }),
     updatedAt: z.string(),
     items: z.record(z.string(), saveItemSchema),
+    /** Material id -> how many of that material the user has gathered (the materials list). */
+    gathered: z.record(z.string(), z.number().int().nonnegative()).optional(),
     /** An optional embedded template so a single file can be moved between devices. */
     bundle: templateSchema.optional(),
 });

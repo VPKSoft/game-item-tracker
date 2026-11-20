@@ -3,6 +3,7 @@ import type {
     CounterDef,
     CounterOverride,
     CounterProfile,
+    CounterRole,
     Template,
     TemplateItem,
     VariantDef,
@@ -104,7 +105,7 @@ const hasVisibleCounters = (template: Template, item: TemplateItem) =>
     getItemVariants(template, item).some(v => getVariantCounters(template, v.key, item).length > 0);
 
 /** Finds the counter that has the given role, if any. With the item, a counter turned off for it is not returned. */
-const findRoleCounter = (template: Template, role: "owned" | "target", item?: TemplateItem) => {
+const findRoleCounter = (template: Template, role: CounterRole, item?: TemplateItem) => {
     const def = template.counterDefs.find(c => c.role === role);
     return def && item && isCounterOff(template, def, item) ? undefined : def;
 };
