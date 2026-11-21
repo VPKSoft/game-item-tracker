@@ -12,6 +12,7 @@ import {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
     buildWondrousMachineTemplate,
@@ -27,6 +28,7 @@ import {
     parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseRecipePage,
     parseStickerTables,
     parseTimes,
     parseTints,
@@ -943,5 +945,87 @@ describe("tints", () => {
         expect(imageUrls.get("material:flint")).toBe("https://palia.wiki.gg/images/Flint.png");
         expect(imageUrls.get("slate-tint")).toBe("https://palia.wiki.gg/images/Slate_Tint.png");
         expect(imageUrls.size).toBe(7);
+    });
+});
+
+/** The infobox and quotes of a recipe page, with a flavor quote before the in-game description. */
+const recipePageHtml = (name: string, ingredients: string) => `
+<div class="mw-parser-output">
+<aside class="portable-infobox"><h2 class="pi-title">${name}</h2>
+<figure class="pi-image"><a><img src="/images/${name.replace(/ /g, "_")}.png?23a78d"></a></figure>
+<div class="pi-data" data-source="rarity"><h3>Rarity</h3><div class="pi-data-value">Rare</div></div>
+<div class="pi-data" data-source="crafter"><h3>Starting</h3><div class="pi-data-value"><center><a href="/wiki/Standard_Stove"><span>Standard Stove</span></a><br><img src="/images/thumb/Standard_Stove.png/40px-Standard_Stove.png"></center></div></div>
+<div class="pi-data" data-source="ingredients"><div class="pi-data-value"><ul>${ingredients}</ul></div></div>
+</aside>
+<table class="cquote"><tr><td class="cquote-quote">A family recipe.</td></tr><tr><td class="cquote-cite"><cite>–The Palia Diet</cite></td></tr></table>
+<table class="cquote"><tr><td class="cquote-quote">A basic fish stock.</td></tr><tr><td class="cquote-cite"><cite>–In-Game Item Description</cite></td></tr></table>
+</div>`;
+
+/** An ingredient whose `data-item` is a link target, as for "Any Fish". */
+const anyIngredient = (label: string, target: string, image: string, amount: number) =>
+    `<li><span data-item="${target}" class="template-item"><i class="template-item-rel"><a href="/wiki/${target}"><img alt="${label}" src="/images/thumb/${image}.png/28px-${image}.png?1"></a></i><b>${amount}</b></span> <a href="/wiki/${target}">${label}</a></li>`;
+
+describe("food recipes", () => {
+    it("reads the in-game description, rarity, station and ingredients of a recipe page", () => {
+        const row = parseRecipePage(
+            "Fish Stew",
+            recipePageHtml(
+                "Fish Stew",
+                anyIngredient("Any Fish", "Fish#list", "Any_Fish", 1) + tintIngredient("Wild Garlic", 2)
+            ),
+            "https://palia.wiki.gg"
+        );
+        expect(row).toEqual({
+            name: "Fish Stew",
+            description: "A basic fish stock.",
+            rarity: 3,
+            station: "Standard Stove",
+            ingredients: [
+                { name: "Any Fish", amount: 1, imageUrl: "https://palia.wiki.gg/images/Any_Fish.png" },
+                { name: "Wild Garlic", amount: 2, imageUrl: "https://palia.wiki.gg/images/Wild_Garlic.png" },
+            ],
+            imageUrl: "https://palia.wiki.gg/images/Fish_Stew.png",
+        });
+    });
+
+    it("builds the tints structure: one category, materials, rarity and the craft counters", () => {
+        const rows = [
+            parseRecipePage(
+                "Fish Stew",
+                recipePageHtml("Fish Stew", anyIngredient("Any Fish", "Fish#list", "Any_Fish", 1))
+            ),
+            parseRecipePage(
+                "Apple Pie",
+                recipePageHtml(
+                    "Apple Pie",
+                    tintIngredient("Apple", 3) + anyIngredient("Any Fish", "Fish#list", "Any_Fish", 2)
+                )
+            ),
+            parseRecipePage("Empty", recipePageHtml("Empty", "")),
+        ];
+        const { template, imageUrls } = buildRecipeTemplate(rows, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories).toEqual([{ id: "recipes", name: "Food Recipes", order: 0 }]);
+        expect(template.materials?.map(m => [m.id, m.name])).toEqual([
+            ["any-fish", "Any Fish"],
+            ["apple", "Apple"],
+        ]);
+        expect(template.items.map(i => [i.id, i.materials, i.attributes, i.tags])).toEqual([
+            [
+                "apple-pie",
+                { apple: 3, "any-fish": 2 },
+                { rarity: 3 },
+                ["Ingredient: Apple", "Ingredient: Any Fish", "Station: Standard Stove"],
+            ],
+            ["fish-stew", { "any-fish": 1 }, { rarity: 3 }, ["Ingredient: Any Fish", "Station: Standard Stove"]],
+        ]);
+        expect(template.counterDefs.map(c => [c.key, c.role, c.max, c.requires])).toEqual([
+            ["acquired", undefined, 1, undefined],
+            ["inventory", "owned", undefined, undefined],
+            ["to-craft", "planned", undefined, "acquired"],
+        ]);
+        expect(imageUrls.get("material:any-fish")).toBe("https://palia.wiki.gg/images/Any_Fish.png");
+        expect(imageUrls.size).toBe(4);
     });
 });

@@ -1690,8 +1690,8 @@ const buildArtifactBundleTemplate = (rows: ArtifactRow[], meta: TemplateMeta) =>
     };
 };
 
-/** An ingredient of a tint: the item name, the amount one tint needs and its image. */
-type TintIngredient = ImageRef & {
+/** An ingredient of a craftable item (a tint, a dish): the item name, the amount one needs and its image. */
+type CraftIngredient = ImageRef & {
     name: string;
     amount: number;
 };
@@ -1699,14 +1699,47 @@ type TintIngredient = ImageRef & {
 /** A tint on the Tints page. */
 type TintRow = ImageRef & {
     name: string;
-    ingredients: TintIngredient[];
+    ingredients: CraftIngredient[];
     /** The hex colors the tint gives, e.g. "#3D3741". */
     colors: string[];
 };
 
+/** A food recipe (a dish) from its own page. */
+type RecipeRow = ImageRef & {
+    name: string;
+    description: string;
+    rarity?: number;
+    /** The cooking station the dish is started at, e.g. "Standard Stove". */
+    station: string;
+    ingredients: CraftIngredient[];
+};
+
 /**
- * Parses the "List of Tints" table of the Tints page (headers Image, Name, Ingredients, Colors). Each ingredient
- * is a list entry with an item icon (`span.template-item[data-item]`) whose bold text is the amount.
+ * Parses an ingredient list: list entries with an item icon (`span.template-item`) whose bold text is the amount,
+ * followed by a link with the name. The link text is used because `data-item` can be a link target, e.g.
+ * "Fish#list" for "Any Fish".
+ */
+const parseIngredientList = (element: HTMLElement | null | undefined, base: string): CraftIngredient[] => {
+    const ingredients: CraftIngredient[] = [];
+    for (const li of element?.querySelectorAll("li") ?? []) {
+        const icon = li.querySelector(".template-item");
+        const link = li.childNodes.find(n => (n as HTMLElement).tagName === "A") as HTMLElement | undefined;
+        const name = link?.text.trim() || icon?.getAttribute("data-item")?.trim();
+        const amount = Number.parseInt(icon?.querySelector("b")?.text.trim() ?? "", 10);
+        if (name && Number.isFinite(amount) && amount > 0) {
+            ingredients.push({
+                name,
+                amount,
+                imageUrl: fullImageUrl(icon?.querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    }
+    return ingredients;
+};
+
+/**
+ * Parses the "List of Tints" table of the Tints page (headers Image, Name, Ingredients, Colors). The ingredients are
+ * an ingredient list (`parseIngredientList`).
  */
 const parseTints = (html: string, base = "https://palia.wiki.gg"): TintRow[] => {
     const root = parse(html);
@@ -1725,25 +1758,12 @@ const parseTints = (html: string, base = "https://palia.wiki.gg"): TintRow[] => 
             if (!name || rows.some(r => r.name === name)) {
                 continue;
             }
-            const ingredients: TintIngredient[] = [];
-            for (const li of cells[2].querySelectorAll("li")) {
-                const icon = li.querySelector(".template-item");
-                const ingredient = icon?.getAttribute("data-item")?.trim();
-                const amount = Number.parseInt(icon?.querySelector("b")?.text.trim() ?? "", 10);
-                if (ingredient && Number.isFinite(amount) && amount > 0) {
-                    ingredients.push({
-                        name: ingredient,
-                        amount,
-                        imageUrl: fullImageUrl(icon?.querySelector("img")?.getAttribute("src"), base),
-                    });
-                }
-            }
             const colors = (cells[3]?.querySelectorAll(".template-hex > span") ?? [])
                 .map(span => span.text.trim().toUpperCase())
                 .filter(color => /^#[0-9A-F]{6}$/.test(color));
             rows.push({
                 name,
-                ingredients,
+                ingredients: parseIngredientList(cells[2], base),
                 colors,
                 imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base),
             });
@@ -1753,41 +1773,74 @@ const parseTints = (html: string, base = "https://palia.wiki.gg"): TintRow[] => 
 };
 
 /**
- * The counters of the tints sample: whether the recipe is acquired (a checkbox), tints in the inventory (owned) and
- * how many to craft (planned). To craft requires the recipe, so unlearned tints add nothing to the materials list.
+ * Parses the page of a food recipe (a dish): name, rarity and image from the infobox (`parseWikiItemPage`), the
+ * quote cited as the in-game item description, the starting cooking station (`crafter`) and the ingredient list
+ * (`ingredients`).
  */
-const tintCounters = (): CounterDef[] => [
+const parseRecipePage = (name: string, html: string, base = "https://palia.wiki.gg"): RecipeRow => {
+    const item = parseWikiItemPage(name, html, base);
+    const root = parse(html);
+    const infobox = root.querySelector("aside.portable-infobox");
+    const field = (key: string) => infobox?.querySelector(`.pi-data[data-source="${key}"] .pi-data-value`);
+    // Some pages open with a flavor quote; the in-game description is the quote cited as such.
+    const inGame = root
+        .querySelectorAll(".cquote")
+        .find(q => q.querySelector(".cquote-cite")?.text.includes("In-Game Item Description"))
+        ?.querySelector(".cquote-quote");
+    return {
+        name: item.name,
+        description: inGame ? cleanText(inGame).replace(/\n/g, " ") : item.description,
+        rarity: item.rarity,
+        station: field("crafter")?.querySelector("a")?.text.trim() ?? "",
+        ingredients: parseIngredientList(field("ingredients"), base),
+        imageUrl: item.imageUrl,
+    };
+};
+
+/**
+ * The counters of the craftable samples (tints, food recipes): whether the recipe is acquired (a checkbox), items in
+ * the inventory (owned) and how many to craft (planned). To craft requires the recipe, so unlearned recipes add
+ * nothing to the materials list.
+ */
+const craftCounters = (): CounterDef[] => [
     { key: "acquired", label: "Acquired", kind: "manual", max: 1, order: 0 },
     { key: "inventory", label: "Inventory", kind: "manual", role: "owned", order: 1 },
     { key: "to-craft", label: "To craft", kind: "manual", role: "planned", requires: "acquired", order: 2 },
 ];
 
 /**
- * Builds the tints template: one category, a material per ingredient (sorted by name, so the materials list is
- * easy to scan) and each tint's ingredients as its materials. Tag `Ingredient: …`; the description lists the
- * colors. Images of materials are returned under the key `material:<id>`.
+ * Builds the materials of a craftable template: one per ingredient name, sorted by name so the materials list is easy
+ * to scan. Their images are returned under the key `material:<id>`.
  */
-const buildTintTemplate = (rows: TintRow[], meta: TemplateMeta) => {
-    const template = baseTemplate(meta);
-    const categories: Category[] = [{ id: "tints", name: "Tints", order: 0 }];
-    const items: TemplateItem[] = [];
-    const imageUrls = new Map<string, string>();
-    const ingredientNames = [...new Set(rows.flatMap(r => r.ingredients.map(i => i.name)))].sort((a, b) =>
-        a.localeCompare(b)
-    );
+const buildCraftMaterials = (rows: { ingredients: CraftIngredient[] }[]) => {
+    const all = rows.flatMap(r => r.ingredients);
+    const names = [...new Set(all.map(i => i.name))].sort((a, b) => a.localeCompare(b));
     const materials: Material[] = [];
-    for (const name of ingredientNames) {
+    const imageUrls = new Map<string, string>();
+    for (const name of names) {
         const id = uniqueId(
             name,
             materials.map(m => m.id)
         );
         materials.push({ id, name, order: materials.length });
-        const imageUrl = rows.flatMap(r => r.ingredients).find(i => i.name === name && i.imageUrl)?.imageUrl;
+        const imageUrl = all.find(i => i.name === name && i.imageUrl)?.imageUrl;
         if (imageUrl) {
             imageUrls.set(`material:${id}`, imageUrl);
         }
     }
-    const materialId = (name: string) => materials.find(m => m.name === name)?.id ?? "";
+    const toMaterials = (ingredients: CraftIngredient[]) =>
+        Object.fromEntries(ingredients.map(i => [materials.find(m => m.name === i.name)?.id ?? "", i.amount] as const));
+    return { materials, imageUrls, toMaterials };
+};
+
+/**
+ * Builds the tints template: one category, a material per ingredient and each tint's ingredients as its materials.
+ * Tag `Ingredient: …`; the description lists the colors.
+ */
+const buildTintTemplate = (rows: TintRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const { materials, imageUrls, toMaterials } = buildCraftMaterials(rows);
+    const items: TemplateItem[] = [];
     for (const row of rows) {
         const id = uniqueId(
             row.name,
@@ -1803,15 +1856,59 @@ const buildTintTemplate = (rows: TintRow[], meta: TemplateMeta) => {
             description: row.colors.length > 0 ? `Colors: ${row.colors.join(", ")}` : "",
             attributes: {},
             tags: row.ingredients.map(i => `Ingredient: ${i.name}`),
-            materials: Object.fromEntries(row.ingredients.map(i => [materialId(i.name), i.amount])),
+            materials: toMaterials(row.ingredients),
         });
     }
     return {
         template: {
             ...template,
             attributeDefs: [],
-            counterDefs: tintCounters(),
-            categories,
+            counterDefs: craftCounters(),
+            categories: [{ id: "tints", name: "Tints", order: 0 }],
+            materials,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
+/**
+ * Builds the food recipes template like the tints template: one category, a material per ingredient (generic ones
+ * such as "Any Fish" included) and the same counters. The description is the in-game text; attribute `rarity`;
+ * tags `Ingredient: …` and `Station: …`. Recipes without ingredients are left out.
+ */
+const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const recipes = rows.filter(r => r.ingredients.length > 0).sort((a, b) => a.name.localeCompare(b.name));
+    const { materials, imageUrls, toMaterials } = buildCraftMaterials(recipes);
+    const items: TemplateItem[] = [];
+    for (const row of recipes) {
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: "recipes",
+            name: row.name,
+            description: row.description,
+            attributes: row.rarity !== undefined ? { rarity: row.rarity } : {},
+            tags: [
+                ...row.ingredients.map(i => `Ingredient: ${i.name}`),
+                ...(row.station ? [`Station: ${row.station}`] : []),
+            ],
+            materials: toMaterials(row.ingredients),
+        });
+    }
+    return {
+        template: {
+            ...template,
+            counterDefs: craftCounters(),
+            categories: [{ id: "recipes", name: "Food Recipes", order: 0 }],
             materials,
             items,
             tags: collectTags(items),
@@ -1824,6 +1921,7 @@ export type {
     ArtifactRow,
     BugRow,
     BundleRow,
+    CraftIngredient,
     FishRow,
     GuildStore,
     GuildStoreEntry,
@@ -1831,9 +1929,9 @@ export type {
     LuckyBoxReward,
     PlushieRow,
     PotatoPodRow,
+    RecipeRow,
     StickerRow,
     TemplateMeta,
-    TintIngredient,
     TintRow,
     WikiItem,
 };
@@ -1847,6 +1945,7 @@ export {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
     buildWondrousMachineTemplate,
@@ -1865,6 +1964,7 @@ export {
     parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseRecipePage,
     parseStickerTables,
     parseTimes,
     parseTints,
