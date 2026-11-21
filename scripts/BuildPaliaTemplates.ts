@@ -22,6 +22,7 @@ import {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
     buildWondrousMachineTemplate,
@@ -35,6 +36,7 @@ import {
     parseLuckyBoxRewards,
     parsePlushieTables,
     parsePotatoPodTable,
+    parseRecipePage,
     parseStickerTables,
     parseTints,
     parseWeeklyChallengeSkills,
@@ -59,6 +61,7 @@ const bundleTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0a";
 const royalHighlandsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0b";
 const elderwoodsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0c";
 const tintTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0d";
+const recipeTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0e";
 
 const { values } = parseArgs({
     options: {
@@ -396,6 +399,29 @@ const main = async () => {
         await addImages(tints.template, tints.imageUrls);
     }
     await writeTemplate(tints.template);
+
+    const recipeNames = await fetchCategoryMembers("Recipes");
+    console.log(`Fetching ${recipeNames.length} food recipe pages…`);
+    const recipeRows = [];
+    for (const name of recipeNames) {
+        const row = parseRecipePage(name, await fetchPageHtml(name), wikiBase);
+        if (row.ingredients.length === 0) {
+            console.warn(`  ${name} has no ingredients; left out`);
+        }
+        recipeRows.push(row);
+    }
+    const recipes = buildRecipeTemplate(recipeRows, {
+        templateId: recipeTemplateId,
+        version: values.version,
+        name: "Palia – Food Recipes",
+        description:
+            "The food recipes of Palia and their ingredients. Tick Acquired for the recipes you know, set To craft on the dishes you want, and the Materials list shows the ingredients to gather.",
+        sourceUrl: `${wikiBase}/wiki/Category:Recipes`,
+    });
+    if (!values["no-images"]) {
+        await addImages(recipes.template, recipes.imageUrls);
+    }
+    await writeTemplate(recipes.template);
 };
 
 main().catch(error => {
