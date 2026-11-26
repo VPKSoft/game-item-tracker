@@ -19,13 +19,13 @@ import {
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
+    buildObtainableTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
-    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     isPaidWithMedals,
@@ -35,12 +35,12 @@ import {
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
+    parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
     parseRecipePage,
     parseStickerTables,
     parseTints,
-    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -65,6 +65,7 @@ const elderwoodsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0c";
 const tintTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0d";
 const recipeTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0e";
 const wallpaperTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0f";
+const flooringTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e10";
 
 const { values } = parseArgs({
     options: {
@@ -426,21 +427,37 @@ const main = async () => {
     }
     await writeTemplate(recipes.template);
 
-    console.log("Fetching Wallpaper…");
-    const wallpapers = buildWallpaperTemplate(parseWallpapers(await fetchPageHtml("Wallpaper"), wikiBase), {
-        templateId: wallpaperTemplateId,
-        version: values.version,
-        name: "Palia – Wallpapers",
-        description: "The wallpapers of Palia, by where they come from. Each wallpaper is obtained once.",
-        sourceUrl: `${wikiBase}/wiki/Wallpaper`,
-    });
-    if (wallpapers.template.items.length === 0) {
-        throw new Error("No wallpapers were found on the Wallpaper page");
+    // Decor that is obtained once and listed in a "How to Obtain" table: page, template id, name, description.
+    for (const [page, templateId, name, description] of [
+        [
+            "Wallpaper",
+            wallpaperTemplateId,
+            "Palia – Wallpapers",
+            "The wallpapers of Palia, by where they come from. Each wallpaper is obtained once.",
+        ],
+        [
+            "Flooring",
+            flooringTemplateId,
+            "Palia – Floors",
+            "The floors of Palia, by where they come from. Each floor is obtained once.",
+        ],
+    ]) {
+        console.log(`Fetching ${page}…`);
+        const built = buildObtainableTemplate(parseObtainableTable(await fetchPageHtml(page), wikiBase), {
+            templateId,
+            version: values.version,
+            name,
+            description,
+            sourceUrl: `${wikiBase}/wiki/${page}`,
+        });
+        if (built.template.items.length === 0) {
+            throw new Error(`No items were found on the ${page} page`);
+        }
+        if (!values["no-images"]) {
+            await addImages(built.template, built.imageUrls);
+        }
+        await writeTemplate(built.template);
     }
-    if (!values["no-images"]) {
-        await addImages(wallpapers.template, wallpapers.imageUrls);
-    }
-    await writeTemplate(wallpapers.template);
 };
 
 main().catch(error => {

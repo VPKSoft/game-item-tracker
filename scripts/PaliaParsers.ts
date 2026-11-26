@@ -1917,20 +1917,20 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
-/** A wallpaper on the Wallpaper page. */
-type WallpaperRow = ImageRef & {
+/** A decor item that is obtained once, from a "How to Obtain" table (the Wallpaper and Flooring pages). */
+type ObtainableRow = ImageRef & {
     name: string;
     /** The "How to Obtain" cell: places, shops or activities, each with its cost lines. */
     sources: ItemSource[];
 };
 
 /**
- * Parses the wallpaper table of the Wallpaper page (headers Image, Name, How to Obtain). The third cell has a line
+ * Parses the item table of the Wallpaper or Flooring page (headers Image, Name, How to Obtain). The third cell has a line
  * per source and indented "•" lines with its cost or giver (`parseItemSources`), or "Unavailable".
  */
-const parseWallpapers = (html: string, base = "https://palia.wiki.gg"): WallpaperRow[] => {
+const parseObtainableTable = (html: string, base = "https://palia.wiki.gg"): ObtainableRow[] => {
     const root = parse(html);
-    const rows: WallpaperRow[] = [];
+    const rows: ObtainableRow[] = [];
     for (const table of root.querySelectorAll("table")) {
         const headers = headerTexts(table);
         if (headers[0] !== "Image" || headers[1] !== "Name" || headers[2] !== "How to Obtain") {
@@ -1956,24 +1956,25 @@ const parseWallpapers = (html: string, base = "https://palia.wiki.gg"): Wallpape
 };
 
 /**
- * The category of a wallpaper source: the kind in trailing parentheses ("Paying Respects (Secret Puzzle)" →
+ * The category of a source: the kind in trailing parentheses ("Paying Respects (Secret Puzzle)" →
  * "Secret Puzzle"), the part before " - " ("Accomplishment - Estate Builder" → "Accomplishment"), or the source.
  * The skill guild stores ("Mining Guild", …) share one group, "Guild Stores".
  */
-const wallpaperSourceGroup = (source: string) => {
+const obtainSourceGroup = (source: string) => {
     const group = source.match(/\(([^)]+)\)$/)?.[1] ?? source.split(" - ")[0].trim();
     return /\bGuild$/.test(group) ? "Guild Stores" : group;
 };
 
 /**
- * Builds the wallpaper template: a category per kind of the first source (shops, Villager, Accomplishment, …), in
- * name order with "Unavailable" last; one counter, Obtained (max 1, a checkbox, no role: wallpaper is obtained once
+ * Builds a template of decor that is obtained once (wallpapers, floors): a category per kind of the first source
+ * (shops, Villager, Accomplishment, …), in name order with "Unavailable" last; one counter, Obtained (max 1, a
+ * checkbox, no role: such decor is obtained once
  * and cannot be traded). The description lists the sources with their costs; tag `Source: …` per source and
  * `Villager: …` for villager gifts.
  */
-const buildWallpaperTemplate = (rows: WallpaperRow[], meta: TemplateMeta) => {
+const buildObtainableTemplate = (rows: ObtainableRow[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
-    const groupOf = (row: WallpaperRow) => wallpaperSourceGroup(row.sources[0]?.source ?? "Unavailable");
+    const groupOf = (row: ObtainableRow) => obtainSourceGroup(row.sources[0]?.source ?? "Unavailable");
     const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
         a === "Unavailable" ? 1 : b === "Unavailable" ? -1 : a.localeCompare(b)
     );
@@ -2038,13 +2039,13 @@ export type {
     GuildStoreEntry,
     ItemSource,
     LuckyBoxReward,
+    ObtainableRow,
     PlushieRow,
     PotatoPodRow,
     RecipeRow,
     StickerRow,
     TemplateMeta,
     TintRow,
-    WallpaperRow,
     WikiItem,
 };
 export {
@@ -2054,13 +2055,13 @@ export {
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
+    buildObtainableTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
-    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     cleanText,
     findGuildLink,
@@ -2075,13 +2076,13 @@ export {
     parseGuildStoreItems,
     parseItemSources,
     parseLuckyBoxRewards,
+    parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
     parseRecipePage,
     parseStickerTables,
     parseTimes,
     parseTints,
-    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 };
