@@ -9,13 +9,13 @@ import {
     buildFishTemplate,
     buildGuildExclusivesTemplate,
     buildMajiMarketTemplate,
+    buildObtainableTemplate,
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
-    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     fullImageUrl,
@@ -27,13 +27,13 @@ import {
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
+    parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
     parseRecipePage,
     parseStickerTables,
     parseTimes,
     parseTints,
-    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -1057,9 +1057,9 @@ ${wallpaperRow("Jolly Holly Wallpaper", "<b>Unavailable</b>")}
 <table><tr><th>Points of Interest</th></tr><tr><td>x</td><td>y</td><td>z</td></tr></table>
 </div>`;
 
-describe("wallpapers", () => {
+describe("decor obtained once (wallpapers, floors)", () => {
     it("reads each wallpaper's sources with their costs or givers", () => {
-        const rows = parseWallpapers(wallpaperHtml, "https://palia.wiki.gg");
+        const rows = parseObtainableTable(wallpaperHtml, "https://palia.wiki.gg");
         expect(rows.map(r => r.name)).toEqual([
             "Marble Wainscotting",
             "Blushing Ruby Stucco Wall",
@@ -1074,7 +1074,7 @@ describe("wallpapers", () => {
     });
 
     it("groups by kind of source, Unavailable last, with one Obtained checkbox counter", () => {
-        const { template, imageUrls } = buildWallpaperTemplate(parseWallpapers(wallpaperHtml), meta);
+        const { template, imageUrls } = buildObtainableTemplate(parseObtainableTable(wallpaperHtml), meta);
         expect(templateSchema.safeParse(template).success).toBe(true);
         expect(validateTemplate(template)).toEqual([]);
         expect(template.categories.map(c => c.name)).toEqual([
