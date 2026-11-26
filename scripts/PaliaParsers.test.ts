@@ -15,6 +15,7 @@ import {
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
+    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     fullImageUrl,
@@ -32,6 +33,7 @@ import {
     parseStickerTables,
     parseTimes,
     parseTints,
+    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -1027,5 +1029,75 @@ describe("food recipes", () => {
         ]);
         expect(imageUrls.get("material:any-fish")).toBe("https://palia.wiki.gg/images/Any_Fish.png");
         expect(imageUrls.size).toBe(4);
+    });
+});
+
+/** A row of the Wallpaper page's table: image, name link and the "How to Obtain" cell. */
+const wallpaperRow = (name: string, obtain: string) => `
+<tr>
+<td><img alt="${name}.png" src="/images/thumb/${name.replace(/ /g, "_")}.png/65px-${name.replace(/ /g, "_")}.png?99f8d9"></td>
+<td><a href="/wiki/${name.replace(/ /g, "_")}"><span>${name}</span></a></td>
+<td>${obtain}</td>
+</tr>`;
+
+const goldCost = (amount: string) =>
+    `&#160;&#160;• <span class="template-cost template-cost-gold"><span><a href="/wiki/Gold" title="Gold"><img src="/images/thumb/Gold.png/28px-Gold.png"></a> <b>${amount}</b> <a href="/wiki/Gold" title="Gold">Gold</a></span></span><br />`;
+
+const wallpaperHtml = `
+<div class="mw-parser-output">
+<table class="paliatable sortable"><tbody>
+<tr><th>Image</th><th>Name</th><th>How to Obtain</th></tr>
+${wallpaperRow("Marble Wainscotting", `<a href="/wiki/Furniture_Store#MS">Material Store</a><br />${goldCost("2,500")}`)}
+${wallpaperRow("Blushing Ruby Stucco Wall", `<a href="/wiki/Villagers"><span>Villager</span></a><br />&#160;&#160;• <span><a href="/wiki/Eshe"><img alt="Eshe Profile.png" src="/images/thumb/Eshe_Profile.png/28px-Eshe_Profile.png"></a>&#160;<a href="/wiki/Eshe"><span>Eshe</span></a></span><br />`)}
+${wallpaperRow("Nautical Beadboard", `<a href="/wiki/Paying_Respects_(Secret_Puzzle)"><span>Paying Respects</span></a> (Secret Puzzle)<br />`)}
+${wallpaperRow("Furnace Parts Wallpaper", `<a href="/wiki/Mining_Guild">Mining Guild</a><br />&#160;&#160;• <b>220</b><br />`)}
+${wallpaperRow("Mauve Stucco Wall", `<a>Accomplishment - Estate Builder</a><br />`)}
+${wallpaperRow("Jolly Holly Wallpaper", "<b>Unavailable</b>")}
+</tbody></table>
+<table><tr><th>Points of Interest</th></tr><tr><td>x</td><td>y</td><td>z</td></tr></table>
+</div>`;
+
+describe("wallpapers", () => {
+    it("reads each wallpaper's sources with their costs or givers", () => {
+        const rows = parseWallpapers(wallpaperHtml, "https://palia.wiki.gg");
+        expect(rows.map(r => r.name)).toEqual([
+            "Marble Wainscotting",
+            "Blushing Ruby Stucco Wall",
+            "Nautical Beadboard",
+            "Furnace Parts Wallpaper",
+            "Mauve Stucco Wall",
+            "Jolly Holly Wallpaper",
+        ]);
+        expect(rows[0].sources).toEqual([{ source: "Material Store", costs: ["2,500 Gold"] }]);
+        expect(rows[1].sources).toEqual([{ source: "Villager", costs: ["Eshe"] }]);
+        expect(rows[0].imageUrl).toBe("https://palia.wiki.gg/images/Marble_Wainscotting.png");
+    });
+
+    it("groups by kind of source, Unavailable last, with one Obtained checkbox counter", () => {
+        const { template, imageUrls } = buildWallpaperTemplate(parseWallpapers(wallpaperHtml), meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => c.name)).toEqual([
+            "Accomplishment",
+            "Guild Stores",
+            "Material Store",
+            "Secret Puzzle",
+            "Villager",
+            "Unavailable",
+        ]);
+        expect(template.counterDefs).toEqual([
+            { key: "obtained", label: "Obtained", kind: "manual", max: 1, order: 0 },
+        ]);
+        const byId = (id: string) => template.items.find(i => i.id === id);
+        expect(byId("marble-wainscotting")).toMatchObject({
+            categoryId: "material-store",
+            description: "Material Store: 2,500 Gold",
+            tags: ["Source: Material Store"],
+        });
+        expect(byId("blushing-ruby-stucco-wall")?.tags).toEqual(["Source: Villager", "Villager: Eshe"]);
+        expect(byId("furnace-parts-wallpaper")?.categoryId).toBe("guild-stores");
+        expect(byId("nautical-beadboard")?.categoryId).toBe("secret-puzzle");
+        expect(byId("jolly-holly-wallpaper")).toMatchObject({ categoryId: "unavailable", description: "", tags: [] });
+        expect(imageUrls.size).toBe(6);
     });
 });
