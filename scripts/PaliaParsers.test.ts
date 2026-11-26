@@ -1057,7 +1057,7 @@ ${wallpaperRow("Jolly Holly Wallpaper", "<b>Unavailable</b>")}
 <table><tr><th>Points of Interest</th></tr><tr><td>x</td><td>y</td><td>z</td></tr></table>
 </div>`;
 
-describe("decor obtained once (wallpapers, floors)", () => {
+describe("decor obtained once (wallpapers, floors, roofing)", () => {
     it("reads each wallpaper's sources with their costs or givers", () => {
         const rows = parseObtainableTable(wallpaperHtml, "https://palia.wiki.gg");
         expect(rows.map(r => r.name)).toEqual([

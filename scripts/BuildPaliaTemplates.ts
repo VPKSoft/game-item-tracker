@@ -66,6 +66,7 @@ const tintTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0d";
 const recipeTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0e";
 const wallpaperTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0f";
 const flooringTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e10";
+const roofingTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e11";
 
 const { values } = parseArgs({
     options: {
@@ -440,6 +441,12 @@ const main = async () => {
             flooringTemplateId,
             "Palia – Floors",
             "The floors of Palia, by where they come from. Each floor is obtained once.",
+        ],
+        [
+            "Roofing",
+            roofingTemplateId,
+            "Palia – Roofing",
+            "The roofing of Palia (roofs, chimneys, ivy, …), by where it comes from. Each piece is obtained once.",
         ],
     ]) {
         console.log(`Fetching ${page}…`);
