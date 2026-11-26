@@ -1917,7 +1917,7 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
-/** A decor item that is obtained once, from a "How to Obtain" table (the Wallpaper and Flooring pages). */
+/** A decor item that is obtained once, from a "How to Obtain" table (the Wallpaper, Flooring and Roofing pages). */
 type ObtainableRow = ImageRef & {
     name: string;
     /** The "How to Obtain" cell: places, shops or activities, each with its cost lines. */
@@ -1925,7 +1925,7 @@ type ObtainableRow = ImageRef & {
 };
 
 /**
- * Parses the item table of the Wallpaper or Flooring page (headers Image, Name, How to Obtain). The third cell has a line
+ * Parses the item table of the Wallpaper, Flooring or Roofing page (headers Image, Name, How to Obtain). The third cell has a line
  * per source and indented "•" lines with its cost or giver (`parseItemSources`), or "Unavailable".
  */
 const parseObtainableTable = (html: string, base = "https://palia.wiki.gg"): ObtainableRow[] => {
@@ -1966,7 +1966,7 @@ const obtainSourceGroup = (source: string) => {
 };
 
 /**
- * Builds a template of decor that is obtained once (wallpapers, floors): a category per kind of the first source
+ * Builds a template of decor that is obtained once (wallpapers, floors, roofing): a category per kind of the first source
  * (shops, Villager, Accomplishment, …), in name order with "Unavailable" last; one counter, Obtained (max 1, a
  * checkbox, no role: such decor is obtained once
  * and cannot be traded). The description lists the sources with their costs; tag `Source: …` per source and
