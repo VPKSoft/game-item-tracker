@@ -25,6 +25,7 @@ import {
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
+    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     findGuildLink,
     isPaidWithMedals,
@@ -39,6 +40,7 @@ import {
     parseRecipePage,
     parseStickerTables,
     parseTints,
+    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 } from "./PaliaParsers.ts";
@@ -62,6 +64,7 @@ const royalHighlandsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0b"
 const elderwoodsArtifactsTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0c";
 const tintTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0d";
 const recipeTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0e";
+const wallpaperTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0f";
 
 const { values } = parseArgs({
     options: {
@@ -422,6 +425,22 @@ const main = async () => {
         await addImages(recipes.template, recipes.imageUrls);
     }
     await writeTemplate(recipes.template);
+
+    console.log("Fetching Wallpaper…");
+    const wallpapers = buildWallpaperTemplate(parseWallpapers(await fetchPageHtml("Wallpaper"), wikiBase), {
+        templateId: wallpaperTemplateId,
+        version: values.version,
+        name: "Palia – Wallpapers",
+        description: "The wallpapers of Palia, by where they come from. Each wallpaper is obtained once.",
+        sourceUrl: `${wikiBase}/wiki/Wallpaper`,
+    });
+    if (wallpapers.template.items.length === 0) {
+        throw new Error("No wallpapers were found on the Wallpaper page");
+    }
+    if (!values["no-images"]) {
+        await addImages(wallpapers.template, wallpapers.imageUrls);
+    }
+    await writeTemplate(wallpapers.template);
 };
 
 main().catch(error => {

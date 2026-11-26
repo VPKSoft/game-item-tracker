@@ -1917,6 +1917,117 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
+/** A wallpaper on the Wallpaper page. */
+type WallpaperRow = ImageRef & {
+    name: string;
+    /** The "How to Obtain" cell: places, shops or activities, each with its cost lines. */
+    sources: ItemSource[];
+};
+
+/**
+ * Parses the wallpaper table of the Wallpaper page (headers Image, Name, How to Obtain). The third cell has a line
+ * per source and indented "•" lines with its cost or giver (`parseItemSources`), or "Unavailable".
+ */
+const parseWallpapers = (html: string, base = "https://palia.wiki.gg"): WallpaperRow[] => {
+    const root = parse(html);
+    const rows: WallpaperRow[] = [];
+    for (const table of root.querySelectorAll("table")) {
+        const headers = headerTexts(table);
+        if (headers[0] !== "Image" || headers[1] !== "Name" || headers[2] !== "How to Obtain") {
+            continue;
+        }
+        for (const tr of table.querySelectorAll("tr")) {
+            const cells = tr.querySelectorAll("td");
+            if (cells.length < 3) {
+                continue;
+            }
+            const name = cleanText(cells[1]);
+            if (!name || rows.some(r => r.name === name)) {
+                continue;
+            }
+            rows.push({
+                name,
+                sources: parseItemSources(cells[2]),
+                imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base),
+            });
+        }
+    }
+    return rows;
+};
+
+/**
+ * The category of a wallpaper source: the kind in trailing parentheses ("Paying Respects (Secret Puzzle)" →
+ * "Secret Puzzle"), the part before " - " ("Accomplishment - Estate Builder" → "Accomplishment"), or the source.
+ * The skill guild stores ("Mining Guild", …) share one group, "Guild Stores".
+ */
+const wallpaperSourceGroup = (source: string) => {
+    const group = source.match(/\(([^)]+)\)$/)?.[1] ?? source.split(" - ")[0].trim();
+    return /\bGuild$/.test(group) ? "Guild Stores" : group;
+};
+
+/**
+ * Builds the wallpaper template: a category per kind of the first source (shops, Villager, Accomplishment, …), in
+ * name order with "Unavailable" last; one counter, Obtained (max 1, a checkbox, no role: wallpaper is obtained once
+ * and cannot be traded). The description lists the sources with their costs; tag `Source: …` per source and
+ * `Villager: …` for villager gifts.
+ */
+const buildWallpaperTemplate = (rows: WallpaperRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const groupOf = (row: WallpaperRow) => wallpaperSourceGroup(row.sources[0]?.source ?? "Unavailable");
+    const groups = [...new Set(rows.map(groupOf))].sort((a, b) =>
+        a === "Unavailable" ? 1 : b === "Unavailable" ? -1 : a.localeCompare(b)
+    );
+    const categories: Category[] = [];
+    for (const group of groups) {
+        categories.push({
+            id: uniqueId(
+                group,
+                categories.map(c => c.id)
+            ),
+            name: group,
+            order: categories.length,
+        });
+    }
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const row of [...rows].sort((a, b) => a.name.localeCompare(b.name))) {
+        const id = uniqueId(
+            row.name,
+            items.map(i => i.id)
+        );
+        if (row.imageUrl) {
+            imageUrls.set(id, row.imageUrl);
+        }
+        const sources = row.sources.filter(s => s.source !== "Unavailable");
+        items.push({
+            id,
+            categoryId: categories.find(c => c.name === groupOf(row))?.id ?? categories[0].id,
+            name: row.name,
+            description: sources
+                .map(s => (s.costs.length > 0 ? `${s.source}: ${s.costs.join(", ")}` : s.source))
+                .join("\n"),
+            attributes: {},
+            tags: [
+                ...new Set([
+                    ...sources.map(s => `Source: ${s.source}`),
+                    ...sources.filter(s => s.source === "Villager").flatMap(s => s.costs.map(c => `Villager: ${c}`)),
+                ]),
+            ],
+        });
+    }
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: [{ key: "obtained", label: "Obtained", kind: "manual", max: 1, order: 0 }] as CounterDef[],
+            categories,
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
 export type {
     ArtifactRow,
     BugRow,
@@ -1933,6 +2044,7 @@ export type {
     StickerRow,
     TemplateMeta,
     TintRow,
+    WallpaperRow,
     WikiItem,
 };
 export {
@@ -1948,6 +2060,7 @@ export {
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
+    buildWallpaperTemplate,
     buildWondrousMachineTemplate,
     cleanText,
     findGuildLink,
@@ -1968,6 +2081,7 @@ export {
     parseStickerTables,
     parseTimes,
     parseTints,
+    parseWallpapers,
     parseWeeklyChallengeSkills,
     parseWikiItemPage,
 };
