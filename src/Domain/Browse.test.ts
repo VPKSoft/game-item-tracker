@@ -82,6 +82,7 @@ describe("browseItems", () => {
         save.items.koi = { ...setCounterValue(t, save.items.koi, "normal", "tradeable", 1), notes: "hi" };
         const browse = (filters: object) => ids(browseItems(t, save, { sort: "name", direction: "asc", filters }));
         expect(browse({ counterAboveZero: "tradeable" })).toEqual(["koi"]);
+        expect(browse({ counterZero: "tradeable" })).toEqual(["eel", "bass"]);
         expect(browse({ withNotes: true })).toEqual(["koi"]);
         expect(browse({ tags: ["river"] })).toEqual(["eel", "koi"]);
         expect(browse({ tags: ["river", "worm"] })).toEqual(["koi"]);

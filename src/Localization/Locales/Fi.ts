@@ -473,6 +473,7 @@ const fi: Translation = {
         onlyMissing: "Vain puuttuvat",
         onlyWithNotes: "Vain muistiinpanolliset",
         counterAboveZero: "Laskuri yli nollan",
+        counterZero: "Laskuri nolla",
         hasTags: "Sisältää tunnisteet",
         clearFilters: "Tyhjennä suodattimet",
         searchPlaceholder: "Hae nimistä, tunnisteista, kuvauksista ja muistiinpanoista",

@@ -273,6 +273,7 @@ The funnel button opens the filters. A badge shows how many are active.
 - **Only missing**: items where owned is below target.
 - **Only with notes**: items that have notes.
 - **Counter above zero**: e.g. *Tradeable > 0* to see what you can trade or give away.
+- **Counter at zero**: e.g. *Inventory = 0* to see what you have none of.
 - **Has tags**: items that have the chosen tags.
 - **Clear filters** resets all of them.
 
@@ -300,7 +301,7 @@ For an item that is unique as a whole, the checkbox is just labeled **Obtained**
 How unique variants count:
 
 - In the **progress bar**, the **Missing** sort and the **Only missing** filter, a unique variant counts as target 1 and owned 1 when obtained (0 when not).
-- For counter sorts and the *Counter above zero* filter, the owned counter (e.g. *Total*) is 1 when obtained and the target counter is 1. Other counters, such as *Inventory* or *Tradeable*, are 0 for a unique variant.
+- For counter sorts and the *Counter above zero* and *Counter at zero* filters, the owned counter (e.g. *Total*) is 1 when obtained and the target counter is 1. Other counters, such as *Inventory* or *Tradeable*, are 0 for a unique variant.
 - The obtained state is stored in the save, so it is kept in exports and template upgrades.
 
 ### 7.2 In a template

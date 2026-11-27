@@ -394,7 +394,7 @@ Save item:
 | `findRoleCounter(template, role, item?)` | The counter with role `owned` or `target`; with the item, `undefined` when its profile turns that counter off. |
 | `getCounterValue(template, saveItem, variant, counter, item?)` | Manual: stored value or 0. Read-only manual (needs `item`): `item.defaults[key]` or 0, whatever the save holds. Computed: sum of its `sumOf` manual counters that apply to the variant. Unique variant (needs `item`): owned-role counter = 1 if obtained else 0, target-role counter = 1, all others 0. Counter profile (needs `item`): an *off* counter is 0 (and is left out of sums), a fixed `value` wins over everything else, and a stored value is capped at the profile's `max`. Pass the item wherever it is known. |
 | `isRequirementUnmet(template, def, saveItem, variant, item?)` | The counter `requires` another counter that is 0 for the variant (or does not apply to it, or is turned off for the item). The counter then counts as 0 and is locked; a stored value is kept and counts again once the requirement is met. Not recursive: the required counter cannot have a requirement of its own. |
-| `getItemCounterTotal(...)` | `getCounterValue` summed over the item's variants. Used by counter sorts and the *counter above zero* filter. For an `acrossVariants` counter this is its value (`getCounterValue` gives each variant's share). |
+| `getItemCounterTotal(...)` | `getCounterValue` summed over the item's variants. Used by counter sorts and the *counter above zero* and *counter at zero* filters. For an `acrossVariants` counter this is its value (`getCounterValue` gives each variant's share). |
 | `isAcrossVariants(def)` | A computed counter with `acrossVariants`. `getVariantCounters` leaves it out of the variant rows (except for templates without variants, where it is an ordinary row counter), and the per-variant sort options (`counter:<key>@<variant>`) skip it. |
 | `getItemCounters(template, item)` | The `acrossVariants` counters an item shows once, below its variant rows (`CounterRows` in `ItemCard.tsx`); empty for templates without variants. |
 | `getMissing(template, item, saveItem)` | Σ over variants of `max(0, target − owned)`; `undefined` if either role is missing or turned off for the item. |
@@ -494,7 +494,7 @@ The template editor shows issues in the *Details* tab and asks for confirmation 
 1. Category filter (with descendants, `getCategoryWithChildren`).
 2. Search filter (`searchRanks` map from Fuse).
 3. In saves, deprecated items without save data are hidden. Items the user hid (`SaveItem.hidden`) are left out, unless `categoryId` is `hiddenCategoryId`, which shows only them (section 5.11).
-4. Filters (saves only): `missingOnly`, `counterAboveZero`, `withNotes`, `tags` (all required).
+4. Filters (saves only): `missingOnly`, `counterAboveZero`, `counterZero`, `withNotes`, `tags` (all required).
 5. Sort, then a stable tie-breaker (name, then id). Items without a sort value always go last. `relevance` ignores the direction.
 
 Sort keys: `name`, `relevance`, `missing`, `attr:<key>`, `counter:<key>` (summed over variants), `counter:<key>@<variant>`. `getSortOptions` lists those that apply.
