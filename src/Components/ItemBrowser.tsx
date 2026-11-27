@@ -40,15 +40,20 @@ type BrowserState = {
 
 const defaultState: BrowserState = { categoryId: null, sort: "name", direction: "asc", filters: {} };
 
-const loadState = (key: string | undefined): BrowserState => {
+/**
+ * Loads the remembered selection. Without one (the first time a save or template is opened, or without a key), the
+ * template's default category is selected.
+ */
+const loadState = (key: string | undefined, defaultCategoryId: string | undefined): BrowserState => {
+    const initial = { ...defaultState, categoryId: defaultCategoryId ?? null };
     if (!key) {
-        return defaultState;
+        return initial;
     }
     try {
         const raw = localStorage.getItem(key);
-        return raw ? { ...defaultState, ...JSON.parse(raw) } : defaultState;
+        return raw ? { ...defaultState, ...JSON.parse(raw) } : initial;
     } catch {
-        return defaultState;
+        return initial;
     }
 };
 
@@ -72,7 +77,7 @@ const countActiveFilters = (filters: BrowseFilters) =>
  * sorting, filters and a virtualized, scrollable card grid.
  */
 let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateKey, onItemsChange }: Props) => {
-    const [state, setState] = React.useState<BrowserState>(() => loadState(stateKey));
+    const [state, setState] = React.useState<BrowserState>(() => loadState(stateKey, template.defaultCategoryId));
     const [query, setQuery] = React.useState("");
     const debouncedQuery = useDebounced(query, 150);
     const index = useSearchIndex(template, save);

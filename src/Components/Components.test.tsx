@@ -148,6 +148,15 @@ describe("ItemBrowser", () => {
         expect(screen.getByText("1 / 3")).toBeInTheDocument();
     });
 
+    it("opens on the template's default category until the user chooses another", async () => {
+        const t: Template = { ...fishTemplate(), defaultCategoryId: "rivers" };
+        const { unmount } = render(<SaveHarness template={t} initial={createSave(t, "s")} />);
+        // Rivers includes its child category Upper rivers.
+        expect(visibleCards()).toEqual(["eel", "koi"]);
+        expect(screen.getByText("2 / 3")).toBeInTheDocument();
+        unmount();
+    });
+
     it("shows a counter row per variant and only the variant's counters", () => {
         const t = fishTemplate();
         render(<SaveHarness template={t} initial={createSave(t, "s")} />);

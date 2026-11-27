@@ -23,6 +23,7 @@ import {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeItemTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
@@ -67,6 +68,7 @@ const recipeTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0e";
 const wallpaperTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e0f";
 const flooringTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e10";
 const roofingTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e11";
+const recipeItemTemplateId = "5b0e6a59-3a43-4c2a-9a0f-6f1a4c1f7e12";
 
 const { values } = parseArgs({
     options: {
@@ -427,6 +429,20 @@ const main = async () => {
         await addImages(recipes.template, recipes.imageUrls);
     }
     await writeTemplate(recipes.template);
+
+    console.log("Building the food recipe items…");
+    const recipeItems = buildRecipeItemTemplate(recipeRows, {
+        templateId: recipeItemTemplateId,
+        version: values.version,
+        name: "Palia – Food Recipe Items",
+        description:
+            "The ingredients of the food recipes of Palia. Common ones are needed by several recipes, special ones by a single recipe.",
+        sourceUrl: `${wikiBase}/wiki/Category:Recipes`,
+    });
+    if (!values["no-images"]) {
+        await addImages(recipeItems.template, recipeItems.imageUrls);
+    }
+    await writeTemplate(recipeItems.template);
 
     // Decor that is obtained once and listed in a "How to Obtain" table: page, template id, name, description.
     for (const [page, templateId, name, description] of [

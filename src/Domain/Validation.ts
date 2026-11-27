@@ -38,6 +38,7 @@ const validationMessages = {
     profileComputedValue: 'Counter profile "{{profile}}" cannot give computed counter "{{counter}}" a value or maximum',
     categoryUnknownProfile: 'Category "{{category}}" refers to unknown counter profile "{{key}}"',
     itemUnknownProfile: 'Item "{{item}}" refers to unknown counter profile "{{key}}"',
+    unknownDefaultCategory: 'The default category "{{id}}" does not exist',
     duplicateMaterialId: 'Duplicate material id "{{id}}"',
     materialMissingImage: 'Material "{{material}}" refers to a missing image',
     itemUnknownMaterial: 'Item "{{item}}" needs unknown material "{{key}}"',
@@ -103,6 +104,10 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
                 issues.push(issue(`categories.${category.id}`, "ownParentCategory"));
             }
         }
+    }
+
+    if (template.defaultCategoryId !== undefined && !categoryIds.has(template.defaultCategoryId)) {
+        issues.push(issue("defaultCategoryId", "unknownDefaultCategory", { id: template.defaultCategoryId }));
     }
 
     const variantKeys = new Set(template.variantDefs.map(v => v.key));

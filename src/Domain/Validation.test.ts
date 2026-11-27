@@ -84,6 +84,12 @@ describe("validateTemplate", () => {
         expect(messages(t)).toContain('Computed counter "Total" cannot require another counter');
     });
 
+    it("accepts an existing default category and rejects an unknown one", () => {
+        const t = { ...fishTemplate(), defaultCategoryId: "rivers" };
+        expect(validateTemplate(t)).toEqual([]);
+        expect(messages({ ...t, defaultCategoryId: "lakes" })).toContain('The default category "lakes" does not exist');
+    });
+
     it("rejects duplicate roles", () => {
         const t = fishTemplate();
         t.counterDefs[0].role = "owned";

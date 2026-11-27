@@ -51,13 +51,15 @@ const pruneImages = (template: Template): Template => {
 
 /**
  * Deletes a category, moving its items to another category. Its child categories become top-level categories and
- * keep the counter profile they inherited from it.
+ * keep the counter profile they inherited from it. A default category that is deleted is cleared.
  */
 const deleteCategory = (template: Template, categoryId: string, moveTo: string): Template => {
     const deleted = template.categories.find(c => c.id === categoryId);
     const inherited = deleted ? getCategoryProfileKey(template, deleted.id) : undefined;
+    const { defaultCategoryId, ...rest } = template;
     return touch({
-        ...template,
+        ...rest,
+        ...(defaultCategoryId !== undefined && defaultCategoryId !== categoryId ? { defaultCategoryId } : {}),
         categories: template.categories
             .filter(c => c.id !== categoryId)
             .map(c =>

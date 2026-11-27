@@ -13,6 +13,7 @@ import {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeItemTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,
@@ -1099,5 +1100,38 @@ describe("decor obtained once (wallpapers, floors, roofing)", () => {
         expect(byId("nautical-beadboard")?.categoryId).toBe("secret-puzzle");
         expect(byId("jolly-holly-wallpaper")).toMatchObject({ categoryId: "unavailable", description: "", tags: [] });
         expect(imageUrls.size).toBe(6);
+    });
+});
+
+describe("food recipe items", () => {
+    it("makes an item per distinct ingredient, Special when only one recipe needs it, Common by default", () => {
+        const rows = [
+            parseRecipePage(
+                "Fish Stew",
+                recipePageHtml("Fish Stew", anyIngredient("Any Fish", "Fish#list", "Any_Fish", 1))
+            ),
+            parseRecipePage(
+                "Apple Pie",
+                recipePageHtml(
+                    "Apple Pie",
+                    tintIngredient("Apple", 3) + anyIngredient("Any Fish", "Fish#list", "Any_Fish", 2)
+                )
+            ),
+            parseRecipePage("Empty", recipePageHtml("Empty", "")),
+        ];
+        const { template, imageUrls } = buildRecipeItemTemplate(rows, meta);
+        expect(templateSchema.safeParse(template).success).toBe(true);
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.categories.map(c => [c.id, c.name])).toEqual([
+            ["common", "Common"],
+            ["special", "Special"],
+        ]);
+        expect(template.defaultCategoryId).toBe("common");
+        expect(template.counterDefs).toEqual([{ key: "amount", label: "Amount", kind: "manual", order: 0 }]);
+        expect(template.items.map(i => [i.id, i.categoryId, i.description, i.tags])).toEqual([
+            ["any-fish", "common", "Used in: Apple Pie, Fish Stew", ["Recipe: Apple Pie", "Recipe: Fish Stew"]],
+            ["apple", "special", "Used in: Apple Pie", ["Recipe: Apple Pie"]],
+        ]);
+        expect(imageUrls.get("any-fish")).toBe("https://palia.wiki.gg/images/Any_Fish.png");
     });
 });

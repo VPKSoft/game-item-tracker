@@ -40,6 +40,9 @@ describe("template edits", () => {
         expect(t.items.find(i => i.id === "koi")?.categoryId).toBe("coast");
         expect(t.categories.find(c => c.id === "upper-rivers")?.parentId).toBeUndefined();
         expect(validateTemplate(t)).toEqual([]);
+        const withDefault = { ...fishTemplate(), defaultCategoryId: "rivers" };
+        expect(deleteCategory(withDefault, "rivers", "coast")).not.toHaveProperty("defaultCategoryId");
+        expect(deleteCategory(withDefault, "coast", "rivers").defaultCategoryId).toBe("rivers");
     });
 
     it("deletes a counter with its references", () => {

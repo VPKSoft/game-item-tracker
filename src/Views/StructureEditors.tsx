@@ -92,6 +92,22 @@ const CategoriesEditor = ({ template, onChange }: Props) => {
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 800 }}>
+            <Space wrap>
+                <span>{t("categories.defaultCategory")}</span>
+                <Select
+                    aria-label={t("categories.defaultCategory")}
+                    allowClear
+                    placeholder={t("categories.noDefaultCategory")}
+                    style={{ minWidth: 220 }}
+                    value={template.defaultCategoryId}
+                    onChange={(id?: string) => {
+                        const { defaultCategoryId: _old, ...rest } = template;
+                        onChange(touch(id ? { ...rest, defaultCategoryId: id } : rest));
+                    }}
+                    options={categories.map(c => ({ value: c.id, label: c.name }))}
+                />
+                <span style={{ opacity: 0.7 }}>{t("categories.defaultCategoryHint")}</span>
+            </Space>
             <Table
                 size="small"
                 rowKey="id"
