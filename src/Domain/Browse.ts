@@ -2,6 +2,7 @@ import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 import { findRoleCounter, getCounterValue, getItemCounterTotal, getMissing, isCounterOff } from "./Counters.ts";
 import { getEffectiveTags } from "./EffectiveTags.ts";
+import { hiddenCategoryId, isItemHidden } from "./HiddenItems.ts";
 import type { SearchEntry } from "./Search.ts";
 
 /**
@@ -27,7 +28,10 @@ type BrowseFilters = {
 };
 
 type BrowseOptions = {
-    /** The category to show; null or undefined shows all. Selecting a parent includes its children. */
+    /**
+     * The category to show; null or undefined shows all. Selecting a parent includes its children. With a save,
+     * items the user has hidden are left out, and `hiddenCategoryId` shows only them.
+     */
     categoryId?: string | null;
     /** The ranking from the quick search, or null when there is no query. */
     searchRanks?: Map<string, number> | null;
@@ -138,8 +142,9 @@ const getSortValue = (
 
 /** Filters and sorts the items of a template for display. */
 const browseItems = (template: Template, save: Save | undefined, options: BrowseOptions): TemplateItem[] => {
+    const showHidden = !!save && options.categoryId === hiddenCategoryId;
     const categories =
-        options.categoryId !== null && options.categoryId !== undefined
+        options.categoryId !== null && options.categoryId !== undefined && !showHidden
             ? getCategoryWithChildren(template, options.categoryId)
             : null;
     const filters = options.filters ?? {};
@@ -154,6 +159,9 @@ const browseItems = (template: Template, save: Save | undefined, options: Browse
         }
         const saveItem = save?.items[item.id];
         if (save && item.deprecated && !saveItem) {
+            continue;
+        }
+        if (save && isItemHidden(saveItem) !== showHidden) {
             continue;
         }
         if (filters.missingOnly && !((getMissing(template, item, saveItem) ?? 0) > 0)) {

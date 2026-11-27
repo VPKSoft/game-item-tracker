@@ -11,6 +11,7 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { type BrowseFilters, browseItems, getCategoryWithChildren, getSortOptions } from "../Domain/Browse.ts";
+import { hiddenCategoryId, isItemHidden } from "../Domain/HiddenItems.ts";
 import { searchItems } from "../Domain/Search.ts";
 import type { Save } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
@@ -120,8 +121,24 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
     }, [hasSearch]);
     const effectiveSort = hasSearch && !sortTouchedDuringSearch ? "relevance" : sort;
 
+    // With a save, hidden items count only in the virtual Hidden category.
+    const hiddenIds = React.useMemo(() => {
+        const ids = new Set<string>();
+        if (save) {
+            for (const item of template.items) {
+                if (isItemHidden(save.items[item.id])) {
+                    ids.add(item.id);
+                }
+            }
+        }
+        return ids;
+    }, [template, save]);
+    // The Hidden category stays selected after its last item is shown again, so the view does not jump.
     const categoryId =
-        state.categoryId && template.categories.some(c => c.id === state.categoryId) ? state.categoryId : null;
+        state.categoryId &&
+        ((save && state.categoryId === hiddenCategoryId) || template.categories.some(c => c.id === state.categoryId))
+            ? state.categoryId
+            : null;
 
     const items = React.useMemo(
         () =>
@@ -142,11 +159,13 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
     const categoryOptions = React.useMemo(() => {
         const counts = new Map<string, number>();
         for (const item of template.items) {
-            counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
+            if (!hiddenIds.has(item.id)) {
+                counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
+            }
         }
         const sorted = [...template.categories].sort((a, b) => a.order - b.order);
         const result: { value: string; label: string }[] = [
-            { value: "", label: t("browser.allCategories", { count: template.items.length }) },
+            { value: "", label: t("browser.allCategories", { count: template.items.length - hiddenIds.size }) },
         ];
         const addLevel = (parentId: string | undefined, depth: number) => {
             for (const category of sorted.filter(c => c.parentId === parentId)) {
@@ -165,8 +184,11 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                 result.push({ value: category.id, label: category.name });
             }
         }
+        if (hiddenIds.size > 0 || categoryId === hiddenCategoryId) {
+            result.push({ value: hiddenCategoryId, label: t("browser.hiddenCategory", { count: hiddenIds.size }) });
+        }
         return result;
-    }, [template, t]);
+    }, [template, hiddenIds, categoryId, t]);
 
     const setFilters = (patch: Partial<BrowseFilters>) =>
         setState(s => ({ ...s, filters: { ...s.filters, ...patch } }));

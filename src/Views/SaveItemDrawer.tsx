@@ -1,4 +1,6 @@
-import { Divider, Drawer, Input } from "antd";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { Alert, Button, Divider, Drawer, Input, Tooltip } from "antd";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { AttributeBadges } from "../Components/AttributeBadges.tsx";
@@ -7,6 +9,7 @@ import { MaterialList } from "../Components/MaterialList.tsx";
 import { TagEditor } from "../Components/TagEditor.tsx";
 import { hasUniqueVariants, hasVisibleCounters } from "../Domain/Counters.ts";
 import { getEffectiveTags, setEffectiveTags } from "../Domain/EffectiveTags.ts";
+import { isItemHidden, setItemHidden } from "../Domain/HiddenItems.ts";
 import type { SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
 
@@ -38,6 +41,7 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
     };
 
     const image = item?.imageId ? template.images[item.imageId] : undefined;
+    const hidden = isItemHidden(saveItem);
 
     return (
         <Drawer
@@ -49,9 +53,22 @@ const SaveItemDrawer = ({ template, item, saveItem, onClose, onChange, onCounter
             title={item?.name}
             size={420}
             destroyOnHidden
+            extra={
+                item && (
+                    <Tooltip title={hidden ? t("saveItem.unhideTooltip") : t("saveItem.hideTooltip")}>
+                        <Button
+                            icon={<FontAwesomeIcon icon={hidden ? faEye : faEyeSlash} />}
+                            onClick={() => onChange(item.id, s => setItemHidden(s, !hidden))}
+                        >
+                            {hidden ? t("saveItem.unhide") : t("saveItem.hide")}
+                        </Button>
+                    </Tooltip>
+                )
+            }
         >
             {item && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {hidden && <Alert type="info" showIcon title={t("saveItem.hiddenNotice")} />}
                     <div style={{ display: "flex", gap: 12 }}>
                         {image && <img src={image} alt="" style={{ maxWidth: 96, maxHeight: 96 }} />}
                         <div>

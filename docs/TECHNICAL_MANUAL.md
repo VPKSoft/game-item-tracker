@@ -59,7 +59,7 @@ The app has two document types. Keeping them apart is the central design decisio
 | `format` field | `game-item-tracker/template` | `game-item-tracker/save` |
 | Schema | `src/Schemas/TemplateSchema.ts` | `src/Schemas/SaveSchema.ts` |
 
-A save references exactly one template version (`save.template.templateId` + `save.template.version`). It stores **only user data**: counter values, obtained marks, notes, tag differences and gathered material amounts. Names, descriptions, images, attributes and counter definitions are always looked up from the template by stable ids. This makes saves small and makes template upgrades possible without copying data.
+A save references exactly one template version (`save.template.templateId` + `save.template.version`). It stores **only user data**: counter values, obtained marks, hidden marks, notes, tag differences and gathered material amounts. Names, descriptions, images, attributes and counter definitions are always looked up from the template by stable ids. This makes saves small and makes template upgrades possible without copying data.
 
 Template building blocks:
 
@@ -99,6 +99,7 @@ src/
     Exchange.ts            Exchange list entries, suggested amounts, image tiles and image layout
     Materials.ts           Materials list: needed (planned × per item) and gathered amounts
     BulkEdits.ts           setCounterForItems: one counter value for many selected items
+    HiddenItems.ts         Items the user hid in a save, the virtual Hidden category
     Ids.ts                 slugify, uniqueId, newUuid, bumpVersion, compareVersions
     TestFixtures.ts        Shared fixtures for tests
   Storage/
@@ -339,6 +340,7 @@ type SaveItem = {
     removedTags: string[];       // template tags the user removed
     customTags: string[];        // tags the user added
     obtained?: string[];         // variant keys ("_" when no variants) of obtained unique variants
+    hidden?: true;               // the user hid the item: shown only in the virtual Hidden category (5.11)
     orphan?: { name: string; removedIn?: string }; // item deleted from the template; display name + version that removed it
 };
 ```
@@ -346,7 +348,7 @@ type SaveItem = {
 - Computed counters are **never stored**. They are evaluated on read.
 - Items of a template without `variantDefs` use the variant key `"_"` (`noVariantKey` in `Counters.ts`).
 - Missing entries mean 0 / empty. Code must use `getSaveItem(save, id)` or handle `undefined`.
-- `obtained` is omitted when empty, and `orphan` is removed when undefined, to keep files small and diffs stable.
+- `obtained` is omitted when empty, `hidden` when the item is not hidden, and `orphan` is removed when undefined, to keep files small and diffs stable.
 - `bundle` is never stored in IndexedDB (`putSave` strips it); on import it is stored as a template if that version is missing.
 
 ### 4.3 Example (fish item with a unique starred variant)
@@ -454,7 +456,7 @@ Storing the difference instead of a copy means tags added in a newer template ve
 | Removed counter or variant | Values kept (hidden) unless `discardHidden`; `removedCounterData` / `removedVariantData` count the non-orphan items with values > 0 (or obtained marks) for each |
 | Different `templateId` | Throws |
 
-"User data" (`hasUserData`) = notes, custom or removed tags, obtained marks, or any count > 0. Upgrades go forward only; the UI offers the newest stored version (`compareVersions`).
+"User data" (`hasUserData`) = notes, custom or removed tags, obtained marks, a hidden mark, or any count > 0. The hidden mark is kept by upgrades like the rest of the save item. Upgrades go forward only; the UI offers the newest stored version (`compareVersions`).
 
 Orphaned items are only dropped by the user: `getRemovedItemIds(save)` lists them and `removeSaveItems(save, ids)` removes them. `InventoryEditor` shows a warning banner while a save has orphaned items; its *Review…* dialog removes them one by one or all at once, each behind a `Popconfirm`.
 
@@ -487,7 +489,7 @@ The template editor shows issues in the *Details* tab and asks for confirmation 
 
 1. Category filter (with descendants, `getCategoryWithChildren`).
 2. Search filter (`searchRanks` map from Fuse).
-3. In saves, deprecated items without save data are hidden.
+3. In saves, deprecated items without save data are hidden. Items the user hid (`SaveItem.hidden`) are left out, unless `categoryId` is `hiddenCategoryId`, which shows only them (section 5.11).
 4. Filters (saves only): `missingOnly`, `counterAboveZero`, `withNotes`, `tags` (all required).
 5. Sort, then a stable tie-breaker (name, then id). Items without a sort value always go last. `relevance` ignores the direction.
 
@@ -517,6 +519,16 @@ Requested as: set a chosen counter for chosen items to a specific value.
 - `setCounterForItems(template, save, itemIds, counterKey, value, variantKey?)` returns `{ save, changed, skipped }`. For each item it calls `setCounterValue` for the target variants, so the value is rounded and clamped to the item's maximum (`getCounterMax`: counter profile `max`, else `maxFrom`, else `max`). The targets (`getTargetVariants`) follow what the item's cards show and allow: an item is skipped when its counter profile (its own or inherited from a category) hides, turns off or fixes the counter, and a variant when the counter does not apply to it, it is not `variantKey`, it is unique, or the counter's requirement is unmet. `changed` lists items set for at least one variant, `skipped` the others (also unknown items and computed or read-only counters). Without changes the same save object is returned (no autosave).
 - `getBulkTargets(...)` gives the same `changed` / `skipped` split without editing, for the dialog's preview. `getBulkMax(template, itemIds, counterKey)` is the highest effective maximum among the items, or `undefined` when any of them has no limit.
 - UI: the **Select** toolbar button of `InventoryEditor` turns on selection mode. The selection is a `Set` of item ids in `InventoryEditor` state only, cleared when another save opens; it is not stored. In selection mode `ItemCard` gets `selected` and `onSelect`: it shows a checkbox, a click selects instead of opening the drawer, and a shift-click selects the range between the last clicked card and this one among the items the grid shows (`onItemsChange`). *Select shown* adds the shown items. `SetCounterDialog` previews with `getBulkTargets`, so its counts are what *Set* does. Its value field follows `getBulkMax` of the changed items, falling back to the counter's `max` when no item changes: a checkbox like `CounterStepper` when that is 1, otherwise a number field limited to it. So a profile that raises a `max: 1` counter gives a number field, and profiles that give an unlimited counter `max: 1` give a checkbox. A value kept from a previously chosen counter is capped at the new maximum.
+
+### 5.11 Hidden items (`HiddenItems.ts`)
+
+Requested as: let the user hide specific template items; a hidden item moves to a *Hidden* category and shows only there, and unhiding puts it back into its original category.
+
+- **Save only.** `SaveItem.hidden?: true` is user data, like `obtained`; the template and its `categoryId` are never changed, so unhiding needs nothing to restore and a template upgrade cannot lose the original category. `setItemHidden` removes the field when the item is shown. The template editor has no hidden items.
+- **Virtual category.** `hiddenCategoryId` (`"@hidden"`) is a category selector value, not a template category; real category ids cannot start with `@`. `browseItems` with a save leaves hidden items out of every category, *All categories* included, and with `hiddenCategoryId` shows only the hidden ones (search, filters and sorting still apply). `ItemBrowser` subtracts hidden items from the category counts and adds *Hidden (n)* at the end of the selector while there are hidden items or that category is selected (it stays selected after its last item is shown again, so the view does not jump).
+- **Only browsing changes.** A hidden item keeps its counters, so the materials list (its planned counter), exchange entries already in the list and the template's item count still include it. Quick fill and *Select shown* use the items the grid shows, so they follow the selected category.
+- `setHiddenForItems(template, save, itemIds, hidden)` returns `{ save, changed }` (unknown items are ignored; without changes the same save object is returned). `countHiddenItems(template, save)` counts hidden template items.
+- UI: the `SaveItemDrawer` header has *Hide* / *Unhide* and an info banner while the item is hidden; the selection bar of `InventoryEditor` has *Hide* and *Unhide* for the selected items, which clears the selection because the items leave the grid.
 
 ## 6. Storage and persistence
 
@@ -696,12 +708,13 @@ npm run coverage
 | `Domain/SaveLifecycle.test.ts` | `createSave`, `upgradeSave`, effective tags, ids and versions |
 | `Domain/TemplateEdits.test.ts` | Edit operations and reference cleanup |
 | `Domain/Browse.test.ts` | Search, sorting, filters, 10k-item performance smoke test |
+| `Domain/HiddenItems.test.ts` | Hiding and unhiding, browsing with the Hidden category, schema and upgrades |
 | `Domain/BulkEdits.test.ts` | Setting one counter for many items: variants, clamping, unique, profiles (off, fixed, hidden, inherited, max), requirements, bulk maximum |
 | `Domain/Exchange.test.ts` | Exchange suggestions (variants, unique, counter source), list edits, pruning, tiles, image layout |
 | `Images/RenderExchangeImage.test.ts` | Text wrapping, drawing with a fake 2D context, clipboard write |
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
-| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked), card selection, Set counter dialog |
+| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked), card selection, Set counter dialog, hiding in the drawer, Hidden category |
 | `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
 | `Domain/Catalog.test.ts` | Catalog status, search and URLs; catalog and template download with a mocked `fetch` |
@@ -857,6 +870,7 @@ Later changes:
 - Exchange list: Give / Need toggles on item cards and quick fill create an in-memory list per save, which is drawn as a PNG of 100 × 100 tiles to copy into chat apps or save (section 9.1).
 - Counter profiles: per-category or per-item overrides that hide, turn off, fix or cap counters, first used by the Palia stickers sample (Default stickers without counters; Premium and Other stickers owned once).
 - Localization: i18next with English and Finnish, chosen in a new Settings dialog and always defaulting to English. Domain messages became coded (`LocalizedMessage`) so the UI can translate them without making the domain depend on i18next.
+- Hidden items: the user hides items in a save; they move to a virtual *Hidden* category and return to their own category when unhidden (section 5.11).
 
 ## 16. Known limitations
 

@@ -27,8 +27,12 @@ type UpgradeOptions = {
     discardHidden?: boolean;
 };
 
-/** Whether the save item holds anything the user entered (notes, tags, obtained marks or amounts above zero). */
+/**
+ * Whether the save item holds anything the user entered (notes, tags, obtained marks, a hidden mark or amounts
+ * above zero).
+ */
 const hasUserData = (saveItem: SaveItem) =>
+    saveItem.hidden === true ||
     saveItem.notes.length > 0 ||
     saveItem.customTags.length > 0 ||
     saveItem.removedTags.length > 0 ||
