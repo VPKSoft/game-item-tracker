@@ -211,6 +211,17 @@ Some templates list **materials**, the things items are made from (for example t
 
 The gathered amounts are kept in the save (and in exported save files). The item drawer also lists the materials one of the item needs. The **Materials** button appears only in templates that have materials and a planned counter, and the materials panel and the exchange list are not open at the same time.
 
+### 5.7 Setting a counter for many items at once
+
+To give many items the same amount, for example to set *Target* to 1 for a whole category or to clear *Tradeable* after a trade:
+
+1. Click **Select** in the toolbar. A selection bar appears above the grid, and each card gets a checkbox.
+2. Click cards to select or deselect them. Shift-click selects (or deselects) every shown item between the last card you clicked and this one. **Select shown** selects every item the grid shows, so choose a category, search or set filters first to pick the items you want. **Clear selection** deselects everything.
+3. Click **Set counter…**, choose the counter, optionally one variant (otherwise all variants the counter applies to), and the value. The dialog tells how many of the selected items will change, and how many are skipped because they do not use that counter, the counter is locked or fixed for them, or the variant is unique.
+4. Click **Set**. The selection stays, so you can set another counter for the same items. Click **Done** to leave selection mode; the **Select** button then shows how many items are still selected.
+
+A value above an item's maximum is lowered to that maximum. The change is saved like any other counter change and cannot be undone automatically.
+
 ## 6. Finding items: categories, search, sorting and filters
 
 The same toolbar is used in the Inventory and Templates views. The item count on the right shows *visible / total*.
@@ -430,6 +441,7 @@ Upgrades only go forward.
 | Action | How |
 |---|---|
 | Change a counter by 10 | Shift-click **+** or **−** |
+| Set one counter for many items | **Select** → click or shift-click cards, or **Select shown** → **Set counter…** |
 | Type an amount | Click the number on the stepper |
 | Paste an item image | Ctrl+V in the template item drawer |
 | See what you can trade | Filter *Counter above zero* → *Tradeable > 0* |

@@ -19,6 +19,7 @@ import { ExchangePanel } from "../Views/ExchangePanel.tsx";
 import { MaterialsPanel } from "../Views/MaterialsPanel.tsx";
 import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
+import { SetCounterDialog } from "../Views/SetCounterDialog.tsx";
 import { TemplateEditor } from "../Views/TemplateEditor.tsx";
 import { UpgradeDialog } from "../Views/UpgradeDialog.tsx";
 import { CounterStepper } from "./CounterStepper.tsx";
@@ -741,5 +742,76 @@ describe("MaterialsPanel", () => {
                 "Nothing is planned yet. Set the To make counter of items to list the materials they need."
             )
         ).toBeTruthy();
+    });
+});
+
+describe("selection and Set counter", () => {
+    it("selects a card on click instead of opening it", async () => {
+        const t = fishTemplate();
+        const onOpen = vi.fn();
+        const onSelect = vi.fn();
+        const { rerender } = render(
+            <ItemCard
+                template={t}
+                item={t.items[0]}
+                onOpen={onOpen}
+                showCounters
+                selected={false}
+                onSelect={onSelect}
+            />
+        );
+        const checkbox = screen.getByLabelText("Select Bass");
+        expect(checkbox).not.toBeChecked();
+        await userEvent.click(screen.getByTestId("item-card-bass"));
+        expect(onSelect).toHaveBeenCalledWith("bass", false);
+        await userEvent.click(checkbox);
+        expect(onSelect).toHaveBeenCalledTimes(2);
+        expect(onOpen).not.toHaveBeenCalled();
+        rerender(<ItemCard template={t} item={t.items[0]} onOpen={onOpen} showCounters selected onSelect={onSelect} />);
+        expect(screen.getByLabelText("Select Bass")).toBeChecked();
+    });
+
+    it("previews and applies a counter value for the selected items", async () => {
+        const t = fishTemplate();
+        const onApply = vi.fn();
+        render(
+            <AntdApp>
+                <SetCounterDialog
+                    open
+                    template={t}
+                    save={createSave(t, "S")}
+                    itemIds={new Set(["bass", "eel"])}
+                    onCancel={() => undefined}
+                    onApply={onApply}
+                />
+            </AntdApp>
+        );
+        expect(await screen.findByText("Sets Inventory to 0 for 2 items.")).toBeInTheDocument();
+        const value = screen.getByLabelText("Value");
+        await userEvent.clear(value);
+        await userEvent.type(value, "4");
+        expect(await screen.findByText("Sets Inventory to 4 for 2 items.")).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: "Set" }));
+        expect(onApply).toHaveBeenCalledWith({ counterKey: "inventory", variantKey: undefined, value: 4 });
+    });
+
+    it("reports items that do not use the chosen counter", async () => {
+        const t = fishTemplate();
+        render(
+            <AntdApp>
+                <SetCounterDialog
+                    open
+                    template={t}
+                    save={createSave(t, "S")}
+                    itemIds={new Set(["bass", "eel"])}
+                    onCancel={() => undefined}
+                    onApply={() => undefined}
+                />
+            </AntdApp>
+        );
+        await userEvent.click(await screen.findByLabelText("Counter"));
+        await userEvent.click(await screen.findByTitle("Placed"));
+        expect(await screen.findByText("Sets Placed to 0 for 1 item.")).toBeInTheDocument();
+        expect(screen.getByText(/1 selected item is skipped/)).toBeInTheDocument();
     });
 });

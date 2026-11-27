@@ -43,6 +43,10 @@ type Props = {
     exchangeEntries?: ExchangeEntry[];
     /** In exchange mode: adds or removes the exchange entry of a variant. */
     onExchangeToggle?: (itemId: string, variantKey: string, mode: ExchangeMode) => void;
+    /** In selection mode: whether the item is selected. A checkbox is shown, and a click selects instead of opening. */
+    selected?: boolean;
+    /** In selection mode: toggles the item; `range` is true for a shift-click. */
+    onSelect?: (itemId: string, range: boolean) => void;
 } & BaseProps;
 
 const ExchangeTogglesRoot = styled.div`
@@ -236,8 +240,11 @@ let ItemCard = ({
     showCounters,
     exchangeEntries,
     onExchangeToggle,
+    selected,
+    onSelect,
 }: Props) => {
     const { t } = useTranslation();
+    const selecting = selected !== undefined && onSelect !== undefined;
     const image = item.imageId ? template.images[item.imageId] : undefined;
     const tags = getEffectiveTags(item, saveItem);
     const category = template.categories.find(c => c.id === item.categoryId);
@@ -251,11 +258,24 @@ let ItemCard = ({
         <Card
             size="small"
             hoverable
-            className={classNames(className, "ItemCard")}
-            onClick={() => onOpen(item.id)}
+            className={classNames(className, "ItemCard", {
+                "ItemCard-selecting": selecting,
+                "ItemCard-selected": selecting && selected,
+            })}
+            onClick={e => (selecting ? onSelect(item.id, e.shiftKey) : onOpen(item.id))}
             data-testid={`item-card-${item.id}`}
         >
             <div className="ItemCard-header">
+                {selecting && (
+                    <Checkbox
+                        className="ItemCard-select"
+                        aria-label={t("selection.selectItem", { name: item.name })}
+                        checked={selected}
+                        // The card's click handler toggles the selection, so the checkbox only shows it.
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => onSelect(item.id, (e.nativeEvent as MouseEvent).shiftKey === true)}
+                    />
+                )}
                 <div className="ItemCard-image">
                     {image ? (
                         <img src={image} alt="" loading="lazy" decoding="async" />
@@ -325,6 +345,17 @@ let ItemCard = ({
 
 ItemCard = styled(ItemCard)`
     height: 100%;
+    &.ItemCard-selecting {
+        /* A shift-click selects a range of cards, not text. */
+        user-select: none;
+    }
+    &.ItemCard-selected {
+        border-color: var(--ant-color-primary);
+        box-shadow: 0 0 0 1px var(--ant-color-primary);
+    }
+    .ItemCard-select {
+        align-self: center;
+    }
     .ant-card-body {
         display: flex;
         flex-direction: column;
