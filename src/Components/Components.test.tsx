@@ -212,6 +212,54 @@ describe("SaveItemDrawer", () => {
         });
         expect(saveItem.notes).toBe("Found at night");
     });
+
+    it("hides and unhides the item", async () => {
+        const t = fishTemplate();
+        let saveItem: SaveItem = createSave(t, "s").items.koi;
+        const onChange = vi.fn((_id: string, update: (s: SaveItem) => SaveItem) => {
+            saveItem = update(saveItem);
+        });
+        const drawer = (current: SaveItem) => (
+            <SaveItemDrawer
+                template={t}
+                item={t.items[1]}
+                saveItem={current}
+                onClose={() => undefined}
+                onChange={onChange}
+                onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
+            />
+        );
+        const { rerender } = render(drawer(saveItem));
+        await userEvent.click(await screen.findByRole("button", { name: /Hide/ }));
+        expect(saveItem.hidden).toBe(true);
+        rerender(drawer(saveItem));
+        expect(screen.getByText(/This item is hidden/)).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: /Unhide/ }));
+        expect(saveItem.hidden).toBeUndefined();
+    });
+});
+
+describe("Hidden category", () => {
+    beforeAll(() => {
+        Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 800 });
+        Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 1200 });
+    });
+    afterAll(() => {
+        Reflect.deleteProperty(HTMLElement.prototype, "clientHeight");
+        Reflect.deleteProperty(HTMLElement.prototype, "clientWidth");
+    });
+
+    it("leaves hidden items out of the grid and lists them in the Hidden category", async () => {
+        const t = fishTemplate();
+        const save = createSave(t, "s");
+        save.items.koi = { ...save.items.koi, hidden: true };
+        render(<SaveHarness template={t} initial={save} />);
+        expect(visibleCards()).toEqual(["eel", "bass"]);
+        await userEvent.click(screen.getByLabelText("Category"));
+        await userEvent.click(await screen.findByTitle("Hidden (1)"));
+        expect(visibleCards()).toEqual(["koi"]);
+    });
 });
 
 describe("unique items", () => {

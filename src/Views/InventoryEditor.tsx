@@ -1,6 +1,8 @@
 import {
     faChevronDown,
     faDownload,
+    faEye,
+    faEyeSlash,
     faListCheck,
     faRightLeft,
     faSquareCheck,
@@ -24,6 +26,7 @@ import {
     suggestAmount,
     toggleEntry,
 } from "../Domain/Exchange.ts";
+import { setHiddenForItems } from "../Domain/HiddenItems.ts";
 import { compareVersions } from "../Domain/Ids.ts";
 import {
     clearGathered,
@@ -269,6 +272,19 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
         );
     };
 
+    // Hidden items move to the Hidden category (and shown ones back), so they leave the grid: the selection is cleared.
+    const applyHidden = (hidden: boolean) => {
+        if (!template || !save) {
+            return;
+        }
+        const result = setHiddenForItems(template, save, selected, hidden);
+        setSave(result.save);
+        clearSelection();
+        message.success(
+            t(hidden ? "selection.hiddenDone" : "selection.unhiddenDone", { count: result.changed.length })
+        );
+    };
+
     const exportSave = async (withTemplate: boolean) => {
         if (!save || !template) {
             return;
@@ -379,6 +395,24 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                         <Button type="primary" disabled={selected.size === 0} onClick={() => setSetCounterOpen(true)}>
                             {t("selection.setCounter")}
                         </Button>
+                        <Tooltip title={t("selection.hideTooltip")}>
+                            <Button
+                                disabled={selected.size === 0}
+                                icon={<FontAwesomeIcon icon={faEyeSlash} />}
+                                onClick={() => applyHidden(true)}
+                            >
+                                {t("selection.hide")}
+                            </Button>
+                        </Tooltip>
+                        <Tooltip title={t("selection.unhideTooltip")}>
+                            <Button
+                                disabled={selected.size === 0}
+                                icon={<FontAwesomeIcon icon={faEye} />}
+                                onClick={() => applyHidden(false)}
+                            >
+                                {t("selection.unhide")}
+                            </Button>
+                        </Tooltip>
                         <Tooltip title={t("selection.selectShownTooltip")}>
                             <Button onClick={selectShown}>{t("selection.selectShown")}</Button>
                         </Tooltip>

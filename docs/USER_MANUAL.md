@@ -222,13 +222,24 @@ To give many items the same amount, for example to set *Target* to 1 for a whole
 
 A value above an item's maximum is lowered to that maximum. The change is saved like any other counter change and cannot be undone automatically.
 
+### 5.8 Hiding items
+
+Hide items you don't care about, for example decorations you will never collect, so they no longer fill the grid:
+
+- **One item**: open it and click **Hide** at the top of the item drawer.
+- **Many items**: click **Select**, select the items, and click **Hide** in the selection bar.
+
+A hidden item leaves its own category and *All categories*, and is listed only in the **Hidden** category, the last entry of the category drop-down (shown while you have hidden items). To bring an item back, choose **Hidden**, open the item and click **Unhide**, or select items there and click **Unhide** in the selection bar. The item returns to its original category with its amounts, tags and notes unchanged.
+
+Hiding is part of your save, not of the template: it is kept in exported save files and when the template is upgraded, and other saves of the same template are not affected. Hidden items still count in the materials list.
+
 ## 6. Finding items: categories, search, sorting and filters
 
 The same toolbar is used in the Inventory and Templates views. The item count on the right shows *visible / total*.
 
 ### 6.1 Categories
 
-The first drop-down lists **All categories** and each category with its item count. Sub-categories are indented. A template can set a default category, which is selected the first time you open a save; after that the app remembers your own choice.
+The first drop-down lists **All categories** and each category with its item count. Sub-categories are indented. In the Inventory view, hidden items are not counted, and the last entry, **Hidden**, lists them (section 5.8). A template can set a default category, which is selected the first time you open a save; after that the app remembers your own choice.
 
 ![Category selector](images/manual/10-category-select.png)
 
@@ -442,6 +453,7 @@ Upgrades only go forward.
 |---|---|
 | Change a counter by 10 | Shift-click **+** or **−** |
 | Set one counter for many items | **Select** → click or shift-click cards, or **Select shown** → **Set counter…** |
+| Hide items you don't collect | **Hide** in the item drawer, or **Select** → **Hide**; find them again under **Hidden** |
 | Type an amount | Click the number on the stepper |
 | Paste an item image | Ctrl+V in the template item drawer |
 | See what you can trade | Filter *Counter above zero* → *Tradeable > 0* |
