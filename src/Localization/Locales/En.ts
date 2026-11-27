@@ -165,9 +165,9 @@ const en = {
         willChange_one: "Sets {{counter}} to {{value}} for {{count}} item.",
         willChange_other: "Sets {{counter}} to {{value}} for {{count}} items.",
         willSkip_one:
-            "{{count}} selected item is skipped: it does not use this counter here, or the counter is locked, fixed or unique for it.",
+            "{{count}} selected item is skipped: it does not use this counter here, or the counter is hidden, turned off, locked, fixed or unique for it.",
         willSkip_other:
-            "{{count}} selected items are skipped: they do not use this counter here, or the counter is locked, fixed or unique for them.",
+            "{{count}} selected items are skipped: they do not use this counter here, or the counter is hidden, turned off, locked, fixed or unique for them.",
         capped: "A value above an item's maximum is lowered to the maximum.",
         noCounters: "This template has no counters that can be set.",
         applied_one: "{{counter}} set for {{count}} item.",

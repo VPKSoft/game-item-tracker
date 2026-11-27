@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Template } from "../Schemas/TemplateSchema.ts";
-import { getBulkCounters, getBulkVariants, setCounterForItems } from "./BulkEdits.ts";
+import { getBulkCounters, getBulkMax, getBulkTargets, getBulkVariants, setCounterForItems } from "./BulkEdits.ts";
 import { getCounterValue, getSaveItem } from "./Counters.ts";
 import { createSave } from "./CreateSave.ts";
 import { fishTemplate } from "./TestFixtures.ts";
@@ -105,5 +105,88 @@ describe("setCounterForItems", () => {
         const result = setCounterForItems(t, createSave(t, "S"), ["bass", "koi", "eel"], "inventory", 7);
         expect(result.changed).toEqual(["eel"]);
         expect(result.skipped).toEqual(["bass", "koi"]);
+    });
+
+    it("skips items whose counter profile hides the counter", () => {
+        const t: Template = {
+            ...fishTemplate(),
+            counterProfiles: [{ key: "hidden", label: "Hidden", overrides: { inventory: { use: "hidden" } } }],
+        };
+        t.items = t.items.map(i => (i.id === "bass" ? { ...i, counterProfile: "hidden" } : i));
+        const save = createSave(t, "S");
+        const result = setCounterForItems(t, save, ["bass", "eel"], "inventory", 3);
+        expect(result.changed).toEqual(["eel"]);
+        expect(result.skipped).toEqual(["bass"]);
+        expect(value(t, result.save, "bass", "normal", "inventory")).toBe(0);
+        expect(getBulkTargets(t, save, ["bass", "eel"], "inventory")).toEqual({
+            changed: ["eel"],
+            skipped: ["bass"],
+        });
+    });
+
+    it("skips items whose category's counter profile hides or turns off the counter", () => {
+        const t: Template = {
+            ...fishTemplate(),
+            counterProfiles: [{ key: "off", label: "Off", overrides: { inventory: { use: "off" } } }],
+        };
+        t.categories = t.categories.map(c => (c.id === "rivers" ? { ...c, counterProfile: "off" } : c));
+        // Koi is in Rivers, Eel in its child category Upper rivers.
+        const result = setCounterForItems(t, createSave(t, "S"), ["bass", "koi", "eel"], "inventory", 2);
+        expect(result.changed).toEqual(["bass"]);
+        expect(result.skipped).toEqual(["koi", "eel"]);
+    });
+
+    it("clamps to the maximum of the item's counter profile", () => {
+        const t: Template = {
+            ...fishTemplate(),
+            counterProfiles: [{ key: "single", label: "Single", overrides: { tradeable: { max: 1 } } }],
+        };
+        t.items = t.items.map(i => (i.id === "bass" ? { ...i, counterProfile: "single" } : i));
+        const result = setCounterForItems(t, createSave(t, "S"), ["bass", "koi"], "tradeable", 20);
+        expect(result.changed).toEqual(["bass", "koi"]);
+        expect(value(t, result.save, "bass", "normal", "tradeable")).toBe(1);
+        expect(value(t, result.save, "koi", "normal", "tradeable")).toBe(20);
+    });
+});
+
+describe("getBulkMax", () => {
+    const profiled = (): Template => {
+        const t: Template = {
+            ...fishTemplate(),
+            counterProfiles: [
+                { key: "single", label: "Single", overrides: { tradeable: { max: 1 }, inventory: { max: 1 } } },
+                { key: "many", label: "Many", overrides: { tradeable: { max: 5 } } },
+            ],
+        };
+        t.counterDefs = t.counterDefs.map(c => (c.key === "tradeable" ? { ...c, max: 1 } : c));
+        t.items = t.items.map(i =>
+            i.id === "bass" ? { ...i, counterProfile: "single" } : i.id === "koi" ? { ...i, counterProfile: "many" } : i
+        );
+        return t;
+    };
+
+    it("uses the highest maximum of the items, with counter profile maximums", () => {
+        const t = profiled();
+        expect(getBulkMax(t, ["bass"], "tradeable")).toBe(1);
+        expect(getBulkMax(t, ["bass", "koi"], "tradeable")).toBe(5);
+        expect(getBulkMax(t, ["bass", "eel"], "tradeable")).toBe(1);
+    });
+
+    it("has no limit when any item has none", () => {
+        const t = profiled();
+        expect(getBulkMax(t, ["bass"], "inventory")).toBe(1);
+        expect(getBulkMax(t, ["bass", "koi"], "inventory")).toBeUndefined();
+        expect(getBulkMax(t, [], "inventory")).toBeUndefined();
+    });
+
+    it("uses each item's maxFrom value", () => {
+        const t = fishTemplate();
+        t.counterDefs.push(
+            { key: "needed", label: "Needed", kind: "manual", readOnly: true, order: 5 },
+            { key: "given", label: "Given", kind: "manual", maxFrom: "needed", order: 6 }
+        );
+        t.items = t.items.map(i => ({ ...i, defaults: { ...i.defaults, needed: i.id === "bass" ? 4 : 9 } }));
+        expect(getBulkMax(t, ["bass"], "given")).toBe(4);
+        expect(getBulkMax(t, ["bass", "koi"], "given")).toBe(9);
     });
 });

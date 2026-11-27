@@ -159,9 +159,9 @@ const fi: Translation = {
         willChange_one: "Asettaa laskurin {{counter}} arvoksi {{value}} {{count}} esineelle.",
         willChange_other: "Asettaa laskurin {{counter}} arvoksi {{value}} {{count}} esineelle.",
         willSkip_one:
-            "{{count}} valittu esine ohitetaan: se ei käytä tätä laskuria tässä, tai laskuri on lukittu, kiinteä tai uniikki sille.",
+            "{{count}} valittu esine ohitetaan: se ei käytä tätä laskuria tässä, tai laskuri on piilotettu, pois käytöstä, lukittu, kiinteä tai uniikki sille.",
         willSkip_other:
-            "{{count}} valittua esinettä ohitetaan: ne eivät käytä tätä laskuria tässä, tai laskuri on lukittu, kiinteä tai uniikki niille.",
+            "{{count}} valittua esinettä ohitetaan: ne eivät käytä tätä laskuria tässä, tai laskuri on piilotettu, pois käytöstä, lukittu, kiinteä tai uniikki niille.",
         capped: "Esineen enimmäisarvoa suurempi arvo lasketaan enimmäisarvoon.",
         noCounters: "Tässä mallissa ei ole asetettavia laskureita.",
         applied_one: "{{counter}} asetettu {{count}} esineelle.",
