@@ -1917,12 +1917,29 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
+/** Food recipe ingredients that have no starred quality, so they only have the Normal variant. */
+const unstarredRecipeItems = new Set([
+    "Plant Fiber",
+    "Emerald Carpet Moss",
+    "Crystal Lake Lotus",
+    "Butter",
+    "Extremely Aged Cheese",
+    "Flour",
+    "Milk",
+    "Soy Sauce",
+    "Sugar",
+    "Vinegar",
+    "Any Salt",
+]);
+
 /**
  * Builds the food recipe items template: one item per distinct ingredient of the food recipes, as the wiki names it
  * (generic ones such as "Any Fish" stay one item; they are not expanded into every fish). Category *Common* for
  * ingredients that two or more recipes need and *Special* for those only one recipe needs; Common is the default
- * category. One counter, Amount. The description lists the recipes that need the item; tag `Recipe: …` per recipe.
- * Recipes without ingredients are ignored.
+ * category. The fish variants Normal and ★ Starred, except for the items in `unstarredRecipeItems` (Normal only);
+ * counters Amount (per variant) and Total = Amount of every variant (read-only, summed across variants). The
+ * description lists the recipes that need the item; tag `Recipe: …` per recipe. Recipes without ingredients are
+ * ignored.
  */
 const buildRecipeItemTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     const template = baseTemplate(meta);
@@ -1959,6 +1976,7 @@ const buildRecipeItemTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
         items.push({
             id,
             categoryId: use.recipes.length > 1 ? "common" : "special",
+            ...(unstarredRecipeItems.has(name) ? { variants: ["normal"] } : {}),
             name,
             description: `Used in: ${use.recipes.join(", ")}`,
             attributes: {},
@@ -1969,7 +1987,21 @@ const buildRecipeItemTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
         template: {
             ...template,
             attributeDefs: [],
-            counterDefs: [{ key: "amount", label: "Amount", kind: "manual", order: 0 }] as CounterDef[],
+            variantDefs: [
+                { key: "normal", label: "Normal", order: 0 },
+                { key: "starred", label: "★ Starred", order: 1 },
+            ],
+            counterDefs: [
+                { key: "amount", label: "Amount", kind: "manual", order: 0 },
+                {
+                    key: "total",
+                    label: "Total",
+                    kind: "computed",
+                    sumOf: ["amount"],
+                    acrossVariants: true,
+                    order: 1,
+                },
+            ] as CounterDef[],
             categories,
             defaultCategoryId: "common",
             items,

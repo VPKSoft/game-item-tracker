@@ -5,6 +5,7 @@ import {
     emptySaveItem,
     getCounterMax,
     getCounterValue,
+    getItemCounters,
     getItemCounterTotal,
     getItemVariants,
     getMissing,
@@ -177,6 +178,41 @@ describe("read-only counters", () => {
             setCounterValue(t, s, noVariantKey, "placed", 3, { ...item, defaults: { target: 1 } }).counts[noVariantKey]
                 .placed
         ).toBe(1);
+    });
+});
+
+describe("counters summed across variants", () => {
+    const template = () => {
+        const t = fishTemplate();
+        t.counterDefs.push({
+            key: "all",
+            label: "All",
+            kind: "computed",
+            sumOf: ["inventory", "placed"],
+            acrossVariants: true,
+            order: 9,
+        });
+        return t;
+    };
+
+    it("sums over every variant of the item", () => {
+        const t = template();
+        const s = saveItemWith({ normal: { inventory: 2 }, starred: { inventory: 1, placed: 4 } });
+        expect(getItemCounterTotal(t, t.items[0], s, "all")).toBe(7);
+        // Each variant's share.
+        expect(getCounterValue(t, s, "starred", "all")).toBe(5);
+    });
+
+    it("is shown once per item instead of in each variant row", () => {
+        const t = template();
+        expect(getVariantCounters(t, "normal").map(c => c.key)).not.toContain("all");
+        expect(getItemCounters(t, t.items[0]).map(c => c.key)).toEqual(["all"]);
+    });
+
+    it("is shown in the row of an item when the template has no variants", () => {
+        const t = { ...template(), variantDefs: [] };
+        expect(getVariantCounters(t, noVariantKey).map(c => c.key)).toContain("all");
+        expect(getItemCounters(t, t.items[0])).toEqual([]);
     });
 });
 

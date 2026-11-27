@@ -286,6 +286,38 @@ describe("unique items", () => {
     });
 });
 
+describe("counters summed across variants", () => {
+    it("shows the item's total once, below the variant rows", async () => {
+        const base = fishTemplate();
+        const t: Template = {
+            ...base,
+            counterDefs: [
+                ...base.counterDefs,
+                { key: "all", label: "All", kind: "computed", sumOf: ["inventory"], acrossVariants: true, order: 9 },
+            ],
+        };
+        const saveItem = {
+            ...createSave(t, "s").items.bass,
+            counts: { normal: { inventory: 2 }, starred: { inventory: 3 } },
+        };
+        render(
+            <SaveItemDrawer
+                template={t}
+                item={t.items[0]}
+                saveItem={saveItem}
+                onClose={() => undefined}
+                onChange={() => undefined}
+                onCounterChange={() => undefined}
+                onObtainedChange={() => undefined}
+            />
+        );
+        const all = await screen.findAllByLabelText("All");
+        expect(all).toHaveLength(1);
+        expect(all[0]).toHaveTextContent("5");
+        expect(screen.queryByLabelText("Increase All")).toBeNull();
+    });
+});
+
 describe("read-only counters", () => {
     it("shows the item's default without a stepper", async () => {
         const base = fishTemplate();

@@ -340,6 +340,10 @@ const fi: Translation = {
         planned: "Suunniteltu",
         allVariants: "Kaikki muunnelmat",
         noMax: "Ei ylärajaa",
+        acrossVariants: "Kaikista muunnelmista",
+        acrossVariantsHint:
+            "Summa lasketaan esineen kaikista muunnelmista, esim. Yhteensä = tavallinen + tähtimäärä. Se näytetään kerran esineen kohdalla, muunnelmarivien alla.",
+        allVariantsSummed: "kaikki muunnelmat",
         requires: "Vaatii",
         requiresPlaceholder: "Vaatii laskurin",
         requiresHint:
@@ -526,6 +530,9 @@ const fi: Translation = {
         requiresInvalid:
             "Laskuri ”{{counter}}” vaatii laskurin ”{{key}}”, joka ei ole toinen käsin syötettävä laskuri ilman omaa vaatimusta",
         computedRequires: "Laskettu laskuri ”{{counter}}” ei voi vaatia toista laskuria",
+        manualAcrossVariants: "Vain laskettu laskuri voidaan laskea yhteen kaikista muunnelmista (”{{counter}}”)",
+        acrossVariantsLimited:
+            "Laskuri ”{{counter}}” lasketaan yhteen kaikista muunnelmista, joten sitä ei voi rajata muunnelmiin",
         maxFromWithMax: "Laskurilla ”{{counter}}” ei voi olla sekä enimmäisarvoa että enimmäisarvoa laskurista",
         manualHasSum: "Manuaalisella laskurilla ”{{counter}}” ei voi olla summaa",
         counterUnknownVariant: "Laskuri ”{{counter}}” viittaa tuntemattomaan muunnelmaan ”{{key}}”",

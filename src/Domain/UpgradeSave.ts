@@ -1,6 +1,6 @@
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
-import { isEditableCounter } from "./Counters.ts";
+import { getItemVariants, isEditableCounter, noVariantKey } from "./Counters.ts";
 import { createSaveItem } from "./CreateSave.ts";
 
 /** What changes when a save is upgraded to a newer template version. */
@@ -54,6 +54,28 @@ const pruneGathered = (save: Save, newTemplate: Template, discardHidden?: boolea
 
 /** Counts the save items for which `test` is true. */
 const countItems = (save: Save, test: (saveItem: SaveItem) => boolean) => Object.values(save.items).filter(test).length;
+
+/**
+ * Moves the counts and the obtained mark stored without a variant (`noVariantKey`) to the given variant. Values
+ * already stored for that variant are kept.
+ */
+const moveToFirstVariant = (saveItem: SaveItem, variantKey: string | undefined): SaveItem => {
+    const loose = saveItem.counts[noVariantKey];
+    const looseObtained = saveItem.obtained?.includes(noVariantKey) ?? false;
+    if (variantKey === undefined || (!loose && !looseObtained)) {
+        return saveItem;
+    }
+    const { [noVariantKey]: _moved, ...counts } = saveItem.counts;
+    let next: SaveItem = {
+        ...saveItem,
+        counts: loose ? { ...counts, [variantKey]: { ...loose, ...counts[variantKey] } } : counts,
+    };
+    if (looseObtained) {
+        const obtained = [...new Set((next.obtained ?? []).map(k => (k === noVariantKey ? variantKey : k)))];
+        next = { ...next, obtained };
+    }
+    return next;
+};
 
 /**
  * Upgrades a save to a newer version of its template. User data is never lost unless
@@ -129,6 +151,12 @@ const upgradeSave = (
             next = { ...next, orphan: undefined };
         } else if (next.orphan) {
             next = { ...next, orphan: undefined };
+        }
+
+        // The template now has variants: values stored without a variant move to the item's first variant, so
+        // they stay visible (a value already stored for that variant wins).
+        if (item && newTemplate.variantDefs.length > 0) {
+            next = moveToFirstVariant(next, getItemVariants(newTemplate, item)[0]?.key);
         }
 
         // Removed items keep everything until the user removes them.
