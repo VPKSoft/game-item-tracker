@@ -1,4 +1,4 @@
-import { Alert, Form, InputNumber, Modal, Select } from "antd";
+import { Alert, Checkbox, Form, InputNumber, Modal, Select } from "antd";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { getBulkCounters, getBulkVariants, setCounterForItems } from "../Domain/BulkEdits.ts";
@@ -31,14 +31,17 @@ const SetCounterDialog = ({ open, template, save, itemIds, onCancel, onApply }: 
     const counter = counters.find(c => c.key === counterKey) ?? counters[0];
     const variants = React.useMemo(() => (counter ? getBulkVariants(template, counter) : []), [template, counter]);
     const variant = variants.some(v => v.key === variantKey) ? variantKey : allVariants;
+    // A counter with a maximum of 1 is a checkbox, as on the cards; the value kept from another counter is capped.
+    const checkbox = counter?.max === 1;
+    const effectiveValue = counter?.max !== undefined ? Math.min(value, counter.max) : value;
 
     // A preview with the real edit, so the counts match what OK does.
     const preview = React.useMemo(
         () =>
             open && counter
-                ? setCounterForItems(template, save, itemIds, counter.key, value, variant || undefined)
+                ? setCounterForItems(template, save, itemIds, counter.key, effectiveValue, variant || undefined)
                 : undefined,
-        [open, template, save, itemIds, counter, value, variant]
+        [open, template, save, itemIds, counter, effectiveValue, variant]
     );
 
     return (
@@ -48,7 +51,9 @@ const SetCounterDialog = ({ open, template, save, itemIds, onCancel, onApply }: 
             okText={t("selection.apply")}
             okButtonProps={{ disabled: !preview || preview.changed.length === 0 }}
             onCancel={onCancel}
-            onOk={() => counter && onApply({ counterKey: counter.key, variantKey: variant || undefined, value })}
+            onOk={() =>
+                counter && onApply({ counterKey: counter.key, variantKey: variant || undefined, value: effectiveValue })
+            }
             destroyOnHidden
         >
             {counter ? (
@@ -74,23 +79,35 @@ const SetCounterDialog = ({ open, template, save, itemIds, onCancel, onApply }: 
                             />
                         </Form.Item>
                     )}
-                    <Form.Item label={t("selection.value")} extra={t("selection.capped")}>
-                        <InputNumber
-                            aria-label={t("selection.value")}
-                            min={0}
-                            max={counter.max}
-                            precision={0}
-                            value={value}
-                            onChange={v => setValue(typeof v === "number" ? v : 0)}
-                        />
-                    </Form.Item>
+                    {checkbox ? (
+                        <Form.Item label={t("selection.value")}>
+                            <Checkbox checked={effectiveValue >= 1} onChange={e => setValue(e.target.checked ? 1 : 0)}>
+                                {counter.label}
+                            </Checkbox>
+                        </Form.Item>
+                    ) : (
+                        <Form.Item label={t("selection.value")} extra={t("selection.capped")}>
+                            <InputNumber
+                                aria-label={t("selection.value")}
+                                min={0}
+                                max={counter.max}
+                                precision={0}
+                                value={effectiveValue}
+                                onChange={v => setValue(typeof v === "number" ? v : 0)}
+                            />
+                        </Form.Item>
+                    )}
                     {preview && (
                         <Alert
                             type={preview.skipped.length > 0 ? "warning" : "info"}
                             showIcon
                             title={t("selection.willChange", {
                                 counter: counter.label,
-                                value,
+                                value: checkbox
+                                    ? effectiveValue >= 1
+                                        ? t("selection.checked")
+                                        : t("selection.unchecked")
+                                    : effectiveValue,
                                 count: preview.changed.length,
                             })}
                             description={

@@ -159,6 +159,8 @@ const en = {
         variant: "Variant",
         allVariants: "All variants",
         value: "Value",
+        checked: "checked",
+        unchecked: "unchecked",
         apply: "Set",
         willChange_one: "Sets {{counter}} to {{value}} for {{count}} item.",
         willChange_other: "Sets {{counter}} to {{value}} for {{count}} items.",

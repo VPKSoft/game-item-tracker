@@ -795,6 +795,30 @@ describe("selection and Set counter", () => {
         expect(onApply).toHaveBeenCalledWith({ counterKey: "inventory", variantKey: undefined, value: 4 });
     });
 
+    it("shows a checkbox for a counter with a maximum of 1", async () => {
+        const t = fishTemplate();
+        t.counterDefs = [{ key: "obtained", label: "Obtained", kind: "manual", max: 1, order: 0 }];
+        const onApply = vi.fn();
+        render(
+            <AntdApp>
+                <SetCounterDialog
+                    open
+                    template={t}
+                    save={createSave(t, "S")}
+                    itemIds={new Set(["bass", "eel"])}
+                    onCancel={() => undefined}
+                    onApply={onApply}
+                />
+            </AntdApp>
+        );
+        expect(await screen.findByText("Sets Obtained to unchecked for 2 items.")).toBeInTheDocument();
+        expect(screen.queryByLabelText("Value")).not.toBeInTheDocument();
+        await userEvent.click(screen.getByRole("checkbox", { name: "Obtained" }));
+        expect(await screen.findByText("Sets Obtained to checked for 2 items.")).toBeInTheDocument();
+        await userEvent.click(screen.getByRole("button", { name: "Set" }));
+        expect(onApply).toHaveBeenCalledWith({ counterKey: "obtained", variantKey: undefined, value: 1 });
+    });
+
     it("reports items that do not use the chosen counter", async () => {
         const t = fishTemplate();
         render(
