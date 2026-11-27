@@ -96,6 +96,10 @@ const fi: Translation = {
         saveName: "Tallenteen nimi",
         newTemplateName: "Uuden mallipohjan nimi",
         newTemplateGame: "Uuden mallipohjan peli",
+        searchSaves: "Hae tallenteita",
+        noSavesMatch: "Haulla ei löytynyt tallenteita.",
+        searchTemplates: "Hae mallipohjia",
+        noTemplatesMatch: "Haulla ei löytynyt mallipohjia.",
     },
     online: {
         title: "Verkon mallipohjat",

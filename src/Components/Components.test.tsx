@@ -13,9 +13,10 @@ import { renderExchangeImage } from "../Images/RenderExchangeImage.ts";
 import { catalogFormat } from "../Schemas/CatalogSchema.ts";
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
-import { getTemplate, putTemplate } from "../Storage/Database.ts";
+import { getTemplate, putSave, putTemplate } from "../Storage/Database.ts";
 import { CountersEditor } from "../Views/CountersEditor.tsx";
 import { ExchangePanel } from "../Views/ExchangePanel.tsx";
+import { Library } from "../Views/Library.tsx";
 import { MaterialsPanel } from "../Views/MaterialsPanel.tsx";
 import { OnlineTemplatesDialog } from "../Views/OnlineTemplatesDialog.tsx";
 import { SaveItemDrawer } from "../Views/SaveItemDrawer.tsx";
@@ -637,6 +638,38 @@ describe("OnlineTemplatesDialog", () => {
         );
         expect(await screen.findByText("The online template list could not be loaded (HTTP 500).")).toBeInTheDocument();
         expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    });
+});
+
+describe("Library search", () => {
+    it("filters the saves and templates with their own search fields", async () => {
+        const fish = { ...fishTemplate(), templateId: "library-fish", name: "Library Fish" };
+        const bugs = { ...fishTemplate(), templateId: "library-bugs", name: "Library Bugs", game: "Bug Game" };
+        await putTemplate(fish);
+        await putTemplate(bugs);
+        await putSave(createSave(fish, "Morning catch"));
+        await putSave(createSave(bugs, "Evening hunt"));
+        render(
+            <AntdApp>
+                <Library onOpenSave={vi.fn()} onOpenTemplate={vi.fn()} />
+            </AntdApp>
+        );
+        expect(await screen.findByRole("button", { name: "Morning catch" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Evening hunt" })).toBeInTheDocument();
+
+        await userEvent.type(screen.getByLabelText("Search saves"), "library bugs");
+        expect(screen.queryByRole("button", { name: "Morning catch" })).toBeNull();
+        expect(screen.getByRole("button", { name: "Evening hunt" })).toBeInTheDocument();
+        // The templates are not filtered by the save search.
+        expect(screen.getByRole("cell", { name: "Library Fish" })).toBeInTheDocument();
+
+        await userEvent.type(screen.getByLabelText("Search templates"), "bug game");
+        expect(screen.queryByRole("cell", { name: "Library Fish" })).toBeNull();
+        expect(screen.getByRole("cell", { name: "Library Bugs" })).toBeInTheDocument();
+
+        await userEvent.clear(screen.getByLabelText("Search saves"));
+        await userEvent.type(screen.getByLabelText("Search saves"), "nothing like this");
+        expect(screen.getByText("No saves match the search.")).toBeInTheDocument();
     });
 });
 

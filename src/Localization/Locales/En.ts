@@ -102,6 +102,10 @@ const en = {
         saveName: "Save name",
         newTemplateName: "New template name",
         newTemplateGame: "New template game",
+        searchSaves: "Search saves",
+        noSavesMatch: "No saves match the search.",
+        searchTemplates: "Search templates",
+        noTemplatesMatch: "No templates match the search.",
     },
     online: {
         title: "Online templates",
