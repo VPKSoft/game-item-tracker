@@ -2,7 +2,7 @@
     "name": "game-item-tracker",
     "description": "Game Item Tracker",
     "private": true,
-    "version": "0.17.0",
+    "version": "0.17.1",
     "type": "module",
     "scripts": {
         "dev": "vite",

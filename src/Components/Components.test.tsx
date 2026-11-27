@@ -819,6 +819,47 @@ describe("selection and Set counter", () => {
         expect(onApply).toHaveBeenCalledWith({ counterKey: "obtained", variantKey: undefined, value: 1 });
     });
 
+    it("follows the counter profile maximums of the selected items", async () => {
+        const base = fishTemplate();
+        const t: Template = {
+            ...base,
+            counterDefs: [
+                { key: "obtained", label: "Obtained", kind: "manual", max: 1, order: 0 },
+                { key: "amount", label: "Amount", kind: "manual", order: 1 },
+            ],
+            counterProfiles: [
+                { key: "more", label: "More", overrides: { obtained: { max: 3 }, amount: { max: 1 } } },
+                { key: "single", label: "Single", overrides: { amount: { max: 1 } } },
+            ],
+            items: base.items.map(i =>
+                i.id === "bass" ? { ...i, counterProfile: "more" } : { ...i, counterProfile: "single" }
+            ),
+        };
+        const onApply = vi.fn();
+        render(
+            <AntdApp>
+                <SetCounterDialog
+                    open
+                    template={t}
+                    save={createSave(t, "S")}
+                    itemIds={new Set(["bass", "eel"])}
+                    onCancel={() => undefined}
+                    onApply={onApply}
+                />
+            </AntdApp>
+        );
+        // Obtained has max 1, but Bass's profile allows 3: a number field up to 3.
+        const value = await screen.findByLabelText("Value");
+        await userEvent.clear(value);
+        await userEvent.type(value, "3");
+        expect(await screen.findByText("Sets Obtained to 3 for 2 items.")).toBeInTheDocument();
+        // Amount has no limit, but both profiles give it max 1: a checkbox, with the 3 kept from Obtained capped to 1.
+        await userEvent.click(screen.getByLabelText("Counter"));
+        await userEvent.click(await screen.findByTitle("Amount"));
+        expect(await screen.findByRole("checkbox", { name: "Amount" })).toBeChecked();
+        expect(screen.queryByLabelText("Value")).not.toBeInTheDocument();
+    });
+
     it("reports items that do not use the chosen counter", async () => {
         const t = fishTemplate();
         render(

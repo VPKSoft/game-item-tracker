@@ -1,7 +1,7 @@
 import { Alert, Checkbox, Form, InputNumber, Modal, Select } from "antd";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
-import { getBulkCounters, getBulkVariants, setCounterForItems } from "../Domain/BulkEdits.ts";
+import { getBulkCounters, getBulkMax, getBulkTargets, getBulkVariants } from "../Domain/BulkEdits.ts";
 import type { Save } from "../Schemas/SaveSchema.ts";
 import type { Template } from "../Schemas/TemplateSchema.ts";
 
@@ -31,18 +31,25 @@ const SetCounterDialog = ({ open, template, save, itemIds, onCancel, onApply }: 
     const counter = counters.find(c => c.key === counterKey) ?? counters[0];
     const variants = React.useMemo(() => (counter ? getBulkVariants(template, counter) : []), [template, counter]);
     const variant = variants.some(v => v.key === variantKey) ? variantKey : allVariants;
-    // A counter with a maximum of 1 is a checkbox, as on the cards; the value kept from another counter is capped.
-    const checkbox = counter?.max === 1;
-    const effectiveValue = counter?.max !== undefined ? Math.min(value, counter.max) : value;
 
-    // A preview with the real edit, so the counts match what OK does.
+    // The items the edit changes, with the same rules as the edit itself, so the counts match what OK does.
     const preview = React.useMemo(
         () =>
-            open && counter
-                ? setCounterForItems(template, save, itemIds, counter.key, effectiveValue, variant || undefined)
-                : undefined,
-        [open, template, save, itemIds, counter, effectiveValue, variant]
+            open && counter ? getBulkTargets(template, save, itemIds, counter.key, variant || undefined) : undefined,
+        [open, template, save, itemIds, counter, variant]
     );
+    // The field follows the changed items' own maximums (counter profiles, maxFrom): a checkbox, as on the cards,
+    // when each of them has a maximum of 1, otherwise a number up to the highest maximum. A value kept from a
+    // previously chosen counter is capped.
+    const max = React.useMemo(
+        () =>
+            counter && preview && preview.changed.length > 0
+                ? getBulkMax(template, preview.changed, counter.key)
+                : counter?.max,
+        [template, counter, preview]
+    );
+    const checkbox = max === 1;
+    const effectiveValue = max !== undefined ? Math.min(value, max) : value;
 
     return (
         <Modal
@@ -90,7 +97,7 @@ const SetCounterDialog = ({ open, template, save, itemIds, onCancel, onApply }: 
                             <InputNumber
                                 aria-label={t("selection.value")}
                                 min={0}
-                                max={counter.max}
+                                max={max}
                                 precision={0}
                                 value={effectiveValue}
                                 onChange={v => setValue(typeof v === "number" ? v : 0)}
