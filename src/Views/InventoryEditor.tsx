@@ -3,16 +3,18 @@ import {
     faDownload,
     faListCheck,
     faRightLeft,
+    faSquareCheck,
     faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { Alert, Badge, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table, Tooltip } from "antd";
+import { Alert, App, Badge, Button, Dropdown, Empty, Modal, Popconfirm, Space, Spin, Table, Tooltip } from "antd";
 import classNames from "classnames";
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { ItemBrowser } from "../Components/ItemBrowser.tsx";
 import { ItemCard } from "../Components/ItemCard.tsx";
+import { setCounterForItems } from "../Domain/BulkEdits.ts";
 import { getSaveItem, setCounterValue, setObtained } from "../Domain/Counters.ts";
 import {
     type ExchangeEntry,
@@ -41,6 +43,7 @@ import type { BaseProps } from "../Types/BaseTypes.ts";
 import { ExchangePanel, type ExchangeUpdate, getStoredGiveSource } from "./ExchangePanel.tsx";
 import { MaterialsPanel } from "./MaterialsPanel.tsx";
 import { SaveItemDrawer } from "./SaveItemDrawer.tsx";
+import { type SetCounterChoice, SetCounterDialog } from "./SetCounterDialog.tsx";
 import { UpgradeDialog } from "./UpgradeDialog.tsx";
 
 type Props = {
@@ -67,7 +70,12 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
     const [exchangeOpen, setExchangeOpen] = React.useState(false);
     const [materialsOpen, setMaterialsOpen] = React.useState(false);
     const visibleItems = React.useRef<Template["items"]>([]);
+    const [selecting, setSelecting] = React.useState(false);
+    const [selected, setSelected] = React.useState<ReadonlySet<string>>(() => new Set());
+    const [setCounterOpen, setSetCounterOpen] = React.useState(false);
+    const lastSelected = React.useRef<string | null>(null);
     const { t } = useTranslation();
+    const { message } = App.useApp();
 
     // The error texts are translated when the save is opened; changing the language does not reload it.
     // biome-ignore lint/correctness/useExhaustiveDependencies: reload only when another save is opened
@@ -77,6 +85,9 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
         setTemplate(null);
         setNewer(null);
         setError(null);
+        setSelecting(false);
+        setSelected(new Set());
+        lastSelected.current = null;
         if (!saveId) {
             return;
         }
@@ -213,6 +224,51 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
         visibleItems.current = items;
     }, []);
 
+    // Selection: a click toggles one item. A shift-click gives the shown items from the last clicked one to this one
+    // the new state of this one.
+    const onSelect = React.useCallback((itemId: string, range: boolean) => {
+        const shown = visibleItems.current;
+        const from = range && lastSelected.current ? shown.findIndex(i => i.id === lastSelected.current) : -1;
+        const to = shown.findIndex(i => i.id === itemId);
+        const ids =
+            from >= 0 && to >= 0 ? shown.slice(Math.min(from, to), Math.max(from, to) + 1).map(i => i.id) : [itemId];
+        lastSelected.current = itemId;
+        setSelected(current => {
+            const select = !current.has(itemId);
+            const next = new Set(current);
+            for (const id of ids) {
+                if (select) {
+                    next.add(id);
+                } else {
+                    next.delete(id);
+                }
+            }
+            return next;
+        });
+    }, []);
+
+    const selectShown = () => setSelected(current => new Set([...current, ...visibleItems.current.map(i => i.id)]));
+
+    const clearSelection = () => {
+        setSelected(new Set());
+        lastSelected.current = null;
+    };
+
+    const applySetCounter = (choice: SetCounterChoice) => {
+        if (!template || !save) {
+            return;
+        }
+        const result = setCounterForItems(template, save, selected, choice.counterKey, choice.value, choice.variantKey);
+        setSave(result.save);
+        setSetCounterOpen(false);
+        message.success(
+            t("selection.applied", {
+                counter: template.counterDefs.find(c => c.key === choice.counterKey)?.label ?? choice.counterKey,
+                count: result.changed.length,
+            })
+        );
+    };
+
     const exportSave = async (withTemplate: boolean) => {
         if (!save || !template) {
             return;
@@ -237,9 +293,22 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                     showCounters
                     exchangeEntries={exchangeOpen ? (entryGroups.get(item.id) ?? noEntries) : undefined}
                     onExchangeToggle={exchangeOpen ? onExchangeToggle : undefined}
+                    selected={selecting ? selected.has(item.id) : undefined}
+                    onSelect={selecting ? onSelect : undefined}
                 />
             ) : null,
-        [template, save, onCounterChange, onObtainedChange, exchangeOpen, entryGroups, onExchangeToggle]
+        [
+            template,
+            save,
+            onCounterChange,
+            onObtainedChange,
+            exchangeOpen,
+            entryGroups,
+            onExchangeToggle,
+            selecting,
+            selected,
+            onSelect,
+        ]
     );
 
     if (!saveId) {
@@ -302,6 +371,24 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                         }
                     />
                 )}
+                {selecting && (
+                    <div className="InventoryEditor-selection" role="toolbar" aria-label={t("selection.toggle")}>
+                        <span className="InventoryEditor-selectionCount">
+                            {t("selection.selected", { count: selected.size })}
+                        </span>
+                        <Button type="primary" disabled={selected.size === 0} onClick={() => setSetCounterOpen(true)}>
+                            {t("selection.setCounter")}
+                        </Button>
+                        <Tooltip title={t("selection.selectShownTooltip")}>
+                            <Button onClick={selectShown}>{t("selection.selectShown")}</Button>
+                        </Tooltip>
+                        <Button disabled={selected.size === 0} onClick={clearSelection}>
+                            {t("selection.clear")}
+                        </Button>
+                        <span className="InventoryEditor-selectionHint">{t("selection.hint")}</span>
+                        <Button onClick={() => setSelecting(false)}>{t("selection.done")}</Button>
+                    </div>
+                )}
             </div>
             <div className="InventoryEditor-body">
                 <ItemBrowser
@@ -312,6 +399,18 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                     onItemsChange={onItemsChange}
                     toolbarExtra={
                         <>
+                            <Tooltip title={t("selection.toggleTooltip")}>
+                                <Badge count={selecting ? 0 : selected.size} size="small" overflowCount={9999}>
+                                    <Button
+                                        type={selecting ? "primary" : "default"}
+                                        aria-pressed={selecting}
+                                        icon={<FontAwesomeIcon icon={faSquareCheck} />}
+                                        onClick={() => setSelecting(s => !s)}
+                                    >
+                                        {t("selection.toggle")}
+                                    </Button>
+                                </Badge>
+                            </Tooltip>
                             <Tooltip title={t("exchange.toggleTooltip")}>
                                 <Badge count={entries.length} size="small" overflowCount={999}>
                                     <Button
@@ -392,6 +491,14 @@ let InventoryEditor = ({ className, saveId, onOpenLibrary, exchangeEntries, onEx
                 onChange={updateItem}
                 onCounterChange={onCounterChange}
                 onObtainedChange={onObtainedChange}
+            />
+            <SetCounterDialog
+                open={setCounterOpen}
+                template={template}
+                save={save}
+                itemIds={selected}
+                onCancel={() => setSetCounterOpen(false)}
+                onApply={applySetCounter}
             />
             <UpgradeDialog
                 open={upgradeOpen}
@@ -500,6 +607,24 @@ InventoryEditor = styled(InventoryEditor)`
         @media (max-width: 760px) {
             flex-direction: column;
         }
+    }
+    .InventoryEditor-selection {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--ant-color-primary-border);
+        background: var(--ant-color-primary-bg);
+        border-radius: var(--ant-border-radius-lg);
+    }
+    .InventoryEditor-selectionCount {
+        font-weight: 600;
+    }
+    .InventoryEditor-selectionHint {
+        flex: 1;
+        font-size: 0.85em;
+        opacity: 0.7;
     }
     .InventoryEditor-title {
         font-size: 1.2em;

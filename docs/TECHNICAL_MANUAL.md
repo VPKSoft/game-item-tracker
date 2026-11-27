@@ -98,6 +98,7 @@ src/
     EffectiveTags.ts       Tag difference model (template tags − removed + custom)
     Exchange.ts            Exchange list entries, suggested amounts, image tiles and image layout
     Materials.ts           Materials list: needed (planned × per item) and gathered amounts
+    BulkEdits.ts           setCounterForItems: one counter value for many selected items
     Ids.ts                 slugify, uniqueId, newUuid, bumpVersion, compareVersions
     TestFixtures.ts        Shared fixtures for tests
   Storage/
@@ -134,6 +135,7 @@ src/
     ExchangePanel.tsx      Exchange list side panel: entries, quick fill, image options, copy / save PNG
     MaterialsPanel.tsx     Materials list side panel: needed / gathered per material
     MaterialsEditor.tsx    Materials tab of the template editor
+    SetCounterDialog.tsx   Set counter dialog of the inventory selection mode
   Localization/
     I18n.ts                i18next setup, supported languages, stored language, setLanguage
     I18next.d.ts           Type augmentation: translation keys are checked by tsc
@@ -507,6 +509,14 @@ Requested as a generic way to see what to gather for things the user wants to ma
 - `hasMaterialsList(template)`: the template has materials and a `planned` counter. Only then does `InventoryEditor` show the **Materials** toolbar button; its badge counts materials still short.
 - UI: `MaterialsPanel.tsx` is a side column like the exchange panel (the two are exclusive): per material the image, name, needed amount (tooltip: the items that need it), a *Gathered* stepper and a check mark when enough, or how many are missing. A summary with a progress bar, *Hide gathered* (remembered in localStorage as a UI preference) and *Clear gathered* (confirmed). The template editor has a **Materials** tab (`MaterialsEditor.tsx`: names, images in a modal, order, delete) and the item drawer a *Materials for one* list. `SaveItemDrawer` shows the item's materials (`MaterialList.tsx`).
 
+### 5.10 Setting a counter for selected items (`BulkEdits.ts`)
+
+Requested as: set a chosen counter for chosen items to a specific value.
+
+- `getBulkCounters(template)`: the counters offered, i.e. the editable manual counters (`isEditableCounter`) in `order`. `getBulkVariants(template, counter)`: the template's variants the counter applies to (empty without `variantDefs`).
+- `setCounterForItems(template, save, itemIds, counterKey, value, variantKey?)` returns `{ save, changed, skipped }`. For each item it calls `setCounterValue` for every variant of the item (or only `variantKey`) that the counter applies to, so the value is rounded and clamped to the item's maximum (`max`, `maxFrom`, profile `max`). Unique variants and variants whose requirement is unmet are left alone, and items whose profile turns the counter off or fixes it, unknown items and computed or read-only counters are skipped. `changed` lists items set for at least one variant, `skipped` the others. Without changes the same save object is returned (no autosave).
+- UI: the **Select** toolbar button of `InventoryEditor` turns on selection mode. The selection is a `Set` of item ids in `InventoryEditor` state only, cleared when another save opens; it is not stored. In selection mode `ItemCard` gets `selected` and `onSelect`: it shows a checkbox, a click selects instead of opening the drawer, and a shift-click selects the range between the last clicked card and this one among the items the grid shows (`onItemsChange`). *Select shown* adds the shown items. `SetCounterDialog` runs `setCounterForItems` as a preview, so its changed / skipped counts are what *Set* does.
+
 ## 6. Storage and persistence
 
 IndexedDB database `game-item-tracker`, version 1 (`Database.ts`):
@@ -584,7 +594,7 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | `App.tsx` | Toolbar with `Segmented` view switch, theme switch, About. Persists view and open documents. |
 | `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
 | `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
-| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle. |
+| `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle; selection mode + `SetCounterDialog` (section 5.10). |
 | `MaterialsPanel.tsx` | Materials list side panel (section 5.9): needed and gathered amounts per material, done marks, hide gathered, clear. |
 | `MaterialsEditor.tsx` | Template editor *Materials* tab: add, rename, image, reorder, delete materials. |
 | `ExchangePanel.tsx` | Exchange list side panel next to the grid (an `<aside>` in `InventoryEditor-body`, not an overlay drawer, so the grid reflows to fewer columns; stacked below the grid under 760 px): entries with amounts, quick fill, image options, preview, Copy image and Save PNG (section 9.1). |
@@ -685,11 +695,12 @@ npm run coverage
 | `Domain/SaveLifecycle.test.ts` | `createSave`, `upgradeSave`, effective tags, ids and versions |
 | `Domain/TemplateEdits.test.ts` | Edit operations and reference cleanup |
 | `Domain/Browse.test.ts` | Search, sorting, filters, 10k-item performance smoke test |
+| `Domain/BulkEdits.test.ts` | Setting one counter for many items: variants, clamping, unique, profiles, requirements |
 | `Domain/Exchange.test.ts` | Exchange suggestions (variants, unique, counter source), list edits, pruning, tiles, image layout |
 | `Images/RenderExchangeImage.test.ts` | Text wrapping, drawing with a fake 2D context, clipboard write |
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
-| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked) |
+| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked), card selection, Set counter dialog |
 | `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
 | `Domain/Catalog.test.ts` | Catalog status, search and URLs; catalog and template download with a mocked `fetch` |
