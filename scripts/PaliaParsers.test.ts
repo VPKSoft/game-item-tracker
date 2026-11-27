@@ -28,6 +28,7 @@ import {
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
+    parseNamedImageTable,
     parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
@@ -1142,5 +1143,40 @@ describe("food recipe items", () => {
         // Flour has no starred quality.
         expect(template.items.map(i => i.variants)).toEqual([undefined, undefined, ["normal"]]);
         expect(imageUrls.get("any-fish")).toBe("https://palia.wiki.gg/images/Any_Fish.png");
+    });
+
+    it("lists a generic ingredient as the specific items of its list page", () => {
+        const mushrooms = parseNamedImageTable(`
+<table class="paliatable sortable">
+<tr><th>Image</th><th>Name</th><th>Description</th><th>Rarity</th></tr>
+<tr><td><img alt="Brightshroom.png" src="/images/thumb/Brightshroom.png/65px-Brightshroom.png?3c"></td>
+<td><a href="/wiki/Brightshroom"><span>Brightshroom</span></a></td><td>Glows.</td><td>Rare</td></tr>
+<tr><td><img alt="Mountain Morel.png" src="/images/thumb/Mountain_Morel.png/65px-Mountain_Morel.png?1d"></td>
+<td><a href="/wiki/Mountain_Morel"><span>Mountain Morel</span></a></td><td>Tasty.</td><td>Common</td></tr>
+</table>`);
+        expect(mushrooms).toEqual([
+            { name: "Brightshroom", imageUrl: "https://palia.wiki.gg/images/Brightshroom.png" },
+            { name: "Mountain Morel", imageUrl: "https://palia.wiki.gg/images/Mountain_Morel.png" },
+        ]);
+        const rows = [
+            parseRecipePage(
+                "Grilled Mushroom",
+                recipePageHtml("Grilled Mushroom", anyIngredient("Any Mushroom", "Mushrooms", "Any_Mushroom", 1))
+            ),
+            parseRecipePage(
+                "Mushroom Soup",
+                recipePageHtml(
+                    "Mushroom Soup",
+                    anyIngredient("Any Mushroom", "Mushrooms", "Any_Mushroom", 2) + tintIngredient("Brightshroom", 1)
+                )
+            ),
+        ];
+        const { template, imageUrls } = buildRecipeItemTemplate(rows, meta, new Map([["Any Mushroom", mushrooms]]));
+        expect(validateTemplate(template)).toEqual([]);
+        expect(template.items.map(i => [i.id, i.categoryId, i.description])).toEqual([
+            ["brightshroom", "common", "Used in: Grilled Mushroom, Mushroom Soup"],
+            ["mountain-morel", "common", "Used in: Grilled Mushroom, Mushroom Soup"],
+        ]);
+        expect(imageUrls.get("mountain-morel")).toBe("https://palia.wiki.gg/images/Mountain_Morel.png");
     });
 });
