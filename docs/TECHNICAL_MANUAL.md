@@ -93,6 +93,7 @@ src/
     TemplateEdits.ts       Immutable template edit operations (upsert/delete/rename/move…)
     Validation.ts          validateTemplate: cross-reference checks beyond the Zod shape
     Catalog.ts             getCatalogStatus, filterCatalog, catalogFileUrl (online templates)
+    LibrarySearch.ts       filterSaves, filterTemplates (Library search fields)
     Browse.ts              Filtering + sorting for the item grid, sort options
     Search.ts              Fuse.js index and query
     EffectiveTags.ts       Tag difference model (template tags − removed + custom)
@@ -608,7 +609,7 @@ Note: inside an antd `Form`, file inputs get `display: block`, which overrides t
 | View / component | Responsibility |
 |---|---|
 | `App.tsx` | Toolbar with `Segmented` view switch, theme switch, About. Persists view and open documents. |
-| `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; opens the online templates dialog. |
+| `Library.tsx` | Tables of saves and templates; import, export (optionally with template), new save, new template, delete with confirmation; *vX available*, *template missing* and *not exported* tags; a search field for each table (`LibrarySearch.ts`: every word of the query must appear in the save name or its template name, game and version, or in the template name, game and version, ignoring case); opens the online templates dialog. |
 | `OnlineTemplatesDialog.tsx` | Searchable list of the online catalog with Install / Update to vX / Installed per template (section 7.1). |
 | `InventoryEditor.tsx` | Loads a save and its template; autosave; upgrade banner + `UpgradeDialog`; removed-items banner + review dialog (confirmed removal); export; Exchange toggle; selection mode + `SetCounterDialog` (section 5.10). |
 | `MaterialsPanel.tsx` | Materials list side panel (section 5.9): needed and gathered amounts per material, done marks, hide gathered, clear. |
@@ -711,13 +712,14 @@ npm run coverage
 | `Domain/SaveLifecycle.test.ts` | `createSave`, `upgradeSave`, effective tags, ids and versions |
 | `Domain/TemplateEdits.test.ts` | Edit operations and reference cleanup |
 | `Domain/Browse.test.ts` | Search, sorting, filters, 10k-item performance smoke test |
+| `Domain/LibrarySearch.test.ts` | Library save and template search |
 | `Domain/HiddenItems.test.ts` | Hiding and unhiding, browsing with the Hidden category, schema and upgrades |
 | `Domain/BulkEdits.test.ts` | Setting one counter for many items: variants, clamping, unique, profiles (off, fixed, hidden, inherited, max), requirements, bulk maximum |
 | `Domain/Exchange.test.ts` | Exchange suggestions (variants, unique, counter source), list edits, pruning, tiles, image layout |
 | `Images/RenderExchangeImage.test.ts` | Text wrapping, drawing with a fake 2D context, clipboard write |
 | `Images/Images.test.ts` | Input extraction, size math, quality step-down (canvas mocked) |
 | `Storage/Storage.test.ts` | IndexedDB round trip, file format detection, autosave debounce/flush |
-| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked), card selection, Set counter dialog, hiding in the drawer, Hidden category |
+| `Components/Components.test.tsx` | Stepper, counter rows, unique checkbox, browser, drawers, image dialog, counters editor, upgrade dialog, online templates dialog, exchange toggles and panel (rendering mocked), card selection, Set counter dialog, hiding in the drawer, Hidden category, Library search fields |
 | `Localization/Localization.test.tsx` | Same keys and placeholders in every language, English default, stored language, coded message translation, settings dialog |
 | `scripts/PaliaParsers.test.ts` | Parsers on hand-written HTML fixtures (no wiki content) |
 | `Domain/Catalog.test.ts` | Catalog status, search and URLs; catalog and template download with a mocked `fetch` |

@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { styled } from "styled-components";
 import { createSave, createTemplate } from "../Domain/CreateSave.ts";
 import { compareVersions } from "../Domain/Ids.ts";
+import { filterSaves, filterTemplates } from "../Domain/LibrarySearch.ts";
 import {
     downloadFile,
     fileNameFor,
@@ -51,6 +52,8 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
     const [newTemplate, setNewTemplate] = React.useState({ name: "", game: "" });
     const [importError, setImportError] = React.useState<string | null>(null);
     const [onlineOpen, setOnlineOpen] = React.useState(false);
+    const [saveQuery, setSaveQuery] = React.useState("");
+    const [templateQuery, setTemplateQuery] = React.useState("");
     const fileInput = React.useRef<HTMLInputElement>(null);
     const { message, modal } = App.useApp();
     const { t, i18n } = useTranslation();
@@ -225,13 +228,27 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 <Alert type="error" showIcon closable title={importError} onClose={() => setImportError(null)} />
             )}
 
-            <Card size="small" title={t("library.savesTitle")}>
+            <Card
+                size="small"
+                title={t("library.savesTitle")}
+                extra={
+                    <Input.Search
+                        allowClear
+                        size="small"
+                        className="Library-search"
+                        aria-label={t("library.searchSaves")}
+                        placeholder={t("library.searchSaves")}
+                        value={saveQuery}
+                        onChange={e => setSaveQuery(e.target.value)}
+                    />
+                }
+            >
                 <Table
                     size="small"
                     rowKey="saveId"
                     pagination={false}
-                    dataSource={saves}
-                    locale={{ emptyText: t("library.noSaves") }}
+                    dataSource={filterSaves(saves, saveQuery)}
+                    locale={{ emptyText: saves.length > 0 ? t("library.noSavesMatch") : t("library.noSaves") }}
                     columns={[
                         {
                             title: t("common.name"),
@@ -305,13 +322,32 @@ let Library = ({ className, onOpenSave, onOpenTemplate }: Props) => {
                 />
             </Card>
 
-            <Card size="small" title={t("library.templatesTitle")}>
+            <Card
+                size="small"
+                title={t("library.templatesTitle")}
+                extra={
+                    <Input.Search
+                        allowClear
+                        size="small"
+                        className="Library-search"
+                        aria-label={t("library.searchTemplates")}
+                        placeholder={t("library.searchTemplates")}
+                        value={templateQuery}
+                        onChange={e => setTemplateQuery(e.target.value)}
+                    />
+                }
+            >
                 <Table
                     size="small"
                     rowKey={row => `${row.templateId}@${row.version}`}
                     pagination={false}
-                    dataSource={templates}
-                    locale={{ emptyText: t("library.noTemplates", { extension: templateExtension }) }}
+                    dataSource={filterTemplates(templates, templateQuery)}
+                    locale={{
+                        emptyText:
+                            templates.length > 0
+                                ? t("library.noTemplatesMatch")
+                                : t("library.noTemplates", { extension: templateExtension }),
+                    }}
                     columns={[
                         { title: t("common.name"), render: (_, row) => row.name },
                         { title: t("common.game"), render: (_, row) => row.game },
@@ -426,6 +462,10 @@ Library = styled(Library)`
     overflow: auto;
     flex: 1;
     min-height: 0;
+
+    .Library-search {
+        width: min(240px, 45vw);
+    }
 `;
 
 export { Library };
