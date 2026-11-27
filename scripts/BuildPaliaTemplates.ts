@@ -36,6 +36,7 @@ import {
     parseFishTable,
     parseGuildStoreItems,
     parseLuckyBoxRewards,
+    parseNamedImageTable,
     parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
@@ -430,15 +431,25 @@ const main = async () => {
     }
     await writeTemplate(recipes.template);
 
+    console.log("Fetching Mushrooms…");
+    const mushrooms = parseNamedImageTable(await fetchPageHtml("Mushrooms"), wikiBase);
+    if (mushrooms.length === 0) {
+        throw new Error("No mushrooms were found on the Mushrooms page");
+    }
     console.log("Building the food recipe items…");
-    const recipeItems = buildRecipeItemTemplate(recipeRows, {
-        templateId: recipeItemTemplateId,
-        version: values.version,
-        name: "Palia – Food Recipe Items",
-        description:
-            "The ingredients of the food recipes of Palia. Common ones are needed by several recipes, special ones by a single recipe.",
-        sourceUrl: `${wikiBase}/wiki/Category:Recipes`,
-    });
+    const recipeItems = buildRecipeItemTemplate(
+        recipeRows,
+        {
+            templateId: recipeItemTemplateId,
+            version: values.version,
+            name: "Palia – Food Recipe Items",
+            description:
+                "The ingredients of the food recipes of Palia. Common ones are needed by several recipes, special ones by a single recipe.",
+            sourceUrl: `${wikiBase}/wiki/Category:Recipes`,
+        },
+        // "Any Mushroom" is listed as the specific mushrooms.
+        new Map([["Any Mushroom", mushrooms]])
+    );
     if (!values["no-images"]) {
         await addImages(recipeItems.template, recipeItems.imageUrls);
     }

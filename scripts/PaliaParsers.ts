@@ -1917,6 +1917,32 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
+/** An item of a list page: its name and image. */
+type NamedImage = ImageRef & { name: string };
+
+/**
+ * Parses the item names and images of the tables whose first headers are Image and Name, such as the list on the
+ * Mushrooms page. A name is listed once.
+ */
+const parseNamedImageTable = (html: string, base = "https://palia.wiki.gg"): NamedImage[] => {
+    const rows: NamedImage[] = [];
+    for (const table of parse(html).querySelectorAll("table")) {
+        const headers = headerTexts(table);
+        if (headers[0] !== "Image" || headers[1] !== "Name") {
+            continue;
+        }
+        for (const tr of table.querySelectorAll("tr")) {
+            const cells = tr.querySelectorAll("td");
+            const name = cells.length >= 2 ? cleanText(cells[1]) : "";
+            if (!name || rows.some(r => r.name === name)) {
+                continue;
+            }
+            rows.push({ name, imageUrl: fullImageUrl(cells[0].querySelector("img")?.getAttribute("src"), base) });
+        }
+    }
+    return rows;
+};
+
 /** Food recipe ingredients that have no starred quality, so they only have the Normal variant. */
 const unstarredRecipeItems = new Set([
     "Plant Fiber",
@@ -1934,25 +1960,33 @@ const unstarredRecipeItems = new Set([
 
 /**
  * Builds the food recipe items template: one item per distinct ingredient of the food recipes, as the wiki names it
- * (generic ones such as "Any Fish" stay one item; they are not expanded into every fish). Category *Common* for
+ * (generic ones such as "Any Fish" stay one item; they are not expanded into every fish). A generic ingredient listed
+ * in `expansions` is replaced by its specific items, each needed by the recipes of the generic one (e.g. "Any
+ * Mushroom" → the mushrooms of the Mushrooms page), with the image from that list. Category *Common* for
  * ingredients that two or more recipes need and *Special* for those only one recipe needs; Common is the default
  * category. The fish variants Normal and ★ Starred, except for the items in `unstarredRecipeItems` (Normal only);
  * counters Amount (per variant) and Total = Amount of every variant (read-only, summed across variants). The
  * description lists the recipes that need the item; tag `Recipe: …` per recipe. Recipes without ingredients are
  * ignored.
  */
-const buildRecipeItemTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
+const buildRecipeItemTemplate = (
+    rows: RecipeRow[],
+    meta: TemplateMeta,
+    expansions: ReadonlyMap<string, NamedImage[]> = new Map()
+) => {
     const template = baseTemplate(meta);
     const recipes = rows.filter(r => r.ingredients.length > 0).sort((a, b) => a.name.localeCompare(b.name));
     const uses = new Map<string, { recipes: string[]; imageUrl?: string }>();
     for (const recipe of recipes) {
         for (const ingredient of recipe.ingredients) {
-            const use = uses.get(ingredient.name) ?? { recipes: [] };
-            if (!use.recipes.includes(recipe.name)) {
-                use.recipes.push(recipe.name);
+            for (const { name, imageUrl } of expansions.get(ingredient.name) ?? [ingredient]) {
+                const use = uses.get(name) ?? { recipes: [] };
+                if (!use.recipes.includes(recipe.name)) {
+                    use.recipes.push(recipe.name);
+                }
+                use.imageUrl ??= imageUrl;
+                uses.set(name, use);
             }
-            use.imageUrl ??= ingredient.imageUrl;
-            uses.set(ingredient.name, use);
         }
     }
     const categories: Category[] = [
@@ -2171,6 +2205,7 @@ export {
     parseGuildStoreItems,
     parseItemSources,
     parseLuckyBoxRewards,
+    parseNamedImageTable,
     parseObtainableTable,
     parsePlushieTables,
     parsePotatoPodTable,
