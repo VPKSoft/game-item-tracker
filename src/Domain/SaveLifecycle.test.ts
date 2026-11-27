@@ -145,6 +145,18 @@ describe("upgradeSave", () => {
         expect(upgraded.items.bass.counts.normal.target).toBe(1);
     });
 
+    it("moves values stored without a variant to the item's first variant when the template gets variants", () => {
+        const v1: Template = { ...fishTemplate(), variantDefs: [] };
+        const save = createSave(v1, "s");
+        save.items.bass = setCounterValue(v1, save.items.bass, "_", "inventory", 4);
+        const v2WithStars = { ...fishTemplate(), version: "1.1.0" };
+        const { save: upgraded, summary } = upgradeSave(save, v1, v2WithStars);
+        expect(summary.addedVariants).toEqual(["normal", "starred"]);
+        expect(upgraded.items.bass.counts._).toBeUndefined();
+        expect(upgraded.items.bass.counts.normal.inventory).toBe(4);
+        expect(upgraded.items.bass.counts.starred).toBeDefined();
+    });
+
     it("rejects a template with a different id", () => {
         const save = createSave(fishTemplate(), "s");
         expect(() => upgradeSave(save, undefined, { ...v2(), templateId: "other" })).toThrow();

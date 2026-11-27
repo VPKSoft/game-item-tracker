@@ -22,6 +22,8 @@ const validationMessages = {
     requiresInvalid:
         'Counter "{{counter}}" requires "{{key}}", which is not another manual counter without a requirement of its own',
     computedRequires: 'Computed counter "{{counter}}" cannot require another counter',
+    manualAcrossVariants: 'Only a computed counter can be summed over all variants ("{{counter}}")',
+    acrossVariantsLimited: 'Counter "{{counter}}" is summed over all variants, so it cannot be limited to variants',
     manualHasSum: 'Manual counter "{{counter}}" cannot have a sum',
     counterUnknownVariant: 'Counter "{{counter}}" refers to unknown variant "{{key}}"',
     attributeMinAboveMax: 'Attribute "{{attribute}}" has a minimum greater than its maximum',
@@ -184,7 +186,13 @@ const validateTemplate = (template: Template): ValidationIssue[] => {
             if (counter.requires !== undefined) {
                 issues.push(issue(path, "computedRequires", { counter: counter.label }));
             }
+            if (counter.acrossVariants && counter.variants && counter.variants.length > 0) {
+                issues.push(issue(path, "acrossVariantsLimited", { counter: counter.label }));
+            }
         } else {
+            if (counter.acrossVariants) {
+                issues.push(issue(path, "manualAcrossVariants", { counter: counter.label }));
+            }
             if (counter.sumOf && counter.sumOf.length > 0) {
                 issues.push(issue(path, "manualHasSum", { counter: counter.label }));
             }

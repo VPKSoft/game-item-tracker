@@ -9,6 +9,7 @@ import {
     findRoleCounter,
     getCounterMax,
     getCounterValue,
+    getItemCounters,
     getItemCounterTotal,
     getItemVariants,
     getVariantCounters,
@@ -145,7 +146,10 @@ const CounterRowsRoot = styled.div`
     }
 `;
 
-/** The rows of counters of an item, one per variant. Shared by the card and the item drawer. */
+/**
+ * The rows of counters of an item, one per variant, and a last row of the counters summed over all variants. Shared
+ * by the card and the item drawer.
+ */
 const CounterRows = ({
     template,
     item,
@@ -162,6 +166,7 @@ const CounterRows = ({
     size?: "small" | "middle";
 }) => {
     const variants = getItemVariants(template, item);
+    const itemCounters = getItemCounters(template, item);
     const { t } = useTranslation();
     return (
         <CounterRowsRoot className="CounterRows">
@@ -224,6 +229,20 @@ const CounterRows = ({
                     </div>
                 );
             })}
+            {itemCounters.length > 0 && (
+                <div className="CounterRows-row CounterRows-item">
+                    <div className="CounterRows-counters">
+                        {itemCounters.map(counter => (
+                            <CounterStepper
+                                key={counter.key}
+                                size={size}
+                                label={counter.label}
+                                value={getItemCounterTotal(template, item, saveItem, counter.key)}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
         </CounterRowsRoot>
     );
 };

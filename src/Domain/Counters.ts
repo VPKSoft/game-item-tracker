@@ -91,14 +91,34 @@ const isCounterOff = (template: Template, def: CounterDef, item: TemplateItem | 
 const isCounterVisible = (template: Template, def: CounterDef, item: TemplateItem | undefined) =>
     getCounterOverride(template, def, item)?.use === undefined;
 
+/** Gets a value indicating whether a counter is summed over all variants and shown once per item. */
+const isAcrossVariants = (def: CounterDef) => def.kind === "computed" && def.acrossVariants === true;
+
 /**
  * Gets the counters shown for a variant, in display order. With the item, the counters its counter profile hides
- * or turns off are left out.
+ * or turns off are left out. Counters summed across variants are shown once per item instead (`getItemCounters`).
  */
 const getVariantCounters = (template: Template, variantKey: string, item?: TemplateItem): CounterDef[] =>
     [...template.counterDefs]
         .sort(byOrder)
-        .filter(c => counterAppliesTo(c, variantKey) && (!item || isCounterVisible(template, c, item)));
+        .filter(
+            c =>
+                (variantKey === noVariantKey || !isAcrossVariants(c)) &&
+                counterAppliesTo(c, variantKey) &&
+                (!item || isCounterVisible(template, c, item))
+        );
+
+/**
+ * Gets the counters summed across variants that an item shows once, below its variant rows, in display order. For an
+ * item without variants (or with a single one) they are ordinary computed counters, so they are left out here and
+ * `getVariantCounters` shows them in the row.
+ */
+const getItemCounters = (template: Template, item: TemplateItem): CounterDef[] =>
+    template.variantDefs.length === 0
+        ? []
+        : [...template.counterDefs]
+              .sort(byOrder)
+              .filter(c => isAcrossVariants(c) && isCounterVisible(template, c, item));
 
 /** Gets a value indicating whether an item shows any counter in a save (unique variants not counted). */
 const hasVisibleCounters = (template: Template, item: TemplateItem) =>
@@ -237,7 +257,10 @@ const getCounterValue = (
     return sum;
 };
 
-/** Gets the value of a counter summed over every variant of an item. */
+/**
+ * Gets the value of a counter summed over every variant of an item. For a counter summed across variants
+ * (`acrossVariants`) this is its value; `getCounterValue` gives each variant's share of it.
+ */
 const getItemCounterTotal = (
     template: Template,
     item: TemplateItem,
@@ -380,6 +403,7 @@ export {
     getCounterOverride,
     getCounterProfile,
     getCounterValue,
+    getItemCounters,
     getItemCounterTotal,
     getItemVariants,
     getMissing,
@@ -387,6 +411,7 @@ export {
     getVariantCounters,
     hasUniqueVariants,
     hasVisibleCounters,
+    isAcrossVariants,
     isCounterOff,
     isCounterVisible,
     isEditableCounter,

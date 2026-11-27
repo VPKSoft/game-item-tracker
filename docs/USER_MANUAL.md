@@ -144,6 +144,7 @@ Each card shows:
 - The item image, name and attribute badges (e.g. *Common*, *Legendary*).
 - One counter row per **variant** (e.g. *Normal* and *★ Starred*). Items without variants have a single row.
 - **Manual counters** as `− [n] +` steppers. **Computed counters** (e.g. *Total*) are plain read-only numbers.
+- Below the variant rows, the computed counters that add up **all variants** of the item, e.g. *Total* = Normal + ★ Starred amount in the Palia food recipe items.
 - A **progress bar** with *owned / target* when the template has those roles. It turns green when the target is reached.
 - The item's effective tags (up to six, then *+N*).
 - A note icon next to the name when the item has notes. Hover over it to read them.
@@ -378,6 +379,7 @@ Each counter has:
 - **Type**: *Manual* or *Computed sum*. For a computed counter, pick the manual counters to add up. A formula such as *Total = Inventory + Placed* is shown below it.
 - **Role**: *Owned*, *Target* or *Planned* (at most one of each). *Planned* is how many of an item the user plans to make or get; the materials list multiplies the item's materials by it (see [Materials](#88-materials)).
 - **Variants**: limit the counter to some variants, e.g. *Placed* only for *★ Starred*. Empty means all variants.
+- **Sum over all variants** (computed counters, in templates with variants): the sum is taken over all variants of the item instead of per variant, and the counter is shown once per item, below the variant rows. For example, *Total = Amount* summed over Normal and ★ Starred. Such a counter cannot be limited to variants.
 - **Max**: an optional upper limit for manual counters. With a maximum of 1 the counter is shown as a checkbox in saves.
 - **Maximum from** (manual counters): instead of a fixed *Max*, the limit is each item's value of a read-only counter, e.g. at most as many placed as the bundle's target needs.
 - **Requires** (manual counters): the counter can be changed, and counts, only while the chosen counter is above 0. Until then it shows 0 and its controls are disabled, with a tooltip naming the counter it needs. For example, in the Palia tints template *To craft* requires *Acquired* (the recipe), so tints whose recipe you don't have add nothing to the materials list. If the required counter goes back to 0, the amount you entered is kept but counts as 0 until it is above 0 again.

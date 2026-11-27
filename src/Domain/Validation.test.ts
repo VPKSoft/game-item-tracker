@@ -43,6 +43,23 @@ describe("validateTemplate", () => {
         expect(messages(t)).toContain('Computed counter "Total" cannot be read-only');
     });
 
+    it("accepts a computed counter summed across variants and rejects a manual or variant-limited one", () => {
+        const t = fishTemplate();
+        const total = t.counterDefs.find(c => c.key === "total");
+        const inventory = t.counterDefs.find(c => c.key === "inventory");
+        if (!total || !inventory) {
+            throw new Error("fixture");
+        }
+        total.acrossVariants = true;
+        expect(messages(t)).toEqual([]);
+        total.variants = ["starred"];
+        inventory.acrossVariants = true;
+        expect(messages(t)).toEqual([
+            'Only a computed counter can be summed over all variants ("Inventory")',
+            'Counter "Total" is summed over all variants, so it cannot be limited to variants',
+        ]);
+    });
+
     it("accepts maxFrom a read-only manual counter and rejects other sources or a fixed max", () => {
         const t = fishTemplate();
         const target = t.counterDefs.find(c => c.key === "target");

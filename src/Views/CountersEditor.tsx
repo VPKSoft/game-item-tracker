@@ -153,7 +153,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                               requires: undefined,
                                               sumOf: counter.sumOf ?? [],
                                           }
-                                        : { kind, sumOf: undefined }
+                                        : { kind, sumOf: undefined, acrossVariants: undefined }
                                 )
                             }
                             options={[
@@ -191,6 +191,7 @@ const CountersEditor = ({ template, onChange }: Props) => {
                             <Select
                                 mode="multiple"
                                 aria-label={t("common.variants")}
+                                disabled={!!counter.acrossVariants}
                                 allowClear
                                 style={{ minWidth: 200 }}
                                 placeholder={t("counters.allVariants")}
@@ -200,6 +201,23 @@ const CountersEditor = ({ template, onChange }: Props) => {
                                 }
                                 options={template.variantDefs.map(v => ({ value: v.key, label: v.label }))}
                             />
+                        )}
+                        {counter.kind === "computed" && template.variantDefs.length > 0 && (
+                            <Tooltip title={t("counters.acrossVariantsHint")}>
+                                <Checkbox
+                                    checked={!!counter.acrossVariants}
+                                    onChange={e =>
+                                        update(
+                                            counter.key,
+                                            e.target.checked
+                                                ? { acrossVariants: true, variants: undefined }
+                                                : { acrossVariants: undefined }
+                                        )
+                                    }
+                                >
+                                    {t("counters.acrossVariants")}
+                                </Checkbox>
+                            </Tooltip>
                         )}
                         {counter.kind === "manual" && (
                             <InputNumber
@@ -268,7 +286,12 @@ const CountersEditor = ({ template, onChange }: Props) => {
                         )}
                     </Space>
                     {counter.kind === "computed" && (
-                        <div style={{ marginTop: 8, opacity: 0.8 }}>{describeFormula(template, counter)}</div>
+                        <div style={{ marginTop: 8, opacity: 0.8 }}>
+                            {describeFormula(template, counter)}
+                            {counter.acrossVariants && template.variantDefs.length > 0
+                                ? ` (${t("counters.allVariantsSummed")})`
+                                : ""}
+                        </div>
                     )}
                 </Card>
             ))}

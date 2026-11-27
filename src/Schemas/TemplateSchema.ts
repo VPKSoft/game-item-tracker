@@ -53,6 +53,11 @@ const counterDefSchema = z.object({
      * same variant, e.g. "To craft" requires "Acquired" (a recipe). Otherwise its value is 0; a stored value is kept.
      */
     requires: keySchema.optional(),
+    /**
+     * Computed only: the sum is taken over all variants of the item, e.g. Total = Normal + Starred amount. The
+     * counter is shown once per item, below the variant rows, instead of once per variant.
+     */
+    acrossVariants: z.literal(true).optional(),
     order: z.number(),
 });
 

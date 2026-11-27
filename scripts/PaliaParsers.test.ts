@@ -1114,7 +1114,9 @@ describe("food recipe items", () => {
                 "Apple Pie",
                 recipePageHtml(
                     "Apple Pie",
-                    tintIngredient("Apple", 3) + anyIngredient("Any Fish", "Fish#list", "Any_Fish", 2)
+                    tintIngredient("Apple", 3) +
+                        anyIngredient("Any Fish", "Fish#list", "Any_Fish", 2) +
+                        tintIngredient("Flour", 1)
                 )
             ),
             parseRecipePage("Empty", recipePageHtml("Empty", "")),
@@ -1127,11 +1129,18 @@ describe("food recipe items", () => {
             ["special", "Special"],
         ]);
         expect(template.defaultCategoryId).toBe("common");
-        expect(template.counterDefs).toEqual([{ key: "amount", label: "Amount", kind: "manual", order: 0 }]);
+        expect(template.variantDefs.map(v => v.key)).toEqual(["normal", "starred"]);
+        expect(template.counterDefs).toEqual([
+            { key: "amount", label: "Amount", kind: "manual", order: 0 },
+            { key: "total", label: "Total", kind: "computed", sumOf: ["amount"], acrossVariants: true, order: 1 },
+        ]);
         expect(template.items.map(i => [i.id, i.categoryId, i.description, i.tags])).toEqual([
             ["any-fish", "common", "Used in: Apple Pie, Fish Stew", ["Recipe: Apple Pie", "Recipe: Fish Stew"]],
             ["apple", "special", "Used in: Apple Pie", ["Recipe: Apple Pie"]],
+            ["flour", "special", "Used in: Apple Pie", ["Recipe: Apple Pie"]],
         ]);
+        // Flour has no starred quality.
+        expect(template.items.map(i => i.variants)).toEqual([undefined, undefined, ["normal"]]);
         expect(imageUrls.get("any-fish")).toBe("https://palia.wiki.gg/images/Any_Fish.png");
     });
 });

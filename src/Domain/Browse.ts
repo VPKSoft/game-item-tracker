@@ -1,6 +1,13 @@
 import type { Save, SaveItem } from "../Schemas/SaveSchema.ts";
 import type { Template, TemplateItem } from "../Schemas/TemplateSchema.ts";
-import { findRoleCounter, getCounterValue, getItemCounterTotal, getMissing, isCounterOff } from "./Counters.ts";
+import {
+    findRoleCounter,
+    getCounterValue,
+    getItemCounterTotal,
+    getMissing,
+    isAcrossVariants,
+    isCounterOff,
+} from "./Counters.ts";
 import { getEffectiveTags } from "./EffectiveTags.ts";
 import { hiddenCategoryId, isItemHidden } from "./HiddenItems.ts";
 import type { SearchEntry } from "./Search.ts";
@@ -93,7 +100,7 @@ const getSortOptions = (template: Template, withSave: boolean, withSearch: boole
         if (template.variantDefs.length > 0) {
             for (const counter of counters) {
                 for (const variant of template.variantDefs) {
-                    if (!counter.variants || counter.variants.includes(variant.key)) {
+                    if (!isAcrossVariants(counter) && (!counter.variants || counter.variants.includes(variant.key))) {
                         options.push({
                             value: `counter:${counter.key}@${variant.key}`,
                             label: `${counter.label} (${variant.label})`,

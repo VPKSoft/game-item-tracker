@@ -350,6 +350,10 @@ const en = {
         requiresPlaceholder: "Requires counter",
         requiresHint:
             "The counter can be changed, and counts, only while the chosen counter is above 0, e.g. To craft requires Acquired. Until then it is 0 and locked.",
+        acrossVariants: "Sum over all variants",
+        acrossVariantsHint:
+            "The sum is taken over all variants of the item, e.g. Total = Normal + Starred amount. It is shown once per item, below the variant rows.",
+        allVariantsSummed: "all variants",
         maxFrom: "Maximum from",
         maxFromPlaceholder: "Max from counter",
         maxFromHint: "The maximum is the item's value of a read-only counter, e.g. at most the bundle's target.",
