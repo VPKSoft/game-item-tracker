@@ -28,6 +28,8 @@ type BrowseFilters = {
     missingOnly?: boolean;
     /** Only items where this counter (summed over variants) is above zero. */
     counterAboveZero?: string;
+    /** Only items where this counter (summed over variants) is zero. */
+    counterZero?: string;
     /** Only items with notes. */
     withNotes?: boolean;
     /** Only items that have all of these tags. */
@@ -178,6 +180,9 @@ const browseItems = (template: Template, save: Save | undefined, options: Browse
             filters.counterAboveZero &&
             !(getItemCounterTotal(template, item, saveItem, filters.counterAboveZero) > 0)
         ) {
+            continue;
+        }
+        if (filters.counterZero && getItemCounterTotal(template, item, saveItem, filters.counterZero) !== 0) {
             continue;
         }
         if (filters.withNotes && !(saveItem?.notes.trim().length ?? 0)) {

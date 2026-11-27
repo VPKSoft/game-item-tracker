@@ -71,6 +71,7 @@ const countActiveFilters = (filters: BrowseFilters) =>
     (filters.missingOnly ? 1 : 0) +
     (filters.withNotes ? 1 : 0) +
     (filters.counterAboveZero ? 1 : 0) +
+    (filters.counterZero ? 1 : 0) +
     (filters.tags && filters.tags.length > 0 ? 1 : 0);
 
 /**
@@ -212,6 +213,13 @@ let ItemBrowser = ({ className, template, save, renderCard, toolbarExtra, stateK
                 value={state.filters.counterAboveZero}
                 onChange={value => setFilters({ counterAboveZero: value })}
                 options={template.counterDefs.map(c => ({ value: c.key, label: `${c.label} > 0` }))}
+            />
+            <Select
+                allowClear
+                placeholder={t("browser.counterZero")}
+                value={state.filters.counterZero}
+                onChange={value => setFilters({ counterZero: value })}
+                options={template.counterDefs.map(c => ({ value: c.key, label: `${c.label} = 0` }))}
             />
             <Select
                 mode="multiple"

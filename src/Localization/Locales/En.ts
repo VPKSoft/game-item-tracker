@@ -478,6 +478,7 @@ const en = {
         onlyMissing: "Only missing",
         onlyWithNotes: "Only with notes",
         counterAboveZero: "Counter above zero",
+        counterZero: "Counter at zero",
         hasTags: "Has tags",
         clearFilters: "Clear filters",
         searchPlaceholder: "Search names, tags, descriptions and notes",
