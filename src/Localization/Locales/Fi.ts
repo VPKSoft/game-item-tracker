@@ -153,6 +153,8 @@ const fi: Translation = {
         variant: "Muunnelma",
         allVariants: "Kaikki muunnelmat",
         value: "Arvo",
+        checked: "valittu",
+        unchecked: "ei valittu",
         apply: "Aseta",
         willChange_one: "Asettaa laskurin {{counter}} arvoksi {{value}} {{count}} esineelle.",
         willChange_other: "Asettaa laskurin {{counter}} arvoksi {{value}} {{count}} esineelle.",
