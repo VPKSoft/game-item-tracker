@@ -244,6 +244,9 @@ const fi: Translation = {
         moveItemsTo_one: "Siirrä sen {{count}} esine kategoriaan:",
         moveItemsTo_other: "Siirrä sen {{count}} esinettä kategoriaan:",
         moveItemsToLabel: "Siirrä esineet kategoriaan",
+        defaultCategory: "Oletuskategoria",
+        noDefaultCategory: "Kaikki kategoriat",
+        defaultCategoryHint: "Valitaan, kun tallenne avataan ensimmäisen kerran.",
     },
     variants: {
         help: "Muunnelmat jakavat kunkin esineen määrät erillisille riveille, esimerkiksi tavalliset ja tähdelliset kalat. Jätä tyhjäksi, jos esineillä ei ole muunnelmia. Laskurit voi rajata tiettyihin muunnelmiin Laskurit-välilehdellä.",
@@ -499,6 +502,7 @@ const fi: Translation = {
             "Laskuriprofiili ”{{profile}}” ei voi antaa lasketulle laskurille ”{{counter}}” arvoa tai enimmäisarvoa",
         categoryUnknownProfile: "Kategoria ”{{category}}” viittaa tuntemattomaan laskuriprofiiliin ”{{key}}”",
         itemUnknownProfile: "Esine ”{{item}}” viittaa tuntemattomaan laskuriprofiiliin ”{{key}}”",
+        unknownDefaultCategory: "Oletuskategoriaa ”{{id}}” ei ole",
         duplicateMaterialId: "Materiaalin tunnus ”{{id}}” on käytössä useasti",
         materialMissingImage: "Materiaali ”{{material}}” viittaa puuttuvaan kuvaan",
         itemUnknownMaterial: "Esine ”{{item}}” tarvitsee tuntematonta materiaalia ”{{key}}”",

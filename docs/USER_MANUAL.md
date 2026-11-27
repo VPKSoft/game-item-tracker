@@ -217,7 +217,7 @@ The same toolbar is used in the Inventory and Templates views. The item count on
 
 ### 6.1 Categories
 
-The first drop-down lists **All categories** and each category with its item count. Sub-categories are indented.
+The first drop-down lists **All categories** and each category with its item count. Sub-categories are indented. A template can set a default category, which is selected the first time you open a save; after that the app remembers your own choice.
 
 ![Category selector](images/manual/10-category-select.png)
 
@@ -338,7 +338,7 @@ The image is shown in a preview with its original size and the size it will be s
 
 ### 8.3 Categories
 
-Add, rename and reorder categories and choose a parent to make sub-categories. When the template has counter profiles, a **Counter profile** column chooses the profile of the category's items; sub-categories without their own profile inherit their parent's. The table shows how many items each one has. When you delete a category that has items, you choose another category to move them to.
+Add, rename and reorder categories and choose a parent to make sub-categories. When the template has counter profiles, a **Counter profile** column chooses the profile of the category's items; sub-categories without their own profile inherit their parent's. The table shows how many items each one has. When you delete a category that has items, you choose another category to move them to. **Default category** (above the table) is selected in the category drop-down when a save is first opened, e.g. the common items of a large template; leave it empty to start with *All categories*.
 
 ![Categories tab](images/manual/17-template-categories.png)
 

@@ -1917,6 +1917,68 @@ const buildRecipeTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
     };
 };
 
+/**
+ * Builds the food recipe items template: one item per distinct ingredient of the food recipes, as the wiki names it
+ * (generic ones such as "Any Fish" stay one item; they are not expanded into every fish). Category *Common* for
+ * ingredients that two or more recipes need and *Special* for those only one recipe needs; Common is the default
+ * category. One counter, Amount. The description lists the recipes that need the item; tag `Recipe: …` per recipe.
+ * Recipes without ingredients are ignored.
+ */
+const buildRecipeItemTemplate = (rows: RecipeRow[], meta: TemplateMeta) => {
+    const template = baseTemplate(meta);
+    const recipes = rows.filter(r => r.ingredients.length > 0).sort((a, b) => a.name.localeCompare(b.name));
+    const uses = new Map<string, { recipes: string[]; imageUrl?: string }>();
+    for (const recipe of recipes) {
+        for (const ingredient of recipe.ingredients) {
+            const use = uses.get(ingredient.name) ?? { recipes: [] };
+            if (!use.recipes.includes(recipe.name)) {
+                use.recipes.push(recipe.name);
+            }
+            use.imageUrl ??= ingredient.imageUrl;
+            uses.set(ingredient.name, use);
+        }
+    }
+    const categories: Category[] = [
+        { id: "common", name: "Common", order: 0 },
+        { id: "special", name: "Special", order: 1 },
+    ];
+    const items: TemplateItem[] = [];
+    const imageUrls = new Map<string, string>();
+    for (const name of [...uses.keys()].sort((a, b) => a.localeCompare(b))) {
+        const use = uses.get(name);
+        if (!use) {
+            continue;
+        }
+        const id = uniqueId(
+            name,
+            items.map(i => i.id)
+        );
+        if (use.imageUrl) {
+            imageUrls.set(id, use.imageUrl);
+        }
+        items.push({
+            id,
+            categoryId: use.recipes.length > 1 ? "common" : "special",
+            name,
+            description: `Used in: ${use.recipes.join(", ")}`,
+            attributes: {},
+            tags: use.recipes.map(r => `Recipe: ${r}`),
+        });
+    }
+    return {
+        template: {
+            ...template,
+            attributeDefs: [],
+            counterDefs: [{ key: "amount", label: "Amount", kind: "manual", order: 0 }] as CounterDef[],
+            categories,
+            defaultCategoryId: "common",
+            items,
+            tags: collectTags(items),
+        },
+        imageUrls,
+    };
+};
+
 /** A decor item that is obtained once, from a "How to Obtain" table (the Wallpaper, Flooring and Roofing pages). */
 type ObtainableRow = ImageRef & {
     name: string;
@@ -2059,6 +2121,7 @@ export {
     buildPlushieTemplate,
     buildPotatoPodTemplate,
     buildPrizeWheelTemplate,
+    buildRecipeItemTemplate,
     buildRecipeTemplate,
     buildStickerTemplate,
     buildTintTemplate,

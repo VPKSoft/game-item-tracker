@@ -143,6 +143,11 @@ const templateSchema = z.object({
     materialsLabel: z.string().min(1).optional(),
     tags: z.array(z.string()),
     categories: z.array(categorySchema),
+    /**
+     * The category the item browser selects when a save or the template is first opened (before the user has chosen
+     * one); omitted = all categories.
+     */
+    defaultCategoryId: keySchema.optional(),
     items: z.array(templateItemSchema),
     images: z.record(z.string(), z.string()),
     source: z

@@ -250,6 +250,9 @@ const en = {
         moveItemsTo_one: "Move its {{count}} item to:",
         moveItemsTo_other: "Move its {{count}} items to:",
         moveItemsToLabel: "Move items to",
+        defaultCategory: "Default category",
+        noDefaultCategory: "All categories",
+        defaultCategoryHint: "Selected when a save is first opened.",
     },
     variants: {
         help: "Variants split each item's amounts into separate rows, e.g. normal and starred fish. Leave this empty for items without variants. Counters can be limited to some variants on the Counters tab.",
